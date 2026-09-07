@@ -1,0 +1,16 @@
+{
+  "email": {
+    "user": "your-email@example.com",
+    "pass": "CHANGE_ME_SMTP_AUTH_CODE"
+  },
+  "mysql": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "password": "CHANGE_ME_MYSQL_PASSWORD"
+  },
+  "redis": {
+    "host": "127.0.0.1",
+    "port": 6380,
+    "password": "CHANGE_ME_REDIS_PASSWORD"
+  }
+}

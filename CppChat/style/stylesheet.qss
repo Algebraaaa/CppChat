@@ -1,0 +1,435 @@
+/*
+ * CppChat QSS 阅读指南
+ * ============================================================
+ * 基本格式：选择器 { 属性: 值; }
+ *
+ * QWidget              按 Qt/C++ 控件类名选择。
+ * #widget_name         按 objectName 选择，对应 .ui 中的 name。
+ * A, B                 A 和 B 共用同一组样式。
+ * A B                  选择 A 内部的所有 B 后代控件。
+ * [state="normal"]     匹配 QObject 的动态属性 state。
+ * :hover、:pressed     Qt 自带的悬停、按下等伪状态。
+ * ::item、::handle     QListWidget、QScrollBar 等复杂控件的子控件。
+ *
+ * ClickedBtn、ClickedLabel 的 state 由 C++ 代码通过 setProperty() 修改；
+ * 修改动态属性后，项目中的 repolish() 会让 Qt 重新匹配对应样式。
+ */
+
+
+/*
+ * ============================================================
+ * 1. MainWindow 主窗口
+ * C++ 类：MainWindow（继承 QMainWindow）
+ * UI 文件：app/mainwindow.ui
+ * ============================================================
+ */
+
+/* 无边框主窗口外围的 1px 浅灰边框颜色。 */
+QMainWindow#MainWindow {
+    background-color: #cfcfcf;
+    border: none;
+}
+
+/* MainWindow 的中央容器和聊天页面承载区。 */
+#centralwidget,
+#content_host {
+    background-color: #f3f3f3;
+}
+
+/* MainWindow 自定义标题栏。 */
+#title_bar {
+    background-color: #f5f5f5;
+    border: none;
+    border-bottom: 1px solid #e2e2e2;
+}
+
+/* 只匹配 title_bar 内的标题，避免影响 ChatPage 中同名的 title_label。 */
+#title_bar #title_label {
+    color: #303133;
+    font-family: "Microsoft YaHei";
+    font-size: 13px;
+}
+
+/* MainWindow 的最小化、最大化和关闭按钮共用基础样式。 */
+#title_bar QPushButton {
+    color: #404040;
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+    font-family: "Segoe UI Symbol";
+    font-size: 16px;
+}
+
+#minimize_btn:hover,
+#maximize_btn:hover {
+    background-color: #e5e5e5;
+}
+
+#minimize_btn:pressed,
+#maximize_btn:pressed {
+    background-color: #d6d6d6;
+}
+
+/* 关闭按钮使用 Windows 用户熟悉的红色危险操作反馈。 */
+#close_btn:hover {
+    color: white;
+    background-color: #e81123;
+}
+
+#close_btn:pressed {
+    color: white;
+    background-color: #c50f1f;
+}
+
+
+/*
+ * ============================================================
+ * 2. 登录、注册和重置密码页面
+ * C++ 类：LoginDialog、RegisterDialog、ResetDialog
+ * 相关控件：QLabel、ClickedLabel
+ * UI 文件：dialogs/logindialog.ui、registerdialog.ui、resetdialog.ui
+ * ============================================================
+ */
+
+/* LoginDialog 与 RegisterDialog 的页面背景。 */
+QDialog#LoginDialog,
+QDialog#RegisterDialog {
+    background-color: rgb(255, 255, 255);
+}
+
+/* 登录名和密码说明标签；相同 objectName 会匹配多个认证页面。 */
+#user_label,
+#pass_label {
+    color: black;
+}
+
+/* LoginDialog/RegisterDialog 的 err_tip 与 ResetDialog 的 error_label。 */
+#err_tip[state="normal"],
+#error_label[state="normal"] {
+    color: green;
+}
+
+#err_tip[state="err"],
+#error_label[state="err"] {
+    color: red;
+}
+
+/* LoginDialog 中“忘记密码”的 ClickedLabel。 */
+#forget_label[state="normal"] {
+    color: #606266;
+    text-decoration: none;
+}
+
+#forget_label[state="hover"] {
+    color: #409eff;
+    text-decoration: underline;
+}
+
+/*
+ * RegisterDialog 中两个密码可见性 ClickedLabel。
+ * border-image 会使用 Qt 资源图片绘制整个控件区域。
+ */
+#pass_visible[state="unvisible"],
+#confirm_visible[state="unvisible"] {
+    border-image: url(:/res/unvisible.png);
+}
+
+#pass_visible[state="unvisible_hover"],
+#confirm_visible[state="unvisible_hover"] {
+    border-image: url(:/res/unvisible_hover.png);
+}
+
+#pass_visible[state="visible"],
+#confirm_visible[state="visible"] {
+    border-image: url(:/res/visible.png);
+}
+
+#pass_visible[state="visible_hover"],
+#confirm_visible[state="visible_hover"] {
+    border-image: url(:/res/visible_hover.png);
+}
+
+
+/*
+ * ============================================================
+ * 3. ChatDialog 聊天主页面与联系人列表
+ * C++ 类：ChatDialog、ChatUserList、CustomizeEdit、ClickedBtn
+ * UI 文件：dialogs/chatdialog.ui
+ * ============================================================
+ */
+
+/* ChatDialog 最左侧的深色功能导航栏。 */
+#side_bar {
+    background-color: rgb(46, 46, 46);
+}
+
+/* ChatDialog 顶部“添加好友”ClickedBtn 的三种动态状态。 */
+#add_btn[state="normal"] {
+    border-image: url(:/res/add_friend_normal.png);
+}
+
+#add_btn[state="hover"] {
+    border-image: url(:/res/add_friend_hover.png);
+}
+
+#add_btn[state="press"] {
+    border-image: url(:/res/add_friend.png);
+}
+
+/* 搜索栏的外层 QWidget。 */
+#search_wid {
+    background-color: rgb(247, 247, 247);
+}
+
+/* CustomizeEdit 搜索输入框。 */
+#search_edit {
+    border: 2px solid #f1f1f1;
+}
+
+/* 搜索栏和联系人列表所在的左侧 QWidget。 */
+#chat_user_wid {
+    background-color: rgb(0, 0, 0);
+}
+
+/* ChatUserList 列表本体。 */
+#chat_user_list {
+    background-color: rgb(247, 247, 248);
+    border: none;
+}
+
+/* ChatUserList 内部的选中联系人条目。 */
+#chat_user_list::item:selected {
+    background-color: #d3d7d4;
+    border: none;
+    outline: none;
+}
+
+/* ChatUserList 内部鼠标悬停的联系人条目。 */
+#chat_user_list::item:hover {
+    background-color: rgb(206, 207, 208);
+    border: none;
+    outline: none;
+}
+
+/* ChatUserList 获得键盘焦点时不显示系统默认焦点框。 */
+#chat_user_list:focus {
+    border: none;
+    outline: none;
+}
+
+
+/*
+ * ============================================================
+ * 4. ChatUserWid 单个联系人条目
+ * C++ 类：ChatUserWid
+ * UI 文件：dialogs/chatuserwid.ui
+ * ============================================================
+ */
+
+/* 类选择器：作用于每一个 ChatUserWid 实例。 */
+ChatUserWid {
+    background-color: rgb(247, 247, 247);
+    border: none;
+}
+
+/* QLabel：最近一条消息摘要。 */
+#user_chat_lb {
+    color: rgb(153, 153, 153);
+    font-size: 12px;
+    font-family: "Microsoft YaHei";
+}
+
+/* QLabel：联系人名称。 */
+#user_name_lb {
+    color: rgb(0, 0, 0);
+    font-size: 14px;
+    font-weight: normal;
+    font-family: "Microsoft YaHei";
+}
+
+/* QLabel：消息时间；它的实际 objectName 是 time_lb。 */
+#time_lb {
+    color: rgb(140, 140, 140);
+    font-size: 12px;
+    font-family: "Microsoft YaHei";
+}
+
+
+/*
+ * ============================================================
+ * 5. 联系人列表和聊天记录区的滚动条
+ * C++ 类：ChatUserList、ChatView
+ * Qt 类：QScrollBar
+ * ============================================================
+ */
+
+/*
+ * chat_user_overlay_scrollbar：ChatUserList 的浮动滚动条。
+ * chat_view_scrollbar：ChatView 内部 QScrollArea 的原生滚动条。
+ * 两者共用透明轨道和半透明滑块外观。
+ */
+#chat_user_overlay_scrollbar:vertical,
+#chat_view_scrollbar:vertical {
+    background-color: transparent;
+    border: none;
+    width: 8px;
+    margin: 0;
+}
+
+/* QScrollBar::handle：用户可以拖动的滑块。 */
+#chat_user_overlay_scrollbar::handle:vertical,
+#chat_view_scrollbar::handle:vertical {
+    background-color: rgba(80, 80, 80, 110);
+    min-height: 30px;
+    border: none;
+    border-radius: 4px;
+}
+
+#chat_user_overlay_scrollbar::handle:vertical:hover,
+#chat_view_scrollbar::handle:vertical:hover {
+    background-color: rgba(80, 80, 80, 170);
+}
+
+#chat_user_overlay_scrollbar::handle:vertical:pressed,
+#chat_view_scrollbar::handle:vertical:pressed {
+    background-color: rgba(60, 60, 60, 210);
+}
+
+/* 隐藏 QScrollBar 上下两端的增减按钮。 */
+#chat_user_overlay_scrollbar::add-line:vertical,
+#chat_user_overlay_scrollbar::sub-line:vertical,
+#chat_view_scrollbar::add-line:vertical,
+#chat_view_scrollbar::sub-line:vertical {
+    height: 0;
+    border: none;
+    background-color: transparent;
+}
+
+/* QScrollBar 滑块前后的轨道区域保持透明。 */
+#chat_user_overlay_scrollbar::add-page:vertical,
+#chat_user_overlay_scrollbar::sub-page:vertical,
+#chat_view_scrollbar::add-page:vertical,
+#chat_view_scrollbar::sub-page:vertical {
+    background-color: transparent;
+    border: none;
+}
+
+
+/*
+ * ============================================================
+ * 6. LoadingDlg 加载遮罩层
+ * C++ 类：LoadingDlg（继承 QDialog）
+ * UI 文件：dialogs/loadingdlg.ui
+ * ============================================================
+ */
+
+LoadingDlg {
+    background-color: #f2eada;
+}
+
+
+/*
+ * ============================================================
+ * 7. ChatPage 消息发送页面
+ * C++ 类：ChatPage、MessageTextEdit、ClickedBtn、ClickedLabel
+ * UI 文件：dialogs/chatpage.ui
+ * ============================================================
+ */
+
+/* ChatPage 顶部聊天对象标题；限定在 ChatPage 内，避免影响主窗口标题。 */
+ChatPage #title_label {
+    font-family: "Microsoft YaHei";
+    font-size: 18px;
+    font-weight: normal;
+}
+
+/* MessageTextEdit：聊天内容输入框。 */
+MessageTextEdit#chatEdit {
+    background-color: #ffffff;
+    border: none;
+    font-family: "Microsoft YaHei";
+    font-size: 18px;
+    padding: 5px;
+}
+
+/* 输入框工具栏和底部发送按钮区域。 */
+#tool_wid,
+#send_wid {
+    background-color: #ffffff;
+    border: none;
+}
+
+/* tool_wid 额外保留一条底部分隔线。 */
+#tool_wid {
+    border-bottom: 0.5px solid #ececec;
+}
+
+/* ChatPage 中“接收”和“发送”ClickedBtn 的公共样式。 */
+#receive_btn,
+#send_btn {
+    color: #2cb46e;
+    font-size: 16px;
+    font-family: "Microsoft YaHei";
+    border-radius: 20px;
+}
+
+#receive_btn[state="normal"],
+#send_btn[state="normal"] {
+    background-color: #f0f0f0;
+}
+
+#receive_btn[state="hover"],
+#send_btn[state="hover"] {
+    background-color: #d2d2d2;
+}
+
+#receive_btn[state="press"],
+#send_btn[state="press"] {
+    background-color: #c6c6c6;
+}
+
+/* ChatPage 表情 ClickedLabel 的三种动态状态。 */
+#emo_lb[state="normal"] {
+    border-image: url(:/res/smile.png);
+}
+
+#emo_lb[state="hover"] {
+    border-image: url(:/res/smile_hover.png);
+}
+
+#emo_lb[state="press"] {
+    border-image: url(:/res/smile_press.png);
+}
+
+/* ChatPage 文件 ClickedLabel 的三种动态状态。 */
+#file_lb[state="normal"] {
+    border-image: url(:/res/filedir.png);
+}
+
+#file_lb[state="hover"] {
+    border-image: url(:/res/filedir_hover.png);
+}
+
+#file_lb[state="press"] {
+    border-image: url(:/res/filedir_press.png);
+}
+
+
+/*
+ * ============================================================
+ * 8. ChatView 聊天消息记录区
+ * C++ 类：ChatView
+ * 内部 Qt 类：QScrollArea、QWidget
+ * ============================================================
+ */
+
+/* chat_data_list 是 .ui 中的 ChatView；chat_bg 是它内部的消息背景 QWidget。 */
+#chat_data_list,
+#chat_bg {
+    background-color: #f0f0f0;
+}
+
+/* chat_area 是 ChatView 内部承载聊天记录的 QScrollArea。 */
+#chat_area {
+    border: none;
+}
