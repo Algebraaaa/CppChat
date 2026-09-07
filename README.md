@@ -22,6 +22,13 @@ B站恋恋风辰大佬的C++全栈即时通讯项目，我在辰哥的基础上�
 
 还需要自己搭环境：C++ boost库、grpc、mysql、redis等，MSVC建议使用vcpkg让codex给你配
 
-## 当前进度
+## 运行实例
 
-正在完善
+客户端运行效果：
+<img width="1500" height="1050" alt="image" src="https://github.com/user-attachments/assets/cb34e668-eda6-41e5-80e4-e459629f5a93" />
+
+
+服务端运行效果：
+<img width="1730" height="828" alt="image" src="https://github.com/user-attachments/assets/4d0706a1-0df4-4876-b020-955123cb3fc5" />
+
+
