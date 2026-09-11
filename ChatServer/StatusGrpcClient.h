@@ -13,26 +13,26 @@
 #include "message.grpc.pb.h"
 #include "message.pb.h"
 
-// 复用 GateServer 的 Stub 连接池结构，供 ChatServer 调用 StatusServer。
-class StatusConPool final
+// 与 StatusServer 的 ChatStubPool 使用相同命名：池中保存的是 gRPC Stub，
+// 不是底层 TCP 连接。
+class StatusStubPool final
 {
 public:
-	StatusConPool(
+	StatusStubPool(
 		std::size_t pool_size,
 		const std::string& host,
 		const std::string& port);
-	~StatusConPool();
+	~StatusStubPool();
 
-	StatusConPool(const StatusConPool&) = delete;
-	StatusConPool& operator=(const StatusConPool&) = delete;
+	StatusStubPool(const StatusStubPool&) = delete;
+	StatusStubPool& operator=(const StatusStubPool&) = delete;
 
-	std::unique_ptr<message::StatusService::Stub> GetConnection();
-	void ReturnConnection(
-		std::unique_ptr<message::StatusService::Stub> connection);
+	std::unique_ptr<message::StatusService::Stub> BorrowStub();
+	void ReturnStub(std::unique_ptr<message::StatusService::Stub> stub);
 	void Close();
 
 private:
-	std::queue<std::unique_ptr<message::StatusService::Stub>> connections_;
+	std::queue<std::unique_ptr<message::StatusService::Stub>> available_stubs_;
 	std::mutex mutex_;
 	std::condition_variable condition_;
 	bool stopped_ = false;
@@ -50,5 +50,5 @@ public:
 private:
 	StatusGrpcClient();
 
-	std::unique_ptr<StatusConPool> pool_;
+	std::unique_ptr<StatusStubPool> status_stub_pool_;
 };

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <chrono>
 #include <memory>
 #include <string>
@@ -15,13 +15,13 @@ POST /get_verifycode HTTP/1.1														HTTP/1.1 200 OK
 Host: 127.0.0.1 : 8080																	Server: GateServer
 Content - Type : application / json											Content-Type: application/json
 Content - Length : 26																		Content-Length: 38
-{"email":"user@example.com"}																	{"error":0,"email":"user@example.com"}
+{"email":"123@qq.com"}																	{"error":0,"email":"123@qq.com"}
 _request																								_response
 ├─ method       POST																	├─ version      HTTP/1.1
 ├─ target       /get_verifycode												├─ result       200
 ├─ version      HTTP/1.1															├─ reason       OK	
 ├─ fields       Host、Content-Type、Content-Length		├─ fields       Server、Content-Type、Content-Length
-└─ body         {"email":"user@example.com"}								└─ body         {"error":0,"email":"user@example.com"}
+└─ body         {"email":"123@qq.com"}								└─ body         {"error":0,"email":"123@qq.com"}
 */
 class HttpConnection : public std::enable_shared_from_this<HttpConnection>
 {

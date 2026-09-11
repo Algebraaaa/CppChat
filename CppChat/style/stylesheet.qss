@@ -488,7 +488,7 @@ ChatUserWid#ChatUserWid #time_lb {
  * 两者共用透明轨道和半透明滑块外观。
  */
 QDialog#ChatDialog #chat_user_overlay_scrollbar:vertical,
-QWidget#ChatPage #chat_view_scrollbar:vertical {
+QDialog#ChatDialog #chat_page #chat_view_scrollbar:vertical {
     background-color: transparent;
     border: none;
     width: 8px;
@@ -497,7 +497,7 @@ QWidget#ChatPage #chat_view_scrollbar:vertical {
 
 /* QScrollBar::handle：用户可以拖动的滑块。 */
 QDialog#ChatDialog #chat_user_overlay_scrollbar::handle:vertical,
-QWidget#ChatPage #chat_view_scrollbar::handle:vertical {
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::handle:vertical {
     background-color: rgba(80, 80, 80, 110);
     min-height: 30px;
     border: none;
@@ -505,20 +505,20 @@ QWidget#ChatPage #chat_view_scrollbar::handle:vertical {
 }
 
 QDialog#ChatDialog #chat_user_overlay_scrollbar::handle:vertical:hover,
-QWidget#ChatPage #chat_view_scrollbar::handle:vertical:hover {
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::handle:vertical:hover {
     background-color: rgba(80, 80, 80, 170);
 }
 
 QDialog#ChatDialog #chat_user_overlay_scrollbar::handle:vertical:pressed,
-QWidget#ChatPage #chat_view_scrollbar::handle:vertical:pressed {
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::handle:vertical:pressed {
     background-color: rgba(60, 60, 60, 210);
 }
 
 /* 隐藏 QScrollBar 上下两端的增减按钮。 */
 QDialog#ChatDialog #chat_user_overlay_scrollbar::add-line:vertical,
 QDialog#ChatDialog #chat_user_overlay_scrollbar::sub-line:vertical,
-QWidget#ChatPage #chat_view_scrollbar::add-line:vertical,
-QWidget#ChatPage #chat_view_scrollbar::sub-line:vertical {
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::add-line:vertical,
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::sub-line:vertical {
     height: 0;
     border: none;
     background-color: transparent;
@@ -527,8 +527,8 @@ QWidget#ChatPage #chat_view_scrollbar::sub-line:vertical {
 /* QScrollBar 滑块前后的轨道区域保持透明。 */
 QDialog#ChatDialog #chat_user_overlay_scrollbar::add-page:vertical,
 QDialog#ChatDialog #chat_user_overlay_scrollbar::sub-page:vertical,
-QWidget#ChatPage #chat_view_scrollbar::add-page:vertical,
-QWidget#ChatPage #chat_view_scrollbar::sub-page:vertical {
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::add-page:vertical,
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::sub-page:vertical {
     background-color: transparent;
     border: none;
 }
@@ -552,18 +552,19 @@ QDialog#LoadingDlg {
  * 7. ChatPage 消息发送页面
  * C++ 类：ChatPage、MessageTextEdit、ClickedBtn、ClickedLabel
  * UI 文件：dialogs/chatpage.ui
+ * 嵌入 ChatDialog 后的实际 objectName：chat_page
  * ============================================================
  */
 
 /* ChatPage 顶部聊天对象标题；限定在 ChatPage 内，避免影响主窗口标题。 */
-QWidget#ChatPage #title_label {
+QDialog#ChatDialog #chat_page #title_label {
     font-family: "Microsoft YaHei";
     font-size: 18px;
     font-weight: normal;
 }
 
 /* MessageTextEdit：聊天内容输入框。 */
-MessageTextEdit#chatEdit {
+QDialog#ChatDialog #chat_page #chatEdit {
     background-color: #ffffff;
     border: none;
     font-family: "Microsoft YaHei";
@@ -572,20 +573,20 @@ MessageTextEdit#chatEdit {
 }
 
 /* 输入框工具栏和底部发送按钮区域。 */
-QWidget#ChatPage #tool_wid,
-QWidget#ChatPage #send_wid {
+QDialog#ChatDialog #chat_page #tool_wid,
+QDialog#ChatDialog #chat_page #send_wid {
     background-color: #ffffff;
     border: none;
 }
 
 /* tool_wid 额外保留一条底部分隔线。 */
-QWidget#ChatPage #tool_wid {
+QDialog#ChatDialog #chat_page #tool_wid {
     border-bottom: 0.5px solid #ececec;
 }
 
 /* ChatPage 中“接收”和“发送”ClickedBtn 的公共样式。 */
-QWidget#ChatPage #receive_btn,
-QWidget#ChatPage #send_btn {
+QDialog#ChatDialog #chat_page #receive_btn,
+QDialog#ChatDialog #chat_page #send_btn {
     color: #2cb46e;
     font-size: 16px;
     font-family: "Microsoft YaHei";
@@ -593,44 +594,44 @@ QWidget#ChatPage #send_btn {
     border-radius: 20px;
 }
 
-QWidget#ChatPage #receive_btn[state="normal"],
-QWidget#ChatPage #send_btn[state="normal"] {
+QDialog#ChatDialog #chat_page #receive_btn[state="normal"],
+QDialog#ChatDialog #chat_page #send_btn[state="normal"] {
     background-color: #f0f0f0;
 }
 
-QWidget#ChatPage #receive_btn[state="hover"],
-QWidget#ChatPage #send_btn[state="hover"] {
+QDialog#ChatDialog #chat_page #receive_btn[state="hover"],
+QDialog#ChatDialog #chat_page #send_btn[state="hover"] {
     background-color: #d2d2d2;
 }
 
-QWidget#ChatPage #receive_btn[state="press"],
-QWidget#ChatPage #send_btn[state="press"] {
+QDialog#ChatDialog #chat_page #receive_btn[state="press"],
+QDialog#ChatDialog #chat_page #send_btn[state="press"] {
     background-color: #c6c6c6;
 }
 
 /* ChatPage 表情 ClickedLabel 的三种动态状态。 */
-QWidget#ChatPage #emo_lb[state="normal"] {
+QDialog#ChatDialog #chat_page #emo_lb[state="normal"] {
     border-image: url(:/res/smile.png);
 }
 
-QWidget#ChatPage #emo_lb[state="hover"] {
+QDialog#ChatDialog #chat_page #emo_lb[state="hover"] {
     border-image: url(:/res/smile_hover.png);
 }
 
-QWidget#ChatPage #emo_lb[state="press"] {
+QDialog#ChatDialog #chat_page #emo_lb[state="press"] {
     border-image: url(:/res/smile_press.png);
 }
 
 /* ChatPage 文件 ClickedLabel 的三种动态状态。 */
-QWidget#ChatPage #file_lb[state="normal"] {
+QDialog#ChatDialog #chat_page #file_lb[state="normal"] {
     border-image: url(:/res/filedir.png);
 }
 
-QWidget#ChatPage #file_lb[state="hover"] {
+QDialog#ChatDialog #chat_page #file_lb[state="hover"] {
     border-image: url(:/res/filedir_hover.png);
 }
 
-QWidget#ChatPage #file_lb[state="press"] {
+QDialog#ChatDialog #chat_page #file_lb[state="press"] {
     border-image: url(:/res/filedir_press.png);
 }
 
@@ -644,17 +645,17 @@ QWidget#ChatPage #file_lb[state="press"] {
  */
 
 /* chat_data_list 是 .ui 中的 ChatView；chat_bg 是它内部的消息背景 QWidget。 */
-QWidget#ChatPage #chat_data_list,
-QWidget#ChatPage #chat_bg {
+QDialog#ChatDialog #chat_page #chat_data_list,
+QDialog#ChatDialog #chat_page #chat_bg {
     background-color: #f0f0f0;
 }
 
 /* chat_area 是 ChatView 内部承载聊天记录的 QScrollArea。 */
-QWidget#ChatPage #chat_area {
+QDialog#ChatDialog #chat_page #chat_area {
     border: none;
 }
 
-QWidget#ChatPage #chat_user_name {
+QDialog#ChatDialog #chat_page #chat_user_name {
     color: rgb(153, 153, 153);
     font-size: 14px;
     font-family: "Microsoft YaHei";
@@ -938,18 +939,19 @@ QDialog#ChatDialog #LineItem {
     border: none;
 }
 
-QWidget#ApplyFriendPage #friend_apply_lb {
+/* ApplyFriendPage 嵌入 ChatDialog 后的实际 objectName 是 friend_apply_page。 */
+QDialog#ChatDialog #friend_apply_page #friend_apply_lb {
     font-family: "Microsoft YaHei";
     font-size: 18px;
     font-weight: normal;
 }
 
-QWidget#ApplyFriendPage #friend_apply_wid {
+QDialog#ChatDialog #friend_apply_page #friend_apply_wid {
     background-color: #f1f2f3;
     border-bottom: 1px solid #ede9e7;
 }
 
-QWidget#ApplyFriendPage #apply_friend_list {
+QDialog#ChatDialog #friend_apply_page #apply_friend_list {
     background-color: #f1f2f3;
     border-left: 1px solid #ede9e7;
     border-top: none;

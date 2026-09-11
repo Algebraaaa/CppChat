@@ -8,7 +8,7 @@
 #include "Logger.h"
 #include "const.h"
 
-StatusConPool::StatusConPool(
+StatusStubPool::StatusStubPool(
 	std::size_t pool_size,
 	const std::string& host,
 	const std::string& port)
@@ -23,22 +23,22 @@ StatusConPool::StatusConPool(
 		auto channel = grpc::CreateChannel(
 			host + ':' + port,
 			grpc::InsecureChannelCredentials());
-		connections_.push(message::StatusService::NewStub(channel));
+		available_stubs_.push(message::StatusService::NewStub(channel));
 	}
 }
 
-StatusConPool::~StatusConPool()
+StatusStubPool::~StatusStubPool()
 {
 	Close();
 }
 
 std::unique_ptr<message::StatusService::Stub>
-StatusConPool::GetConnection()
+StatusStubPool::BorrowStub()
 {
 	std::unique_lock<std::mutex> lock(mutex_);
 	condition_.wait(lock, [this]()
 	{
-		return stopped_ || !connections_.empty();
+		return stopped_ || !available_stubs_.empty();
 	});
 
 	if (stopped_)
@@ -46,15 +46,15 @@ StatusConPool::GetConnection()
 		return nullptr;
 	}
 
-	auto connection = std::move(connections_.front());
-	connections_.pop();
-	return connection;
+	auto stub = std::move(available_stubs_.front());
+	available_stubs_.pop();
+	return stub;
 }
 
-void StatusConPool::ReturnConnection(
-	std::unique_ptr<message::StatusService::Stub> connection)
+void StatusStubPool::ReturnStub(
+	std::unique_ptr<message::StatusService::Stub> stub)
 {
-	if (!connection)
+	if (!stub)
 	{
 		return;
 	}
@@ -65,12 +65,12 @@ void StatusConPool::ReturnConnection(
 		{
 			return;
 		}
-		connections_.push(std::move(connection));
+		available_stubs_.push(std::move(stub));
 	}
 	condition_.notify_one();
 }
 
-void StatusConPool::Close()
+void StatusStubPool::Close()
 {
 	{
 		std::lock_guard<std::mutex> lock(mutex_);
@@ -79,9 +79,9 @@ void StatusConPool::Close()
 			return;
 		}
 		stopped_ = true;
-		while (!connections_.empty())
+		while (!available_stubs_.empty())
 		{
-			connections_.pop();
+			available_stubs_.pop();
 		}
 	}
 	condition_.notify_all();
@@ -102,7 +102,7 @@ StatusGrpcClient::StatusGrpcClient()
 	}
 
 	const std::size_t pool_size = std::stoul(pool_size_text);
-	pool_ = std::make_unique<StatusConPool>(pool_size, host, port);
+	status_stub_pool_ = std::make_unique<StatusStubPool>(pool_size, host, port);
 	LOG_INFO("StatusGrpcClient initialized: endpoint=", host, ':', port,
 		", pool size=", pool_size, '.');
 }
@@ -116,17 +116,17 @@ message::LoginRsp StatusGrpcClient::Login(
 	request.set_uid(uid);
 	request.set_token(token);
 
-	auto stub = pool_->GetConnection();
+	auto stub = status_stub_pool_->BorrowStub();
 	if (!stub)
 	{
-		LOG_ERROR("StatusServer Login failed: no gRPC connection is available.");
+		LOG_ERROR("StatusServer Login failed: no gRPC Stub is available.");
 		reply.set_error(ErrorCodes::RPCFailed);
 		return reply;
 	}
 
-	Defer return_connection([this, &stub]()
+	Defer return_stub_after_call([this, &stub]()
 	{
-		pool_->ReturnConnection(std::move(stub));
+		status_stub_pool_->ReturnStub(std::move(stub));
 	});
 
 	grpc::ClientContext context;

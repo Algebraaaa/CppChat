@@ -9,28 +9,28 @@
 
 ChatGrpcClient::ChatGrpcClient()
 {
-	auto& cfg = ConfigMgr::GetInstance();
-	auto server_list = cfg["PeerServer"]["Servers"];
+	auto& config = ConfigMgr::GetInstance();
+	auto configured_server_names = config["PeerServer"]["Servers"];
 
-	std::vector<std::string> words;
+	std::vector<std::string> server_section_names;
 
-	std::stringstream ss(server_list);
-	std::string word;
+	std::stringstream server_names_stream(configured_server_names);
+	std::string server_section_name;
 
-	while (std::getline(ss, word, ',')) {
-		words.push_back(word);
+	while (std::getline(server_names_stream, server_section_name, ',')) {
+		server_section_names.push_back(server_section_name);
 	}
 
-	for (auto& word : words) {
-		if (cfg[word]["Name"].empty()) {
+	for (auto& server_section_name : server_section_names) {
+		if (config[server_section_name]["Name"].empty()) {
 			continue;
 		}
-		_pools[cfg[word]["Name"]] = std::make_unique<ChatConPool>(5, cfg[word]["Host"], cfg[word]["Port"]);
+		chat_stub_pools_[config[server_section_name]["Name"]] = std::make_unique<ChatStubPool>(5, config[server_section_name]["Host"], config[server_section_name]["Port"]);
 	}
 
 }
 
-AddFriendRsp ChatGrpcClient::NotifyAddFriend(std::string server_ip, const AddFriendReq& req)
+AddFriendRsp ChatGrpcClient::NotifyAddFriend(std::string server_name, const AddFriendReq& req)
 {
 	AddFriendRsp rsp;
 	Defer defer([&rsp, &req]() {
@@ -39,17 +39,17 @@ AddFriendRsp ChatGrpcClient::NotifyAddFriend(std::string server_ip, const AddFri
 		rsp.set_touid(req.touid());
 		});
 
-	auto find_iter = _pools.find(server_ip);
-	if (find_iter == _pools.end()) {
+	auto pool_iterator = chat_stub_pools_.find(server_name);
+	if (pool_iterator == chat_stub_pools_.end()) {
 		return rsp;
 	}
 
-	auto& pool = find_iter->second;
+	auto& stub_pool = pool_iterator->second;
 	ClientContext context;
-	auto stub = pool->getConnection();
+	auto stub = stub_pool->BorrowStub();
 	Status status = stub->NotifyAddFriend(&context, req, &rsp);
-	Defer defercon([&stub, this, &pool]() {
-		pool->returnConnection(std::move(stub));
+	Defer return_stub_after_call([&stub, &stub_pool]() {
+		stub_pool->ReturnStub(std::move(stub));
 		});
 
 	if (!status.ok()) {
@@ -107,7 +107,7 @@ bool ChatGrpcClient::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<
 
 }
 
-AuthFriendRsp ChatGrpcClient::NotifyAuthFriend(std::string server_ip, const AuthFriendReq& req) {
+AuthFriendRsp ChatGrpcClient::NotifyAuthFriend(std::string server_name, const AuthFriendReq& req) {
 	AuthFriendRsp rsp;
 	rsp.set_error(ErrorCodes::Success);
 
@@ -116,17 +116,17 @@ AuthFriendRsp ChatGrpcClient::NotifyAuthFriend(std::string server_ip, const Auth
 		rsp.set_touid(req.touid());
 		});
 
-	auto find_iter = _pools.find(server_ip);
-	if (find_iter == _pools.end()) {
+	auto pool_iterator = chat_stub_pools_.find(server_name);
+	if (pool_iterator == chat_stub_pools_.end()) {
 		return rsp;
 	}
 
-	auto& pool = find_iter->second;
+	auto& stub_pool = pool_iterator->second;
 	ClientContext context;
-	auto stub = pool->getConnection();
+	auto stub = stub_pool->BorrowStub();
 	Status status = stub->NotifyAuthFriend(&context, req, &rsp);
-	Defer defercon([&stub, this, &pool]() {
-		pool->returnConnection(std::move(stub));
+	Defer return_stub_after_call([&stub, &stub_pool]() {
+		stub_pool->ReturnStub(std::move(stub));
 		});
 
 	if (!status.ok()) {
@@ -137,7 +137,7 @@ AuthFriendRsp ChatGrpcClient::NotifyAuthFriend(std::string server_ip, const Auth
 	return rsp;
 }
 
-TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_ip,
+TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_name,
 	const TextChatMsgReq& req, const Json::Value& rtvalue) {
 
 	TextChatMsgRsp rsp;
@@ -154,17 +154,17 @@ TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_ip,
 
 		});
 
-	auto find_iter = _pools.find(server_ip);
-	if (find_iter == _pools.end()) {
+	auto pool_iterator = chat_stub_pools_.find(server_name);
+	if (pool_iterator == chat_stub_pools_.end()) {
 		return rsp;
 	}
 
-	auto& pool = find_iter->second;
+	auto& stub_pool = pool_iterator->second;
 	ClientContext context;
-	auto stub = pool->getConnection();
+	auto stub = stub_pool->BorrowStub();
 	Status status = stub->NotifyTextChatMsg(&context, req, &rsp);
-	Defer defercon([&stub, this, &pool]() {
-		pool->returnConnection(std::move(stub));
+	Defer return_stub_after_call([&stub, &stub_pool]() {
+		stub_pool->ReturnStub(std::move(stub));
 		});
 
 	if (!status.ok()) {

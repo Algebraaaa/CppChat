@@ -11,7 +11,6 @@
 #include <QEvent>
 #include <QIcon>
 #include <QMouseEvent>
-#include <QScreen>
 #include <QStackedWidget>
 #include <QWindow>
 
@@ -39,8 +38,19 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
   setupTitleBar();
   setupPages();
-  connectPageSignals();
   setupMouseTracking();
+  connect(_loginDialog, &LoginDialog::switchRegister, this,
+          [this]() { _pages->setCurrentWidget(_registerDialog); });
+  connect(_registerDialog, &RegisterDialog::switchLogin, this,
+          [this]() { _pages->setCurrentWidget(_loginDialog); });
+  connect(_loginDialog, &LoginDialog::switchReset, this,
+          [this]() { _pages->setCurrentWidget(_resetDialog); });
+  connect(_resetDialog, &ResetDialog::switchLogin, this,
+          [this]() { _pages->setCurrentWidget(_loginDialog); });
+
+  // TCP 登录成功后，网络模块通知主窗口进入聊天页
+  connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_swich_chatdlg, this,
+          [this]() { _pages->setCurrentWidget(_chatDialog); });
 
 #ifdef Q_OS_WIN
   // 创建 Windows 窗口句柄 HWND，再设置样式和圆角；此处不会显示窗口。
@@ -96,11 +106,10 @@ void MainWindow::setupPages()
   _pages->addWidget(_chatDialog);
   ui->content_layout->addWidget(_pages);
 
-  // 所有页面切换都同步窗口尺寸，包括临时直接打开聊天页的情况。
+  // 页面切换同步窗口尺寸
   connect(_pages, &QStackedWidget::currentChanged, this,
           &MainWindow::updatePageWindowSize);
   _pages->setCurrentWidget(_loginDialog);
-  // 首个页面本来就是登录页，不一定产生 currentChanged，因此主动初始化一次。
   updatePageWindowSize();
 }
 
@@ -111,76 +120,38 @@ void MainWindow::updatePageWindowSize()
     return;
   }
 
-  const bool chatPage = page == _chatDialog;
-  if (_chatWindowActive && !chatPage) {
-    _chatWindowSize = isMaximized() ? normalGeometry().size() : size();
-  }
-  const QPoint previousCenter = geometry().center();
-  _chatWindowActive = chatPage;
+  const bool isChatPage = page == _chatDialog;
 
-  // 先解除上一页的尺寸限制；从最大化聊天页退出时先还原窗口。
+  // 清除上一个页面留下的固定尺寸限制。
   setMinimumSize(0, 0);
   setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-  if (!chatPage && (isMaximized() || isFullScreen())) {
+
+  // 登录、注册和重置页面不允许保持最大化状态。
+  if (!isChatPage && (isMaximized() || isFullScreen())) {
     showNormal();
   }
-  ui->maximize_btn->setVisible(chatPage);
+
+  _chatWindowActive = isChatPage;
+  ui->maximize_btn->setVisible(isChatPage);
   unsetCursor();
 
-  // 清掉外层布局缓存，让隐藏页面的旧尺寸不再参与计算。
-  _pages->updateGeometry();
-  ui->content_layout->invalidate();
-  ui->window_layout->invalidate();
-  ui->content_layout->activate();
-  ui->window_layout->activate();
-
+  // 页面尺寸不包含主窗口标题栏和外边距，需要额外加上。
   const QMargins margins = ui->window_layout->contentsMargins();
   const QSize frameSize(margins.left() + margins.right(),
                         margins.top() + margins.bottom() + ui->title_bar->height());
-  if (chatPage) {
+
+  if (isChatPage) {
     const QSize minimum = (_chatMinimumSize + frameSize)
         .expandedTo(ui->window_layout->minimumSize());
     setMinimumSize(minimum);
-    QSize target = _chatWindowSize;
-    if (screen()) {
-      target = target.boundedTo(screen()->availableGeometry().size());
-    }
-    resize(target.expandedTo(minimum));
+    resize(QSize(1000, 700).expandedTo(minimum));
   } else {
-    // 登录、注册、重置页面的 .ui 已定义固定尺寸，额外加上标题栏和边距。
+    // 三个认证页面的 .ui 已经定义固定尺寸。
     setFixedSize(page->minimumSize() + frameSize);
   }
 
-  // 切换时围绕原窗口中心调整，并尽量保持在当前屏幕工作区内。
-  if (!isMaximized() && screen()) {
-    const QRect available = screen()->availableGeometry();
-    const QPoint center = isVisible() ? previousCenter : available.center();
-    QPoint position = center - QPoint(width() / 2, height() / 2);
-    position.setX(qMax(available.left(),
-                       qMin(position.x(), available.right() - width() + 1)));
-    position.setY(qMax(available.top(),
-                       qMin(position.y(), available.bottom() - height() + 1)));
-    move(position);
-  }
   updateMaximizeButton();
   updateNativeWindowFrame();
-}
-
-void MainWindow::connectPageSignals()
-{
-  // [this] 让 lambda 可以访问本窗口的页面成员。
-  connect(_loginDialog, &LoginDialog::switchRegister, this,
-          [this]() { _pages->setCurrentWidget(_registerDialog); });
-  connect(_registerDialog, &RegisterDialog::switchLogin, this,
-          [this]() { _pages->setCurrentWidget(_loginDialog); });
-  connect(_loginDialog, &LoginDialog::switchReset, this,
-          [this]() { _pages->setCurrentWidget(_resetDialog); });
-  connect(_resetDialog, &ResetDialog::switchLogin, this,
-          [this]() { _pages->setCurrentWidget(_loginDialog); });
-
-  // 正常登录流程：TCP 登录成功后，网络模块通知主窗口进入聊天页。
-  connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_swich_chatdlg, this,
-          [this]() { _pages->setCurrentWidget(_chatDialog); });
 }
 
 void MainWindow::setupMouseTracking()

@@ -14,72 +14,78 @@
 #include <queue>
 #include <string>
 
-class StatusConPool {
+// StatusService Stub 池：程序启动时提前创建多个 Stub，调用时借出，用完后归还。
+// Stub 是 GateServer 调用 StatusServer 的远程代理对象，不是数据库或 TCP 连接。
+class StatusStubPool {
 public:
-	StatusConPool(size_t poolSize, std::string host, std::string port)
-		: poolSize_(poolSize), host_(host), port_(port), b_stop_(false) {
-		for (size_t i = 0; i < poolSize_; ++i) {
+	StatusStubPool(std::size_t pool_size, std::string host, std::string port)
+		: stopped_(false), pool_size_(pool_size), host_(host), port_(port) {
+		for (std::size_t index = 0; index < pool_size_; ++index) {
 
 			// Channel 属于 grpc 命名空间，StatusService 属于 proto 生成的 message 命名空间。
 			// 这里使用完整名称，避免依赖写在类定义后面的 using 声明。
 			std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(host + ":" + port,
 				grpc::InsecureChannelCredentials());
 
-			connections_.push(message::StatusService::NewStub(channel));
+			available_stubs_.push(message::StatusService::NewStub(channel));
 		}
 		LOG_INFO(
 			"StatusService gRPC Stub pool initialized successfully: endpoint=",
-			host_, ":", port_, ", stubs=", poolSize_);
+			host_, ":", port_, ", stubs=", pool_size_);
 	}
 
-	~StatusConPool() {
+	~StatusStubPool() {
 		std::lock_guard<std::mutex> lock(mutex_);
 		Close();
-		while (!connections_.empty()) {
-			connections_.pop();
+		while (!available_stubs_.empty()) {
+			available_stubs_.pop();
 		}
 		LOG_INFO("StatusService gRPC Stub pool destroyed successfully.");
 	}
 
-	std::unique_ptr<message::StatusService::Stub> getConnection() {
+	// 借出一个空闲 Stub；没有空闲 Stub 时等待，连接池关闭时返回 nullptr。
+	std::unique_ptr<message::StatusService::Stub> BorrowStub() {
 		std::unique_lock<std::mutex> lock(mutex_);
-		cond_.wait(lock, [this] {
-			if (b_stop_) {
+		condition_.wait(lock, [this] {
+			if (stopped_) {
 				return true;
 			}
-			return !connections_.empty();
+			return !available_stubs_.empty();
 			});
 		//如果停止则直接返回空指针
-		if (b_stop_) {
+		if (stopped_) {
 			return  nullptr;
 		}
-		auto context = std::move(connections_.front());
-		connections_.pop();
-		return context;
+		auto stub = std::move(available_stubs_.front());
+		available_stubs_.pop();
+		return stub;
 	}
 
-	void returnConnection(std::unique_ptr<message::StatusService::Stub> context) {
+	// 把使用完的 Stub 放回空闲队列，并唤醒一个等待者。
+	void ReturnStub(std::unique_ptr<message::StatusService::Stub> stub) {
 		std::lock_guard<std::mutex> lock(mutex_);
-		if (b_stop_) {
+		if (stopped_) {
 			return;
 		}
-		connections_.push(std::move(context));
-		cond_.notify_one();
+		available_stubs_.push(std::move(stub));
+		condition_.notify_one();
 	}
 
 	void Close() {
-		b_stop_ = true;
-		cond_.notify_all();
+		stopped_ = true;
+		condition_.notify_all();
 	}
 
 private:
-	std::atomic<bool> b_stop_;
-	size_t poolSize_;
+	// stopped_ 表示池已关闭；关闭后不再借出或回收 Stub。
+	std::atomic<bool> stopped_;
+	std::size_t pool_size_;
 	std::string host_;
 	std::string port_;
-	std::queue<std::unique_ptr<message::StatusService::Stub>> connections_;
+	// 只保存当前没有被业务线程使用的 Stub。
+	std::queue<std::unique_ptr<message::StatusService::Stub>> available_stubs_;
 	std::mutex mutex_;
-	std::condition_variable cond_;
+	std::condition_variable condition_;
 };
 class StatusGrpcClient :public Singleton<StatusGrpcClient>
 {
@@ -92,6 +98,6 @@ public:
 
 private:
 	StatusGrpcClient();
-	std::unique_ptr<StatusConPool> pool_;
+	std::unique_ptr<StatusStubPool> pool_;
 
 };

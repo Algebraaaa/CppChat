@@ -1,9 +1,16 @@
 #pragma once
+#include <atomic>
+#include <condition_variable>
+#include <cstddef>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <string>
+#include <unordered_map>
 #include "const.h"
 #include "Singleton.h"
 #include "ConfigMgr.h"
 #include <grpcpp/grpcpp.h>
-#include <queue>
 #include "message.grpc.pb.h"
 #include "message.pb.h"
 
@@ -19,66 +26,69 @@ using message::LoginRsp;
 using message::LoginReq;
 using message::ChatService;
 
-class ChatConPool {
+// ChatService Stub ³Ø£ºµ÷ÓÃÆäËû ChatServer Ê±½è³öÒ»¸ö Stub£¬ÓÃÍêºó¹é»¹¡£
+// Stub ÊÇ gRPC Ô¶³Ì´úÀí¶ÔÏó£¬²»ÊÇÆÕÍ¨ TCP »òÊý¾Ý¿âÁ¬½Ó¡£
+class ChatStubPool {
 public:
-	ChatConPool(size_t poolSize, std::string host, std::string port)
-		: poolSize_(poolSize), host_(host), port_(port), b_stop_(false) {
-		for (size_t i = 0; i < poolSize_; ++i) {
-
-			std::shared_ptr<Channel> channel = grpc::CreateChannel(host + ":" + port,
-				grpc::InsecureChannelCredentials());
-
-			connections_.push(ChatService::NewStub(channel));
+	ChatStubPool(std::size_t pool_size, std::string host, std::string port)
+		: stopped_(false) {
+		for (std::size_t index = 0; index < pool_size; ++index) {
+			std::shared_ptr<Channel> channel = grpc::CreateChannel(
+				host + ":" + port, grpc::InsecureChannelCredentials());
+			available_stubs_.push(ChatService::NewStub(channel));
 		}
 	}
 
-	~ChatConPool() {
+	~ChatStubPool() {
 		std::lock_guard<std::mutex> lock(mutex_);
 		Close();
-		while (!connections_.empty()) {
-			connections_.pop();
+		while (!available_stubs_.empty()) {
+			available_stubs_.pop();
 		}
 	}
 
-	std::unique_ptr<ChatService::Stub> getConnection() {
+	// ½è³öÒ»¸ö¿ÕÏÐ Stub£»Ã»ÓÐ¿ÕÏÐ Stub Ê±µÈ´ý£¬Á¬½Ó³Ø¹Ø±ÕÊ±·µ»Ø nullptr¡£
+	std::unique_ptr<ChatService::Stub> BorrowStub() {
 		std::unique_lock<std::mutex> lock(mutex_);
-		cond_.wait(lock, [this] {
-			if (b_stop_) {
-				return true;
-			}
-			return !connections_.empty();
+		condition_.wait(lock, [this] {
+			return stopped_ || !available_stubs_.empty();
 			});
-		//ï¿½ï¿½ï¿½Í£Ö¹ï¿½ï¿½Ö±ï¿½Ó·ï¿½ï¿½Ø¿ï¿½Ö¸ï¿½ï¿½
-		if (b_stop_) {
-			return  nullptr;
+
+		if (stopped_) {
+			return nullptr;
 		}
-		auto context = std::move(connections_.front());
-		connections_.pop();
-		return context;
+
+		auto stub = std::move(available_stubs_.front());
+		available_stubs_.pop();
+		return stub;
 	}
 
-	void returnConnection(std::unique_ptr<ChatService::Stub> context) {
-		std::lock_guard<std::mutex> lock(mutex_);
-		if (b_stop_) {
+	// °ÑÊ¹ÓÃÍêµÄ Stub ·Å»Ø¿ÕÏÐ¶ÓÁÐ£¬²¢»½ÐÑÒ»¸öµÈ´ýÕß¡£
+	void ReturnStub(std::unique_ptr<ChatService::Stub> stub) {
+		if (!stub) {
 			return;
 		}
-		connections_.push(std::move(context));
-		cond_.notify_one();
+
+		std::lock_guard<std::mutex> lock(mutex_);
+		if (stopped_) {
+			return;
+		}
+
+		available_stubs_.push(std::move(stub));
+		condition_.notify_one();
 	}
 
+	// ¹Ø±Õºó²»ÔÙ½è³ö»ò»ØÊÕ Stub£¬²¢»½ÐÑËùÓÐµÈ´ýÏß³Ì¡£
 	void Close() {
-		b_stop_ = true;
-		cond_.notify_all();
+		stopped_ = true;
+		condition_.notify_all();
 	}
 
 private:
-	std::atomic<bool> b_stop_;
-	size_t poolSize_;
-	std::string host_;
-	std::string port_;
-	std::queue<std::unique_ptr<ChatService::Stub>> connections_;
+	std::atomic<bool> stopped_;
+	std::queue<std::unique_ptr<ChatService::Stub>> available_stubs_;
 	std::mutex mutex_;
-	std::condition_variable cond_;
+	std::condition_variable condition_;
 };
 
 class ChatGrpcClient :public Singleton<ChatGrpcClient>
@@ -93,5 +103,5 @@ public:
 
 private:
 	ChatGrpcClient();
-	std::unordered_map<std::string, std::unique_ptr<ChatConPool>> _pools;
+	std::unordered_map<std::string, std::unique_ptr<ChatStubPool>> chat_stub_pools_;
 };

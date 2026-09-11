@@ -3,24 +3,24 @@
 
 ChatGrpcClient::ChatGrpcClient()
 {
-	auto& cfg = ConfigMgr::GetInstance();
-	auto server_list = cfg["Chatservers"]["Name"];
+	auto& config = ConfigMgr::GetInstance();
+	auto configured_server_names = config["Chatservers"]["Name"];
 
-	std::vector<std::string> words;
+	std::vector<std::string> server_section_names;
 
-	std::stringstream ss(server_list);
-	std::string word;
+	std::stringstream server_names_stream(configured_server_names);
+	std::string server_section_name;
 
-	while (std::getline(ss, word, ',')) {
-		words.push_back(word);
+	while (std::getline(server_names_stream, server_section_name, ',')) {
+		server_section_names.push_back(server_section_name);
 	}
 
-	for (auto& word : words) {
-		if (cfg[word]["Name"].empty()) {
+	for (auto& server_section_name : server_section_names) {
+		if (config[server_section_name]["Name"].empty()) {
 			continue;
 		}
 
-		_pools[cfg[word]["Name"]] = std::make_unique<ChatConPool>(5, cfg[word]["Host"], cfg[word]["Port"]);
+		chat_stub_pools_[config[server_section_name]["Name"]] = std::make_unique<ChatStubPool>(5, config[server_section_name]["Host"], config[server_section_name]["Port"]);
 	}
 
 }

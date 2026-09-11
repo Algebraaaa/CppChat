@@ -49,7 +49,6 @@ private:
   // 初始化：标题栏、业务页面、页面信号及鼠标监听。
   void setupTitleBar();
   void setupPages();
-  void connectPageSignals();
   void setupMouseTracking();
   void updatePageWindowSize();
 
@@ -72,7 +71,6 @@ private:
   ResetDialog *_resetDialog = nullptr;
   ChatDialog *_chatDialog = nullptr;
   QSize _chatMinimumSize;
-  QSize _chatWindowSize = QSize(1000, 700);
   bool _chatWindowActive = false;
 };
 #endif // MAINWINDOW_H
