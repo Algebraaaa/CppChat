@@ -13,6 +13,7 @@ B站恋恋风辰大佬的C++全栈即时通讯项目，我在辰哥的基础上�
 | `VerifyServer/` | Node.js 验证码和邮件服务 |
 | `StatusServer/` | 聊天节点分配与 Token 校验 |
 | `ChatServer/` | TCP 会话、消息组帧、发送队列和登录处理 |
+| `ChatServer2/` | 第二个聊天服务实例源码，用于多节点通信与分配场景 |
 
 头像来源说明见 [AVATAR_SOURCES.md](CppChat/Resources/AVATAR_SOURCES.md)
 

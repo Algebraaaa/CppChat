@@ -62,7 +62,7 @@ public:
 	}
 
 	// 函数内的 static 对象只会创建一次，全项目共用这一份配置。
-	static ConfigMgr& Inst() {
+	static ConfigMgr& GetInstance() {
 		static ConfigMgr config_manager;
 		return config_manager;
 	}
@@ -72,7 +72,7 @@ public:
 	ConfigMgr& operator=(const ConfigMgr&) = delete;
 
 private:
-	// 构造函数放在 private，外部只能通过 Inst() 获取单例。
+	// 构造函数放在 private，外部只能通过 GetInstance() 获取单例。
 	ConfigMgr();
 
 	// key 是分组名，value 是该分组中的所有配置项。

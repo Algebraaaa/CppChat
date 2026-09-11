@@ -11,7 +11,14 @@ TcpMgr::TcpMgr() : _host(""), _port(0), _b_recv_pending(false), _message_id(0), 
     // 连接建立后发送消息
     emit sig_con_success(true);
   });
+  QObject::connect(&_socket, &QAbstractSocket::errorOccurred, this, &TcpMgr::handleSocketError);
 
+  // 当有新的网络数据到达，并且可以从 socket 中读取时，会发出 readyRead 信号
+  // TCP 是字节流，一次 readyRead 可能对应：
+  // 只有半个消息头	:保存下来，继续等
+  // 消息头完整，:消息体只到一半	保存下来，继续等
+  // 一条完整消息	:解析并分发
+  // 多条消息连在一起	:循环解析，逐条分发
   QObject::connect(&_socket, &QTcpSocket::readyRead, [&]() {
     // 当有数据可读时，读取所有数据，并追加到缓冲区
     _buffer.append(_socket.readAll());
@@ -58,9 +65,6 @@ TcpMgr::TcpMgr() : _host(""), _port(0), _b_recv_pending(false), _message_id(0), 
       handleMsg(ReqId(_message_id), _message_len, messageBody);
     }
   });
-
-  QObject::connect(&_socket, &QAbstractSocket::errorOccurred, this,
-                   &TcpMgr::handleSocketError);
 
   // 处理连接断开
   QObject::connect(&_socket, &QTcpSocket::disconnected,
@@ -147,7 +151,9 @@ void TcpMgr::slot_tcp_connect(ServerInfo si)
   qDebug() << "Connecting to server...";
   _host = si.Host;
   _port = static_cast<uint16_t>(si.Port.toUInt());
-  _socket.connectToHost(si.Host, _port);
+  _socket.connectToHost(_host, _port);
+  // 成功后，QTcpSocket 会发出 QTcpSocket::connected信号
+  // 如果没成功，则发出 QAbstractSocket::errorOccurred这个信号
 }
 
 void TcpMgr::slot_send_data(ReqId reqId, QString data)

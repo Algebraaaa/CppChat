@@ -390,7 +390,7 @@
   <customwidget>
    <class>MessageTextEdit</class>
    <extends>QTextEdit</extends>
-   <header>widgets/MessageTextEdit.h</header>
+   <header location="global">widgets/MessageTextEdit.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

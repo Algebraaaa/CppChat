@@ -1,6 +1,5 @@
 #include "ConfigMgr.h"
 #include "Logger.h"
-#include "StatusServer.h"
 #include "StatusServiceImpl.h"
 
 #include <boost/asio.hpp>
@@ -22,7 +21,7 @@ void RunServer() {
 	LOG_INFO("StatusServer startup sequence started");
 
 	// ConfigMgr 是单例。这里拿到的是引用，不会复制整份配置。
-	ConfigMgr& config = ConfigMgr::Inst();
+	ConfigMgr& config = ConfigMgr::GetInstance();
 	const SectionInfo status_server_config = config["StatusServer"];
 	const std::string host = status_server_config["Host"];
 	const std::string port = status_server_config["Port"];

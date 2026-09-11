@@ -42,7 +42,7 @@ void ResetDialog::initHttpHandlers()
     }
     showTip(tr("验证码已发送到邮箱，注意查收"), true);
     qInfo() << "Password-reset verification code request succeeded";
-    qDebug() << "Password-reset verification email:" << jsonObj["email"].toString();
+    qDebug() << "Password-reset verification email accepted.";
   });
 
   // 注册注册用户回包逻辑

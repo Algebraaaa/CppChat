@@ -51,6 +51,7 @@ private:
   void setupPages();
   void connectPageSignals();
   void setupMouseTracking();
+  void updatePageWindowSize();
 
   // 窗口按钮和原生窗口外观。
   void toggleMaximizeRestore();
@@ -70,5 +71,8 @@ private:
   RegisterDialog *_registerDialog = nullptr;
   ResetDialog *_resetDialog = nullptr;
   ChatDialog *_chatDialog = nullptr;
+  QSize _chatMinimumSize;
+  QSize _chatWindowSize = QSize(1000, 700);
+  bool _chatWindowActive = false;
 };
 #endif // MAINWINDOW_H

@@ -1,11 +1,11 @@
-// proto3 ÊÇµ±Ç°Ê¹ÓÃµÄ Protobuf Óï·¨°æ±¾¡£
+// proto3 ï¿½Çµï¿½Ç°Ê¹ï¿½Ãµï¿½ Protobuf ï¿½ï·¨ï¿½æ±¾ï¿½ï¿½
 syntax = "proto3";
 
-// Éú³É C++ ´úÂëºó£¬ÏÂÃæµÄÀàÐÍ¶¼»áÎ»ÓÚ message ÃüÃû¿Õ¼äÖÐ¡£
+// ï¿½ï¿½ï¿½ï¿½ C++ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¶ï¿½ï¿½ï¿½Î»ï¿½ï¿½ message ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½ï¿½Ð¡ï¿½
 package message;
 
-// VerifyService ÊôÓÚ GateServer/VerifyServer µÄ¹²ÏíÐ­Òé¡£
-// StatusServer µ±Ç°²»ÊµÏÖËü£¬µ«Á½¶Ë¼ÌÐø¹²ÓÃÍ¬Ò»·Ý message.proto¡£
+// VerifyService ï¿½ï¿½ï¿½ï¿½ GateServer/VerifyServer ï¿½Ä¹ï¿½ï¿½ï¿½Ð­ï¿½é¡£
+// StatusServer ï¿½ï¿½Ç°ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬Ò»ï¿½ï¿½ message.protoï¿½ï¿½
 service VerifyService {
   rpc GetVerifyCode (GetVerifyReq) returns (GetVerifyRsp) {}
 }
@@ -20,12 +20,12 @@ message GetVerifyRsp {
   string code = 3;
 }
 
-// GateServer ÇëÇó·ÖÅä ChatServer Ê±£¬Ö»ÐèÒªÌá½»µ±Ç°ÓÃ»§ uid¡£
+// GateServer ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ChatServer Ê±ï¿½ï¿½Ö»ï¿½ï¿½Òªï¿½á½»ï¿½ï¿½Ç°ï¿½Ã»ï¿½ uidï¿½ï¿½
 message GetChatServerReq {
   int32 uid = 1;
 }
 
-// StatusServer ·µ»Ø ChatServer µØÖ·¡¢ÒµÎñ´íÎóÂëºÍÁÙÊ± token¡£
+// StatusServer ï¿½ï¿½ï¿½ï¿½ ChatServer ï¿½ï¿½Ö·ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê± tokenï¿½ï¿½
 message GetChatServerRsp {
   int32 error = 1;
   string host = 2;
@@ -42,9 +42,82 @@ message LoginRsp {
     int32 uid = 2;
     string token = 3;
 }
-// StatusService ÊÇ±¾ÏîÄ¿ÕæÕýÊµÏÖµÄ gRPC ·þÎñ¡£
-// ÇëÇóÁ´£ºGateServer StatusGrpcClient -> StatusServer GetChatServer¡£
+// StatusService ï¿½Ç±ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½Êµï¿½Öµï¿½ gRPC ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½GateServer StatusGrpcClient -> StatusServer GetChatServerï¿½ï¿½
 service StatusService {
     rpc GetChatServer (GetChatServerReq) returns (GetChatServerRsp) {}
     rpc Login(LoginReq) returns(LoginRsp);
+}
+message AddFriendReq {
+	int32  applyuid = 1;
+	string name = 2;
+	string desc = 3;
+	int32  touid = 4;
+}
+
+message AddFriendRsp {
+	int32 error = 1;
+	int32 applyuid = 2;
+	int32 touid = 3;
+}
+
+message RplyFriendReq {
+	int32 rplyuid = 1;
+	bool  agree = 2;
+	int32 touid = 3;
+}
+
+message RplyFriendRsp {
+	int32 error = 1;
+	int32 rplyuid = 2;
+	int32 touid = 3;
+}
+
+message SendChatMsgReq{
+		int32 fromuid = 1;
+		int32 touid = 2;
+		string message = 3;
+}
+
+message SendChatMsgRsp{
+		int32 error = 1;
+		int32 fromuid = 2;
+		int32 touid = 3;
+}
+
+message AuthFriendReq{
+	int32 fromuid = 1;
+	int32 touid = 2;
+}
+
+message AuthFriendRsp{
+	int32 error = 1;
+	int32 fromuid = 2;
+	int32 touid = 3;
+}
+
+message TextChatMsgReq {
+	int32 fromuid = 1;
+    int32 touid = 2;
+	repeated TextChatData textmsgs = 3;
+}
+
+message TextChatData{
+	string msgid = 1;
+	string msgcontent = 2;
+}
+
+message TextChatMsgRsp {
+	int32 error = 1;
+	int32 fromuid = 2;
+	int32 touid = 3;
+	repeated TextChatData textmsgs = 4;
+}
+
+service ChatService {
+	rpc NotifyAddFriend(AddFriendReq) returns (AddFriendRsp) {}
+	rpc RplyAddFriend(RplyFriendReq) returns (RplyFriendRsp) {}
+	rpc SendChatMsg(SendChatMsgReq) returns (SendChatMsgRsp) {}
+	rpc NotifyAuthFriend(AuthFriendReq) returns (AuthFriendRsp) {}
+	rpc NotifyTextChatMsg(TextChatMsgReq) returns (TextChatMsgRsp){}
 }

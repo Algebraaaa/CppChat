@@ -38,7 +38,7 @@ void ClickedLabel::mouseReleaseEvent(QMouseEvent *event)
 
     // clicked 放在释放阶段，更符合 QPushButton 等 Qt 控件的标准点击语义
     if (shouldEmitClicked) {
-      emit clicked();
+      emit clicked(this->text(), _curstate);
     }
   }
 
@@ -61,19 +61,47 @@ void ClickedLabel::leaveEvent(QEvent *event)
   QLabel::leaveEvent(event);
 }
 
-void ClickedLabel::SetState(const QString &normal, const QString &hover, const QString &press)
+void ClickedLabel::SetState(const QString &normal, const QString &hover, const QString &press,
+                            const QString &select, const QString &select_hover,
+                            const QString &select_press)
 {
 
   _normal = normal;
   _hover = hover;
   _press = press;
+
+  _selected = select;
+  _selected_hover = select_hover;
+  _selected_press = select_press;
   applyState(_normal);
 }
+ClickLbState ClickedLabel::GetCurState()
+{
+  return _curstate;
+}
+bool ClickedLabel::SetCurState(ClickLbState state)
+{
+  _curstate = state;
+  if (_curstate == ClickLbState::Normal) {
+    setProperty("state", _normal);
+    repolish(this);
+  } else if (_curstate == ClickLbState::Selected) {
+    setProperty("state", _selected);
+    repolish(this);
+  }
 
+  return true;
+}
 // 统一应用动态属性，避免每个鼠标事件重复写相同的刷新代码
 void ClickedLabel::applyState(const QString &state)
 {
   setProperty("state", state);
   repolish(this);
   update();
+}
+
+void ClickedLabel::ResetNormalState()
+{
+  _curstate = ClickLbState::Normal;
+  applyState(_normal);
 }

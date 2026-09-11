@@ -14,8 +14,8 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
 
   // 设置图标样式
   // ui->emo_lb->setCursor(Qt::PointingHandCursor);
-  ui->emo_lb->SetState("normal", "hover", "press");
-  ui->file_lb->SetState("normal", "hover", "press");
+  ui->emo_lb->SetState("normal", "hover", "press", "normal", "hover", "press");
+  ui->file_lb->SetState("normal", "hover", "press", "normal", "hover", "press");
   // ui->file_lb->setCursor(Qt::PointingHandCursor);
 
   // MessageTextEdit 会在用户按下 Enter 时发出 send()；复用发送按钮的槽函数，

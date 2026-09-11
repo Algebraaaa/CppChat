@@ -23,7 +23,7 @@ class Logger final
 public:
 	// 返回全项目唯一的 Logger。
 	// C++11 保证函数内部 static 对象只初始化一次，多个线程同时首次调用也安全。
-	static Logger& Instance();
+	static Logger& GetInstance();
 
 	// Logger 持有文件流和互斥锁，不能被复制或移动。
 	Logger(const Logger&) = delete;
@@ -85,7 +85,7 @@ private:
 
 // __VA_ARGS__ 代表调用宏时传入的全部参数。
 // 宏末尾不写分号，调用方按普通函数的样子写 LOG_INFO(...);。
-#define LOG_DEBUG(...) (::Logger::Instance().Debug(__VA_ARGS__))
-#define LOG_INFO(...) (::Logger::Instance().Info(__VA_ARGS__))
-#define LOG_WARNING(...) (::Logger::Instance().Warning(__VA_ARGS__))
-#define LOG_ERROR(...) (::Logger::Instance().Error(__VA_ARGS__))
+#define LOG_DEBUG(...) (::Logger::GetInstance().Debug(__VA_ARGS__))
+#define LOG_INFO(...) (::Logger::GetInstance().Info(__VA_ARGS__))
+#define LOG_WARNING(...) (::Logger::GetInstance().Warning(__VA_ARGS__))
+#define LOG_ERROR(...) (::Logger::GetInstance().Error(__VA_ARGS__))

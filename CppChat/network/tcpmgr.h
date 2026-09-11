@@ -2,6 +2,7 @@
 #define TCPMGR_H
 #include "common/global.h"
 #include "common/singleton.h"
+#include "common/userdata.h"
 #include <QObject>
 #include <QTcpSocket>
 #include <functional>
@@ -43,6 +44,10 @@ signals:
   void sig_send_data(ReqId reqId, QString data);
   void sig_swich_chatdlg();
   void sig_login_failed(int);
+  void sig_user_search(std::shared_ptr<SearchInfo>);
+  void sig_friend_apply(std::shared_ptr<AddFriendApply>);
+  void sig_add_auth_friend(std::shared_ptr<AuthInfo>);
+  void sig_auth_rsp(std::shared_ptr<AuthRsp>);
 };
 
 #endif // TCPMGR_H

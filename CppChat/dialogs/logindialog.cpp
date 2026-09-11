@@ -11,7 +11,7 @@
 LoginDialog::LoginDialog(QWidget *parent) : QDialog(parent), ui(new Ui::LoginDialog)
 {
   ui->setupUi(this);
-  ui->forget_label->SetState("normal", "hover");
+  ui->forget_label->SetState("normal", "hover", "hover", "normal", "hover", "hover");
   ui->forget_label->setCursor(Qt::PointingHandCursor);
   connect(ui->forget_label, &ClickedLabel::clicked, this, &LoginDialog::slot_forget_pwd);
   initHead();
@@ -62,7 +62,6 @@ void LoginDialog::initHttpHandlers()
 }
 void LoginDialog::slot_tcp_con_finish(bool bsuccess)
 {
-
   if (bsuccess) {
     showTip(tr("聊天服务连接成功，正在登录..."), true);
     QJsonObject jsonObj;

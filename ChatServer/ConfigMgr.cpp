@@ -8,7 +8,7 @@
 
 #include "Logger.h"
 
-ConfigMgr& ConfigMgr::Inst()
+ConfigMgr& ConfigMgr::GetInstance()
 {
 	static ConfigMgr config_manager;
 	return config_manager;

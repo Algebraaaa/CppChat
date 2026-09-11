@@ -32,7 +32,7 @@ namespace
 	}
 }
 
-Logger& Logger::Instance()
+Logger& Logger::GetInstance()
 {
 	static Logger logger;
 	return logger;

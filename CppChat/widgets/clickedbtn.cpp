@@ -6,6 +6,7 @@ ClickedBtn::ClickedBtn(QWidget *parent) : QPushButton(parent)
 {
   // 鼠标移到按钮上时显示手形光标
   setCursor(Qt::PointingHandCursor);
+  setFocusPolicy(Qt::NoFocus);
 }
 
 ClickedBtn::~ClickedBtn() {}

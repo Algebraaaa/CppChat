@@ -11,6 +11,7 @@
 #include <QEvent>
 #include <QIcon>
 #include <QMouseEvent>
+#include <QScreen>
 #include <QStackedWidget>
 #include <QWindow>
 
@@ -86,7 +87,7 @@ void MainWindow::setupPages()
   _registerDialog = new RegisterDialog(this);
   _resetDialog = new ResetDialog(this);
   _chatDialog = new ChatDialog(this);
-  const QSize chatDesignSize = _chatDialog->size();
+  _chatMinimumSize = _chatDialog->size().expandedTo(_chatDialog->minimumSizeHint());
 
   _pages = new QStackedWidget(ui->content_host);
   _pages->addWidget(_loginDialog);
@@ -95,13 +96,74 @@ void MainWindow::setupPages()
   _pages->addWidget(_chatDialog);
   ui->content_layout->addWidget(_pages);
 
-  // 临时直接测试聊天主页：绕过 HTTP/TCP 登录流程。
-  // 恢复登录入口时，将下面的 _chatDialog 改为 _loginDialog。
+  // 所有页面切换都同步窗口尺寸，包括临时直接打开聊天页的情况。
+  connect(_pages, &QStackedWidget::currentChanged, this,
+          &MainWindow::updatePageWindowSize);
+  _pages->setCurrentWidget(_loginDialog);
+  // 首个页面本来就是登录页，不一定产生 currentChanged，因此主动初始化一次。
+  updatePageWindowSize();
+}
+
+void MainWindow::updatePageWindowSize()
+{
+  QWidget *page = _pages->currentWidget();
+  if (!page) {
+    return;
+  }
+
+  const bool chatPage = page == _chatDialog;
+  if (_chatWindowActive && !chatPage) {
+    _chatWindowSize = isMaximized() ? normalGeometry().size() : size();
+  }
+  const QPoint previousCenter = geometry().center();
+  _chatWindowActive = chatPage;
+
+  // 先解除上一页的尺寸限制；从最大化聊天页退出时先还原窗口。
   setMinimumSize(0, 0);
   setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-  _pages->setMinimumSize(chatDesignSize);
-  _pages->setCurrentWidget(_chatDialog);
-  resize(1000, 700);
+  if (!chatPage && (isMaximized() || isFullScreen())) {
+    showNormal();
+  }
+  ui->maximize_btn->setVisible(chatPage);
+  unsetCursor();
+
+  // 清掉外层布局缓存，让隐藏页面的旧尺寸不再参与计算。
+  _pages->updateGeometry();
+  ui->content_layout->invalidate();
+  ui->window_layout->invalidate();
+  ui->content_layout->activate();
+  ui->window_layout->activate();
+
+  const QMargins margins = ui->window_layout->contentsMargins();
+  const QSize frameSize(margins.left() + margins.right(),
+                        margins.top() + margins.bottom() + ui->title_bar->height());
+  if (chatPage) {
+    const QSize minimum = (_chatMinimumSize + frameSize)
+        .expandedTo(ui->window_layout->minimumSize());
+    setMinimumSize(minimum);
+    QSize target = _chatWindowSize;
+    if (screen()) {
+      target = target.boundedTo(screen()->availableGeometry().size());
+    }
+    resize(target.expandedTo(minimum));
+  } else {
+    // 登录、注册、重置页面的 .ui 已定义固定尺寸，额外加上标题栏和边距。
+    setFixedSize(page->minimumSize() + frameSize);
+  }
+
+  // 切换时围绕原窗口中心调整，并尽量保持在当前屏幕工作区内。
+  if (!isMaximized() && screen()) {
+    const QRect available = screen()->availableGeometry();
+    const QPoint center = isVisible() ? previousCenter : available.center();
+    QPoint position = center - QPoint(width() / 2, height() / 2);
+    position.setX(qMax(available.left(),
+                       qMin(position.x(), available.right() - width() + 1)));
+    position.setY(qMax(available.top(),
+                       qMin(position.y(), available.bottom() - height() + 1)));
+    move(position);
+  }
+  updateMaximizeButton();
+  updateNativeWindowFrame();
 }
 
 void MainWindow::connectPageSignals()
@@ -212,6 +274,9 @@ void MainWindow::changeEvent(QEvent *event)
 
 void MainWindow::toggleMaximizeRestore()
 {
+  if (!_chatWindowActive) {
+    return;
+  }
 #ifdef Q_OS_WIN
   // Qt 6.5 的 FramelessWindowHint 分支用 MoveWindow 直接改变几何尺寸，
   // 绕过了系统最大化/还原动画。这里直接请求原生状态切换；Qt 收到
@@ -260,11 +325,15 @@ void MainWindow::updateNativeWindowFrame()
     return;
   }
 
-  // 保留原生标题栏和可缩放样式，让 Windows 提供窗口动画。
+  // 保留原生标题栏，让 Windows 提供窗口动画；只有聊天页允许缩放和最大化。
   // 原生标题栏的可见区域由 nativeEvent 中的 WM_NCCALCSIZE 隐藏。
   const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
-  const LONG_PTR nativeStyle =
-      style | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+  LONG_PTR nativeStyle = style | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+  if (_chatWindowActive) {
+    nativeStyle |= WS_THICKFRAME | WS_MAXIMIZEBOX;
+  } else {
+    nativeStyle &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+  }
   if (style != nativeStyle) {
     SetWindowLongPtrW(hwnd, GWL_STYLE, nativeStyle);
     SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
@@ -323,7 +392,7 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message,
 
 Qt::Edges MainWindow::resizeEdgesAt(const QPoint &globalPosition) const
 {
-  if (isMaximized() || isFullScreen()) {
+  if (!_chatWindowActive || isMaximized() || isFullScreen()) {
     return Qt::Edges();
   }
 

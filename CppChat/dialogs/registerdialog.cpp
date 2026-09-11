@@ -40,8 +40,10 @@ RegisterDialog::RegisterDialog(QWidget *parent) : QDialog(parent), ui(new Ui::Re
 
   // ui->pass_visible->setCursor(Qt::PointingHandCursor);
   // ui->confirm_visible->setCursor(Qt::PointingHandCursor);
-  ui->pass_visible->SetState("unvisible", "unvisible_hover", "visible_hover");
-  ui->confirm_visible->SetState("unvisible", "unvisible_hover", "visible_hover");
+  ui->pass_visible->SetState("unvisible", "unvisible_hover", "visible_hover",
+                             "unvisible", "unvisible_hover", "visible_hover");
+  ui->confirm_visible->SetState("unvisible", "unvisible_hover", "visible_hover",
+                             "unvisible", "unvisible_hover", "visible_hover");
 
   connect(ui->pass_visible, &ClickedLabel::pressed, this,
           [this]() { ui->pass_edit->setEchoMode(QLineEdit::Normal); });
@@ -268,7 +270,7 @@ void RegisterDialog::initHttpHandlers()
     }
     showTip(tr("验证码已经发送到邮箱"), true);
     qInfo() << "Registration verification code request succeeded";
-    qDebug() << "Registration verification email:" << jsonObj["email"].toString();
+    qDebug() << "Registration verification email accepted.";
   });
 
   // 注册注册用户回包逻辑
@@ -341,8 +343,10 @@ void RegisterDialog::resetRegistrationPage()
   ui->verify_edit->clear();
   ui->pass_edit->setEchoMode(QLineEdit::Password);
   ui->confirm_edit->setEchoMode(QLineEdit::Password);
-  ui->pass_visible->SetState("unvisible", "unvisible_hover", "visible_hover");
-  ui->confirm_visible->SetState("unvisible", "unvisible_hover", "visible_hover");
+  ui->pass_visible->SetState("unvisible", "unvisible_hover", "visible_hover",
+                             "unvisible", "unvisible_hover", "visible_hover");
+  ui->confirm_visible->SetState("unvisible", "unvisible_hover", "visible_hover",
+                             "unvisible", "unvisible_hover", "visible_hover");
 
   _tipErrors.clear();
   ui->err_tip->clear();

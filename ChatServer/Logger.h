@@ -18,7 +18,7 @@ enum class LogLevel
 class Logger final
 {
 public:
-	static Logger& Instance();
+	static Logger& GetInstance();
 
 	Logger(const Logger&) = delete;
 	Logger& operator=(const Logger&) = delete;
@@ -71,7 +71,7 @@ private:
 	LogLevel minimum_level_ = LogLevel::Debug;
 };
 
-#define LOG_DEBUG(...) (::Logger::Instance().Debug(__VA_ARGS__))
-#define LOG_INFO(...) (::Logger::Instance().Info(__VA_ARGS__))
-#define LOG_WARNING(...) (::Logger::Instance().Warning(__VA_ARGS__))
-#define LOG_ERROR(...) (::Logger::Instance().Error(__VA_ARGS__))
+#define LOG_DEBUG(...) (::Logger::GetInstance().Debug(__VA_ARGS__))
+#define LOG_INFO(...) (::Logger::GetInstance().Info(__VA_ARGS__))
+#define LOG_WARNING(...) (::Logger::GetInstance().Warning(__VA_ARGS__))
+#define LOG_ERROR(...) (::Logger::GetInstance().Error(__VA_ARGS__))

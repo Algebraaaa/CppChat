@@ -2,88 +2,6 @@
 #include "chatuserwid.h"
 #include "loadingdlg.h"
 #include "ui_chatdialog.h"
-#include <array>
-
-namespace {
-
-struct ChatUserTestData {
-  QString displayName;
-  QString avatarResource;
-  QString lastMessage;
-};
-
-// 聊天主页的固定测试数据。
-// 每条记录将用户名、头像和最后一条消息绑定在一起，确保每次启动的测试结果一致。
-const std::array<ChatUserTestData, 33> kChatUserTestData = {{
-  { QStringLiteral("林夏"), QStringLiteral(":/res/head_1.jpg"),
-    QStringLiteral("今晚一起调试客户端吗？") },
-  { QStringLiteral("周屿"), QStringLiteral(":/res/head_2.jpg"),
-    QStringLiteral("需求文档已经更新了。") },
-  { QStringLiteral("Alex"), QStringLiteral(":/res/head_3.jpg"),
-    QStringLiteral("The latest build is ready.") },
-  { QStringLiteral("Mia"), QStringLiteral(":/res/head_4.jpg"),
-    QStringLiteral("明天下午三点开会。") },
-  { QStringLiteral("Chen"), QStringLiteral(":/res/head_5.jpg"),
-    QStringLiteral("接口联调通过了。") },
-  { QStringLiteral("Aurora"), QStringLiteral(":/res/head_6.jpg"),
-    QStringLiteral("欢迎来到 CppChat！") },
-  { QStringLiteral("Nova"), QStringLiteral(":/res/head_7.jpg"),
-    QStringLiteral("头像资源加载正常。") },
-  { QStringLiteral("Willow"), QStringLiteral(":/res/head_8.jpg"),
-    QStringLiteral("搜索功能很好用。") },
-  { QStringLiteral("Felix"), QStringLiteral(":/res/head_9.jpg"),
-    QStringLiteral("稍后把日志发给你。") },
-  { QStringLiteral("Leo"), QStringLiteral(":/res/head_10.jpg"),
-    QStringLiteral("今天的任务完成啦。") },
-  { QStringLiteral("Rust Team"), QStringLiteral(":/res/head_6.jpg"),
-    QStringLiteral("消息列表滚动测试。") },
-  { QStringLiteral("Qt Group"), QStringLiteral(":/res/head_7.jpg"),
-    QStringLiteral("QSS 样式已经更新。") },
-  { QStringLiteral("Backend"), QStringLiteral(":/res/head_8.jpg"),
-    QStringLiteral("ChatServer is online.") },
-  { QStringLiteral("Luna"), QStringLiteral(":/res/head_11.jpg"),
-    QStringLiteral("今晚的月色真好。") },
-  { QStringLiteral("Iris"), QStringLiteral(":/res/head_12.jpg"),
-    QStringLiteral("新的交互稿已经发你了。") },
-  { QStringLiteral("Owen"), QStringLiteral(":/res/head_13.jpg"),
-    QStringLiteral("我正在检查消息协议。") },
-  { QStringLiteral("Hazel"), QStringLiteral(":/res/head_14.jpg"),
-    QStringLiteral("周末一起喝咖啡吗？") },
-  { QStringLiteral("Milo"), QStringLiteral(":/res/head_15.jpg"),
-    QStringLiteral("客户端启动速度不错。") },
-  { QStringLiteral("Ruby"), QStringLiteral(":/res/head_16.jpg"),
-    QStringLiteral("测试用例已经补齐。") },
-  { QStringLiteral("Theo"), QStringLiteral(":/res/head_17.jpg"),
-    QStringLiteral("TCP 连接保持正常。") },
-  { QStringLiteral("Chloe"), QStringLiteral(":/res/head_18.jpg"),
-    QStringLiteral("收到，稍后回复你。") },
-  { QStringLiteral("Jasper"), QStringLiteral(":/res/head_19.jpg"),
-    QStringLiteral("代码审查已经完成。") },
-  { QStringLiteral("Zoe"), QStringLiteral(":/res/head_20.jpg"),
-    QStringLiteral("明天见，晚安！") },
-  { QStringLiteral("Akari"), QStringLiteral(":/res/head_21.jpg"),
-    QStringLiteral("新番更新啦，一起看吗？") },
-  { QStringLiteral("Hikari"), QStringLiteral(":/res/head_22.jpg"),
-    QStringLiteral("今天也要元气满满！") },
-  { QStringLiteral("Ren"), QStringLiteral(":/res/head_23.jpg"),
-    QStringLiteral("这个表情包太可爱了。") },
-  { QStringLiteral("Sora"), QStringLiteral(":/res/head_24.jpg"),
-    QStringLiteral("组队任务还差一个人。") },
-  { QStringLiteral("Yuki"), QStringLiteral(":/res/head_25.jpg"),
-    QStringLiteral("漫画看到最新一话了吗？") },
-  { QStringLiteral("Rin"), QStringLiteral(":/res/head_26.jpg"),
-    QStringLiteral("头像切换测试通过。") },
-  { QStringLiteral("Kaito"), QStringLiteral(":/res/head_27.jpg"),
-    QStringLiteral("晚上八点准时上线。") },
-  { QStringLiteral("Mei"), QStringLiteral(":/res/head_28.jpg"),
-    QStringLiteral("今天画了一张新立绘。") },
-  { QStringLiteral("Haru"), QStringLiteral(":/res/head_29.jpg"),
-    QStringLiteral("活动奖励已经领取。") },
-  { QStringLiteral("Aoi"), QStringLiteral(":/res/head_30.jpg"),
-    QStringLiteral("下次漫展见！") },
-}};
-
-} // namespace
 
 ChatDialog::ChatDialog(QWidget *parent)
   : QDialog(parent), ui(new Ui::ChatDialog), _mode(ChatUIMode::ChatMode),
@@ -126,6 +44,91 @@ ChatDialog::ChatDialog(QWidget *parent)
   connect(ui->chat_user_list, &ChatUserList::sig_loading_chat_user, this,
           &ChatDialog::slot_loading_chat_user);
   addChatUserList();
+
+  QPixmap pixmap(":/res/head_1.jpg");
+  ui->side_head_lb->setPixmap(pixmap); // 将图片设置到QLabel上
+  QPixmap scaledPixmap
+    = pixmap.scaled(ui->side_head_lb->size(), Qt::KeepAspectRatio); // 将图片缩放到label的大小
+  ui->side_head_lb->setPixmap(scaledPixmap);                        // 将缩放后的图片设置到QLabel上
+  ui->side_head_lb->setScaledContents(true); // 设置QLabel自动缩放图片内容以适应大小
+
+  ui->side_chat_lb->setProperty("state", "normal");
+
+  ui->side_chat_lb->SetState("normal", "hover", "pressed", "selected_normal", "selected_hover",
+                             "selected_pressed");
+
+  ui->side_contact_lb->SetState("normal", "hover", "pressed", "selected_normal", "selected_hover",
+                                "selected_pressed");
+
+  AddLBGroup(ui->side_chat_lb);
+  AddLBGroup(ui->side_contact_lb);
+
+  connect(ui->side_chat_lb, &StateWidget::clicked, this, [this]() {
+    // 当前位于聊天界面：聊天图标保持绿色选中，其他导航图标恢复普通状态。
+    ClearLabelState(ui->side_chat_lb);
+    ui->side_chat_lb->SetSelected(true);
+    ui->stackedWidget->setCurrentWidget(ui->chat_page);
+    _state = ChatUIMode::ChatMode;
+    ShowSearch(false);
+  });
+  connect(ui->side_contact_lb, &StateWidget::clicked, this, [this]() {
+    // 当前位于联系人界面：联系人图标保持绿色选中，其他导航图标恢复普通状态。
+    ClearLabelState(ui->side_contact_lb);
+    ui->side_contact_lb->SetSelected(true);
+    ui->stackedWidget->setCurrentWidget(ui->friend_apply_page);
+    _state = ChatUIMode::ContactMode;
+    ShowSearch(false);
+  });
+  // 链接搜索框输入变化
+  connect(ui->search_edit, &QLineEdit::textChanged, this, [this](const QString &str) {
+    if (!str.isEmpty()) {
+      ShowSearch(true);
+    }
+  });
+  this->installEventFilter(this);
+  ui->side_chat_lb->SetSelected(true);
+}
+
+void ChatDialog::ClearLabelState(StateWidget *lb)
+{
+  for (auto &ele : _lb_list) {
+    if (ele == lb) {
+      continue;
+    }
+
+    ele->ClearState();
+  }
+}
+void ChatDialog::AddLBGroup(StateWidget *lb)
+{
+  _lb_list.push_back(lb);
+}
+
+bool ChatDialog::eventFilter(QObject *watched, QEvent *event)
+{
+  if (event->type() == QEvent::MouseButtonPress) {
+    QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
+    handleGlobalMousePress(mouseEvent);
+  }
+  return QDialog::eventFilter(watched, event);
+}
+
+void ChatDialog::handleGlobalMousePress(QMouseEvent *event)
+{
+  // 实现点击位置的判断和处理逻辑
+  // 先判断是否处于搜索模式，如果不处于搜索模式则直接返回
+  if (_mode != ChatUIMode::SearchMode) {
+    return;
+  }
+
+  // 将鼠标点击位置转换为搜索列表坐标系中的位置
+  QPoint posInSearchList = ui->search_list->mapFromGlobal(event->globalPos());
+  // 判断点击位置是否在聊天列表的范围内
+  if (!ui->search_list->rect().contains(posInSearchList)) {
+    // 如果不在聊天列表内，清空输入框
+    ui->search_edit->clear();
+    ShowSearch(false);
+  }
 }
 void ChatDialog::ShowSearch(bool bsearch)
 {

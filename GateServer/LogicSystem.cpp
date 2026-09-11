@@ -328,8 +328,6 @@ LogicSystem::LogicSystem() {
 		auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
 		LOG_DEBUG("POST /user_login received, body bytes=", body_str.size());
 		connection->_response.set(http::field::content_type, "text/json");
-
-		// 与 /user_register、/reset_pwd 使用相同命名规范。
 		Json::Value request_json;
 		Json::Value response_json;
 		Json::Reader reader;
@@ -396,7 +394,7 @@ LogicSystem::LogicSystem() {
 		response_json["token"] = status_reply.token();
 		response_json["host"] = status_reply.host();
 		response_json["port"] = status_reply.port();
-		// token 属于登录凭据，只返回给客户端，绝不写入日志。
+		// token 属于登录凭据，只返回给客户端，不能写入日志
 		std::string jsonstr = response_json.toStyledString();
 		beast::ostream(connection->_response.body()) << jsonstr;
 		return true;

@@ -14,7 +14,7 @@
 POST /get_verifycode HTTP/1.1														HTTP/1.1 200 OK
 Host: 127.0.0.1 : 8080																	Server: GateServer
 Content - Type : application / json											Content-Type: application/json
-Content - Length : 28																		Content-Length: 38
+Content - Length : 26																		Content-Length: 38
 {"email":"user@example.com"}																	{"error":0,"email":"user@example.com"}
 _request																								_response
 ├─ method       POST																	├─ version      HTTP/1.1

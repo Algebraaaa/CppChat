@@ -35,7 +35,7 @@ namespace
 	}
 }
 
-Logger& Logger::Instance()
+Logger& Logger::GetInstance()
 {
 	// 第一次调用时创建，以后始终返回同一个对象。
 	static Logger logger;
