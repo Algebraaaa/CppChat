@@ -26,10 +26,52 @@ B站恋恋风辰大佬的C++全栈即时通讯项目，我在辰哥的基础上�
 ## 运行实例
 
 客户端运行效果：
-<img width="1500" height="1050" alt="image" src="https://github.com/user-attachments/assets/cb34e668-eda6-41e5-80e4-e459629f5a93" />
+
+登录：
+
+<img width="453" height="809" alt="image" src="https://github.com/user-attachments/assets/6c8c808b-9e42-4424-841b-6b80b6305349" />
+
+重置密码：
+
+<img width="452" height="810" alt="image" src="https://github.com/user-attachments/assets/a18cdc2e-c3fd-4535-915d-21ae6bc4543a" />
+
+注册：
+
+<img width="452" height="810" alt="image" src="https://github.com/user-attachments/assets/6bffa092-79f2-4638-ac66-40f33a70ae23" />
+
+聊天：
+
+<img width="1499" height="1049" alt="image" src="https://github.com/user-attachments/assets/fe7083f8-d45f-4a33-9314-198dce8a9d40" />
+
+联系人：
+
+<img width="1499" height="1049" alt="image" src="https://github.com/user-attachments/assets/99054d07-6706-4483-acd2-3b20f1f83a55" />
+
+
 
 
 服务端运行效果：
-<img width="1730" height="828" alt="image" src="https://github.com/user-attachments/assets/4d0706a1-0df4-4876-b020-955123cb3fc5" />
+
+GateServer：
+
+<img width="1730" height="924" alt="image" src="https://github.com/user-attachments/assets/b42a2cdd-e698-4056-b094-592e7060bb76" />
+
+VerifyServer：
+
+<img width="1730" height="924" alt="image" src="https://github.com/user-attachments/assets/f2d77e6d-24b9-4f25-83ad-93f67f3d9fae" />
+
+ChatServer：
+
+<img width="1730" height="924" alt="image" src="https://github.com/user-attachments/assets/8101e060-52a4-4365-a2ee-a7a0a23c0a3a" />
+
+ChatServer2：
+
+<img width="1730" height="924" alt="image" src="https://github.com/user-attachments/assets/dbba2d10-09ed-4707-ac5c-818b5be7d2ac" />
+
+StatusServer：
+
+<img width="1730" height="924" alt="image" src="https://github.com/user-attachments/assets/fadcf977-a2a5-4f7a-815a-bb657f48697a" />
+
+
 
 
