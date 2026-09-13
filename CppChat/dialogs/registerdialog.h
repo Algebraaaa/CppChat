@@ -1,6 +1,7 @@
 #ifndef REGISTERDIALOG_H
 #define REGISTERDIALOG_H
 #include "common/global.h"
+#include <QByteArray>
 #include <QDialog>
 #include <QJsonObject>
 #include <QMap>
@@ -23,7 +24,7 @@ private slots:
   void on_get_code_clicked();
   void on_cancel_btn_clicked();
   void on_confirm_btn_clicked();
-  void slot_reg_mod_finish(ReqId id, QString res, ErrorCodes err);
+  void slot_reg_mod_finish(ReqId id, QByteArray data, ErrorCodes err);
   void ChangeTipPage();
   void on_return_btn_clicked();
 

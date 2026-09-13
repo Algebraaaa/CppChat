@@ -42,32 +42,36 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
                  << "error:" << reply->errorString()
                  << "url:" << reply->url();
       // 发送信号通知完成
-      emit self->sig_http_finish(req_id, "", ErrorCodes::ERR_NETWORK, mod);
+      emit self->sig_http_finish(req_id, QByteArray{}, ErrorCodes::NetworkError, mod);
       reply->deleteLater();
       return;
     }
     // 无错误
-    QString res = reply->readAll(); // 没出错，读出服务器返回的内容
+    const QByteArray responseData = reply->readAll(); // 直接保留服务器返回的原始字节
     qDebug() << "HTTP response received"
              << "reqId:" << static_cast<int>(req_id)
              << "module:" << static_cast<int>(mod)
-             << "bytes:" << res.toUtf8().size()
+             << "bytes:" << responseData.size()
              << "url:" << reply->url();
     // 发送信号通知完成
-    emit self->sig_http_finish(req_id, res, ErrorCodes::SUCCESS, mod);
+    emit self->sig_http_finish(req_id, responseData, ErrorCodes::Success, mod);
     reply->deleteLater();
     return;
   });
 }
 
-void HttpMgr::slot_http_finish(ReqId id, QString res, ErrorCodes err, Modules mod)
+void HttpMgr::slot_http_finish(ReqId id, QByteArray data, ErrorCodes err, Modules mod)
 {
+  // 注册
   if (mod == Modules::REGISTERMOD) {
-    // 发送信号通知指定模块http的响应结束了
-    emit sig_reg_mod_finish(id, res, err);
-  } else if (mod == Modules::RESETMOD) {
-    emit sig_reset_mod_finish(id, res, err);
-  } else if (mod == Modules::LOGINMOD) {
-    emit sig_login_mod_finish(id, res, err);
+    emit sig_reg_mod_finish(id, data, err);
+  }
+  // 重置密码
+  else if (mod == Modules::RESETMOD) {
+    emit sig_reset_mod_finish(id, data, err);
+  }
+  // 登录
+  else if (mod == Modules::LOGINMOD) {
+    emit sig_login_mod_finish(id, data, err);
   }
 }

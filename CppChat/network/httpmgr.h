@@ -2,10 +2,10 @@
 #define HTTPMGR_H
 #include "common/singleton.h"
 #include "common/global.h"
+#include <QByteArray>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QObject>
-#include <QString>
 #include <QUrl>
 #include <memory>
 // CRTP
@@ -26,16 +26,16 @@ private:
   // 封装"发一个 POST 请求"的动作
 
 private slots:
-  void slot_http_finish(ReqId id, QString res, ErrorCodes err, Modules mod);
+  void slot_http_finish(ReqId id, QByteArray data, ErrorCodes err, Modules mod);
 signals:
   // id：这次是哪种请求（获取验证码？还是注册？
-  // res：服务器返回的内容（一段文本）
+  // data：服务器返回的原始字节，可直接交给 QJsonDocument::fromJson()。
   // err：成功还是出错了
   // mod：哪个模块发的
-  void sig_http_finish(ReqId id, QString res, ErrorCodes err, Modules mod);
-  void sig_reg_mod_finish(ReqId id, QString res, ErrorCodes err);
-  void sig_reset_mod_finish(ReqId id, QString res, ErrorCodes err);
-  void sig_login_mod_finish(ReqId id, QString res, ErrorCodes err);
+  void sig_http_finish(ReqId id, QByteArray data, ErrorCodes err, Modules mod);
+  void sig_reg_mod_finish(ReqId id, QByteArray data, ErrorCodes err);
+  void sig_reset_mod_finish(ReqId id, QByteArray data, ErrorCodes err);
+  void sig_login_mod_finish(ReqId id, QByteArray data, ErrorCodes err);
 };
 
 #endif // HTTPMGR_H

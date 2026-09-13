@@ -2,6 +2,7 @@
 #define RESETDIALOG_H
 
 #include "common/global.h"
+#include <QByteArray>
 #include <QDialog>
 #include <QMap>
 #include <QString>
@@ -38,7 +39,7 @@ private slots:
   void on_confirm_btn_clicked();
   void on_get_verify_btn_clicked();
 
-  void slot_reset_mod_finish(ReqId id, QString res, ErrorCodes err);
+  void slot_reset_mod_finish(ReqId id, QByteArray data, ErrorCodes err);
 };
 
 #endif // RESETDIALOG_H

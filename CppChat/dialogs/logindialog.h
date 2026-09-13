@@ -2,7 +2,11 @@
 #define LOGINDIALOG_H
 
 #include "common/global.h"
+#include <QByteArray>
 #include <QDialog>
+#include <QJsonObject>
+#include <QMap>
+#include <functional>
 namespace Ui {
 class LoginDialog;
 }
@@ -13,6 +17,7 @@ class LoginDialog : public QDialog {
 public:
   explicit LoginDialog(QWidget *parent = nullptr);
   ~LoginDialog();
+  void ResetForLogin(const QString &message = {});
 
 private:
   void initHttpHandlers();
@@ -28,7 +33,7 @@ private:
   bool enableBtn(bool enabled);
   void slot_tcp_con_finish(bool bsuccess);
   void slot_login_failed(int error);
-  int _uid;
+  int _uid = 0;
   QString _token;
 signals:
   void switchRegister();
@@ -38,7 +43,7 @@ private slots:
   void on_reg_btn_clicked();
   void slot_forget_pwd();
   void on_login_btn_clicked();
-  void slot_login_mod_finish(ReqId id, QString res, ErrorCodes err);
+  void slot_login_mod_finish(ReqId id, QByteArray data, ErrorCodes err);
 };
 
 #endif // LOGINDIALOG_H

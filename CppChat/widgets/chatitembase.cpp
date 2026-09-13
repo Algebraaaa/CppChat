@@ -38,6 +38,11 @@ ChatItemBase::ChatItemBase(ChatRole role, QWidget *parent) : QWidget(parent), m_
     pGLayout->setColumnStretch(1, 3);
     pGLayout->setColumnStretch(2, 2);
   }
+  m_pStatusLabel = new QLabel(this);
+  m_pStatusLabel->setObjectName("message_status");
+  m_pStatusLabel->setAlignment(m_role == ChatRole::Self ? Qt::AlignRight : Qt::AlignLeft);
+  pGLayout->addWidget(m_pStatusLabel, 2, 1);
+  m_pStatusLabel->hide();
   this->setLayout(pGLayout);
 }
 
@@ -54,7 +59,17 @@ void ChatItemBase::setUserIcon(const QPixmap &icon)
 void ChatItemBase::setWidget(QWidget *w)
 {
   QGridLayout *pGLayout = (qobject_cast<QGridLayout *>)(this->layout());
-  pGLayout->replaceWidget(m_pBubble, w);
+  if (!w) return;
+  delete pGLayout->replaceWidget(m_pBubble, w);
   delete m_pBubble;
   m_pBubble = w;
+}
+
+void ChatItemBase::setStatus(int status)
+{
+  if (m_role != ChatRole::Self) return;
+  m_pStatusLabel->setText(status < 0 ? tr("发送中") : (status == SEND_FAILED ? tr("发送失败") : tr("已发送")));
+  m_pStatusLabel->setProperty("failed", status == SEND_FAILED);
+  repolish(m_pStatusLabel);
+  m_pStatusLabel->show();
 }

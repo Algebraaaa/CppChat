@@ -65,6 +65,8 @@ private:
 	std::atomic_bool cleanup_started_{ false };
 	std::atomic_int user_id_{ 0 };
 	std::atomic<std::time_t> last_heartbeat_;
+	// send_queue_ 是“当前客户端连接的待发送消息队列”
+	// 1、解耦合，削峰，2、保证发送的顺序 3、多线程安全
 	std::queue<std::shared_ptr<SendNode>> send_queue_;
 	std::mutex send_mutex_;
 	std::shared_ptr<RecvNode> receive_message_node_;

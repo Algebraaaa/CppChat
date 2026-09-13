@@ -19,6 +19,7 @@ public:
   explicit ApplyFriendPage(QWidget *parent = nullptr);
   ~ApplyFriendPage();
   void AddNewApply(std::shared_ptr<AddFriendApply> apply);
+  void Reload();
 
 protected:
   void paintEvent(QPaintEvent *event);

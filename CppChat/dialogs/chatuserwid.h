@@ -3,6 +3,8 @@
 
 #include "common/listitembase.h"
 #include <QWidget>
+#include "common/userdata.h"
+class QLabel;
 namespace Ui {
 class ChatUserWid;
 }
@@ -15,9 +17,12 @@ public:
   ~ChatUserWid();
   QSize sizeHint() const override;
   void SetInfo(QString name, QString head, QString msg);
+  void SetChatData(std::shared_ptr<ChatThreadData> data);
+  void ShowRedPoint(bool show);
 
 private:
   Ui::ChatUserWid *ui;
+  QLabel *_unreadLabel = nullptr;
   QString _name;
   QString _head;
   QString _msg;

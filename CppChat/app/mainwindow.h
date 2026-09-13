@@ -49,6 +49,7 @@ private:
   // 初始化：标题栏、业务页面、页面信号及鼠标监听。
   void setupTitleBar();
   void setupPages();
+  void returnToLogin(const QString &message);
   void setupMouseTracking();
   void updatePageWindowSize();
 

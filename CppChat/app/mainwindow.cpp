@@ -4,6 +4,7 @@
 #include "dialogs/registerdialog.h"
 #include "dialogs/resetdialog.h"
 #include "network/tcpmgr.h"
+#include "network/usermgr.h"
 #include "ui_mainwindow.h"
 
 #include <QApplication>
@@ -50,7 +51,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
   // TCP 登录成功后，网络模块通知主窗口进入聊天页
   connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_swich_chatdlg, this,
-          [this]() { _pages->setCurrentWidget(_chatDialog); });
+          [this]() {
+            _chatDialog->StartSession();
+            _pages->setCurrentWidget(_chatDialog);
+          });
+  connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_notify_offline, this,
+          [this]() { returnToLogin(tr("该账号已在其他设备登录，请重新登录")); });
+  connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_connection_closed, this,
+          [this]() { returnToLogin(tr("聊天连接已断开，请重新登录")); });
+  connect(_chatDialog, &ChatDialog::sig_logout, this,
+          [this]() { returnToLogin(tr("已退出登录")); });
 
 #ifdef Q_OS_WIN
   // 创建 Windows 窗口句柄 HWND，再设置样式和圆角；此处不会显示窗口。
@@ -407,4 +417,13 @@ void MainWindow::updateResizeCursor(Qt::Edges edges)
   } else {
     unsetCursor();
   }
+}
+
+void MainWindow::returnToLogin(const QString &message)
+{
+  TcpMgr::GetInstance()->CloseConnection();
+  _pages->setCurrentWidget(_loginDialog);
+  UserMgr::GetInstance()->Reset();
+  _chatDialog->ResetSession();
+  _loginDialog->ResetForLogin(message);
 }

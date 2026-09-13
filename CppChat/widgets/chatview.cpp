@@ -180,3 +180,27 @@ void ChatView::updateBarVisibility()
 
   scrollBar->setVisible(hasScrollableContent && shouldRemainVisible);
 }
+
+void ChatView::removeAllItem()
+{
+  m_pScrollAnimation->stop();
+  isAppended = false;
+  m_scrollTarget = 0;
+  auto *layout = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
+  while (layout->count() > 1) {
+    auto *item = layout->takeAt(0);
+    delete item->widget();
+    delete item;
+  }
+}
+void ChatView::prependChatItem(QWidget *item)
+{
+  auto *layout = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
+  layout->insertWidget(0, item);
+}
+void ChatView::insertChatItem(QWidget *before, QWidget *item)
+{
+  auto *layout = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
+  const int index = layout->indexOf(before);
+  layout->insertWidget(index < 0 ? layout->count() - 1 : index, item);
+}

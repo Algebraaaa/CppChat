@@ -21,6 +21,7 @@ void ApplyFriendItem::SetInfo(std::shared_ptr<ApplyInfo> apply_info)
   _apply_info = apply_info;
   // 加载图片
   QPixmap pixmap(_apply_info->_icon);
+  if (pixmap.isNull()) pixmap.load(":/res/head_1.jpg");
 
   // 设置图片自动缩放
   ui->icon_lb->setPixmap(

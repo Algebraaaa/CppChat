@@ -505,11 +505,15 @@ void LogicSystem::DealChatTextMsg(
 	message::TextChatMsgReq grpc_request;
 	grpc_request.set_fromuid(from_uid);
 	grpc_request.set_touid(to_uid);
+	grpc_request.set_thread_id(thread_id);
 	for (const auto& message : messages)
 	{
 		auto* value = grpc_request.add_textmsgs();
 		value->set_msgid(message->unique_id);
 		value->set_msgcontent(message->content);
+		value->set_message_id(message->message_id);
+		value->set_chat_time(message->chat_time);
+		value->set_status(message->status);
 	}
 	ChatGrpcClient::GetInstance()->NotifyTextChatMsg(destination, grpc_request, response);
 }

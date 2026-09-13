@@ -3,51 +3,58 @@
 #include "common/global.h"
 #include "common/singleton.h"
 #include "common/userdata.h"
-#include <QObject>
+#include <QElapsedTimer>
 #include <QTcpSocket>
+#include <QTimer>
 #include <functional>
-class TcpMgr : public QObject,
-               public Singleton<TcpMgr>,
-               public std::enable_shared_from_this<TcpMgr> {
-  Q_OBJECT
-public:
-  ~TcpMgr();
 
-private:
+class TcpMgr : public QObject, public Singleton<TcpMgr> {
+  Q_OBJECT
   friend class Singleton<TcpMgr>;
+public:
+  ~TcpMgr() override = default;
+  void CloseConnection();
+  bool IsConnected() const;
+public slots:
+  void slot_tcp_connect(ServerInfo server);
+  void slot_send_data(ReqId id, QByteArray data);
+signals:
+  void sig_con_success(bool success);
+  void sig_send_data(ReqId id, QByteArray data);
+  void sig_swich_chatdlg();
+  void sig_login_failed(int error);
+  void sig_send_failed(ReqId id);
+  void sig_request_failed(ReqId request, QString message);
+  void sig_user_search(std::shared_ptr<SearchInfo> info);
+  void sig_friend_apply(std::shared_ptr<AddFriendApply> apply);
+  void sig_add_auth_friend(std::shared_ptr<AuthInfo> info);
+  void sig_auth_rsp(std::shared_ptr<AuthRsp> info);
+  void sig_add_friend_rsp(int uid);
+  void sig_text_chat_msg(std::vector<std::shared_ptr<TextChatData>> messages);
+  void sig_notify_offline();
+  void sig_connection_closed();
+  void sig_load_chat_thread(bool more, int lastId, std::vector<std::shared_ptr<ChatThreadInfo>> threads);
+  void sig_create_private_chat(int uid, int otherId, int threadId);
+  void sig_load_chat_msg(int threadId, int messageId, bool more, std::vector<std::shared_ptr<TextChatData>> messages);
+  void sig_chat_msg_rsp(int threadId, std::vector<std::shared_ptr<TextChatData>> messages);
+private:
   TcpMgr();
   void initHandlers();
-  void handleMsg(ReqId id, int len, QByteArray data);
-  void handleSocketError(QAbstractSocket::SocketError error);
-  // 它是真正负责TCP通信的对象。主要操作包括：
-  //_socket.connectToHost(host, port); // 连接服务器
-  //_socket.write(data);               // 发送数据
-  //_socket.readAll();                 // 读取数据
+  void readPackets();
+  void handleMsg(ReqId id, const QByteArray &data);
+  void failRequest(ReqId request, const QString &message);
+  void startRequestTimer(ReqId request);
+  void stopRequestTimer(ReqId request);
+  void resetConnectionState();
   QTcpSocket _socket;
-  // GateServer返回的聊天服务器地址
-  QString _host;
-  uint16_t _port;
-  // 收包缓冲区，TCP收到的数据不一定正好是一条完整消息，因此需要把每次收到的数据不断追加到 _buffer：
   QByteArray _buffer;
-  // false：还没有解析消息头
-  // true ：消息头已经解析完，正在等待完整消息体
-  bool _b_recv_pending;
-  quint16 _message_id;
-  quint16 _message_len;
-  // 消息ID到处理函数”的映射表：回包根据RequestID找到对应的处理函数
-  QMap<ReqId, std::function<void(ReqId id, int len, QByteArray data)>> _handlers;
-public slots:
-  void slot_tcp_connect(ServerInfo);
-  void slot_send_data(ReqId reqId, QString data);
-signals:
-  void sig_con_success(bool bsuccess);
-  void sig_send_data(ReqId reqId, QString data);
-  void sig_swich_chatdlg();
-  void sig_login_failed(int);
-  void sig_user_search(std::shared_ptr<SearchInfo>);
-  void sig_friend_apply(std::shared_ptr<AddFriendApply>);
-  void sig_add_auth_friend(std::shared_ptr<AuthInfo>);
-  void sig_auth_rsp(std::shared_ptr<AuthRsp>);
+  bool _loggedIn = false;
+  int _applyTarget = 0;
+  QTimer _connectTimer;
+  QTimer _heartbeatTimer;
+  QElapsedTimer _lastHeartbeat;
+  QMap<ReqId, QTimer *> _requestTimers;
+  QMap<ReqId, QJsonObject> _pendingRequests;
+  QMap<ReqId, std::function<void(const QJsonObject &)>> _handlers;
 };
-
 #endif // TCPMGR_H

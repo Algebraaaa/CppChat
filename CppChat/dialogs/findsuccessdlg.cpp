@@ -1,48 +1,45 @@
 #include "findsuccessdlg.h"
+#include "applyfriend.h"
+#include "network/usermgr.h"
 #include "ui_findsuccessdlg.h"
-#include <QDir>
-FindSuccessDlg::FindSuccessDlg(QWidget *parent) : QDialog(parent), ui(new Ui::FindSuccessDlg)
+#include <QPushButton>
+
+FindSuccessDlg::FindSuccessDlg(QWidget *parent) : QDialog(parent), ui(new Ui::FindSuccessDlg), _parent(parent)
 {
   ui->setupUi(this);
-  // 设置对话框标题
-  setWindowTitle("添加");
-  // 隐藏对话框标题栏
   setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
-  // 获取当前应用程序的路径
-  QDir appDir(QCoreApplication::applicationDirPath());
-
-  // 已存在时也会返回 true；不存在时创建目录。
-  if (!appDir.mkpath("static")) {
-    qWarning() << "创建头像目录失败";
-  }
-
-  QString pixPath = appDir.filePath("static/head_1.jpg");
-  QPixmap headPix(pixPath);
-
-  // 创建文件夹不会自动生成图片，加载失败时使用默认头像。
-  if (headPix.isNull()) {
-    headPix.load(":/res/head_1.jpg");
-  }
-
-  headPix = headPix.scaled(ui->head_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-  ui->head_lb->setPixmap(headPix);
+  setObjectName("FindSuccessDlg");
   ui->add_friend_btn->SetState("normal", "hover", "press");
-  this->setModal(true);
+  auto *close = new QPushButton(QStringLiteral("×"), this);
+  close->setObjectName("close_btn");
+  close->setGeometry(width() - 30, 2, 28, 28);
+  close->setToolTip(tr("关闭"));
+  connect(close, &QPushButton::clicked, this, &QDialog::reject);
 }
-
-FindSuccessDlg::~FindSuccessDlg()
+FindSuccessDlg::~FindSuccessDlg() { delete ui; }
+void FindSuccessDlg::SetSearchInfo(std::shared_ptr<SearchInfo> info)
 {
-  qDebug() << "FindSuccessDlg destruct";
-  delete ui;
+  _si = info;
+  ui->name_lb->setText(info->_name);
+  QPixmap icon(info->_icon);
+  if (icon.isNull()) icon.load(":/res/head_1.jpg");
+  ui->head_lb->setPixmap(icon.scaled(ui->head_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+  const auto mgr = UserMgr::GetInstance();
+  const bool self = info->_uid == mgr->GetUid();
+  ui->add_friend_btn->setEnabled(!self);
+  ui->add_friend_btn->setText(self ? tr("这是你自己") :
+      (mgr->CheckFriendById(info->_uid) ? tr("发送消息") : tr("添加到通讯录")));
 }
-
-void FindSuccessDlg::SetSearchInfo(std::shared_ptr<SearchInfo> si)
-{
-  ui->name_lb->setText(si->_name);
-  _si = si;
-}
-
 void FindSuccessDlg::on_add_friend_btn_clicked()
 {
-  // todo... 添加好友界面弹出
+  if (!_si || _si->_uid == UserMgr::GetInstance()->GetUid()) return;
+  if (UserMgr::GetInstance()->CheckFriendById(_si->_uid)) {
+    emit sig_jump_chat_item(_si);
+  } else {
+    auto *dialog = new ApplyFriend(_parent);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->SetSearchInfo(_si);
+    dialog->open();
+  }
+  accept();
 }

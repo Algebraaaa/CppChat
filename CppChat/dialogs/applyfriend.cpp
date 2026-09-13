@@ -1,7 +1,11 @@
 #include "applyfriend.h"
+#include "network/tcpmgr.h"
 #include "network/usermgr.h"
 #include "ui_applyfriend.h"
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QScrollBar>
+#include <QMessageBox>
 ApplyFriend::ApplyFriend(QWidget *parent)
   : QDialog(parent), ui(new Ui::ApplyFriend), _label_point(2, 6)
 {
@@ -10,9 +14,9 @@ ApplyFriend::ApplyFriend(QWidget *parent)
   setWindowFlags(windowFlags() | Qt::FramelessWindowHint);
   this->setObjectName("ApplyFriend");
   this->setModal(true);
-  ui->name_ed->setPlaceholderText(tr("恋恋风辰"));
+  ui->name_ed->setPlaceholderText(tr("我是 %1").arg(UserMgr::GetInstance()->GetName()));
   ui->lb_ed->setPlaceholderText("搜索、添加标签");
-  ui->back_ed->setPlaceholderText("燃烧的胸毛");
+  ui->back_ed->setPlaceholderText(tr("好友备注"));
 
   ui->lb_ed->SetMaxLength(21);
   ui->lb_ed->move(2, 2);
@@ -39,9 +43,27 @@ ApplyFriend::ApplyFriend(QWidget *parent)
   ui->scrollArea->installEventFilter(this);
   ui->sure_btn->SetState("normal", "hover", "press");
   ui->cancel_btn->SetState("normal", "hover", "press");
-  // 连接确认和取消按钮的槽函数
-  connect(ui->cancel_btn, &QPushButton::clicked, this, &ApplyFriend::SlotApplyCancel);
-  connect(ui->sure_btn, &QPushButton::clicked, this, &ApplyFriend::SlotApplySure);
+  auto tcp = TcpMgr::GetInstance();
+  connect(tcp.get(), &TcpMgr::sig_add_friend_rsp, this, [this](int uid) {
+    if (_pending && _si && uid == _si->_uid) { _pending = false; accept(); }
+  });
+  connect(tcp.get(), &TcpMgr::sig_auth_rsp, this, [this](std::shared_ptr<AuthRsp> auth) {
+    if (!_pending || !_applyInfo || auth->_uid != _applyInfo->_uid) return;
+    const auto friendInfo = UserMgr::GetInstance()->GetFriendById(auth->_uid);
+    if (friendInfo) friendInfo->_back = ui->back_ed->text().trimmed();
+    _pending = false;
+    accept();
+  });
+  connect(tcp.get(), &TcpMgr::sig_request_failed, this, [this](ReqId request, const QString &message) {
+    const auto expected = _applyInfo ? ID_AUTH_FRIEND_REQ : ID_ADD_FRIEND_REQ;
+    if (!_pending || request != expected) return;
+    _pending = false;
+    ui->sure_btn->setEnabled(true);
+    ui->cancel_btn->setEnabled(true);
+    QMessageBox::warning(this, tr("操作失败"), message);
+  });
+  connect(tcp.get(), &TcpMgr::sig_connection_closed, this, &QDialog::reject);
+  connect(tcp.get(), &TcpMgr::sig_notify_offline, this, &QDialog::reject);
 }
 
 ApplyFriend::~ApplyFriend()
@@ -52,7 +74,7 @@ ApplyFriend::~ApplyFriend()
 void ApplyFriend::InitTipLbs()
 {
   int lines = 1;
-  for (int i = 0; i < _tip_data.size(); i++) {
+  for (size_t i = 0; i < _tip_data.size(); i++) {
 
     auto *lb = new ClickedLabel(ui->lb_list);
     lb->SetState("normal", "hover", "pressed", "selected_normal", "selected_hover",
@@ -141,7 +163,7 @@ void ApplyFriend::ShowMoreLabel()
   }
 
   // 添加未添加的
-  for (int i = 0; i < _tip_data.size(); i++) {
+  for (size_t i = 0; i < _tip_data.size(); i++) {
     auto iter = _add_labels.find(_tip_data[i]);
     if (iter != _add_labels.end()) {
       continue;
@@ -437,16 +459,58 @@ void ApplyFriend::SlotAddFirendLabelByClickTip(QString text)
 
   ui->scrollcontent->setFixedHeight(ui->scrollcontent->height() + diff_height);
 }
-void ApplyFriend::SlotApplyCancel()
+
+void ApplyFriend::SetApplyInfo(std::shared_ptr<ApplyInfo> info)
 {
-  qDebug() << "Slot Apply Cancel";
-  this->hide();
-  deleteLater();
+  _applyInfo = info;
+  ui->apply_lb->setText(tr("通过好友申请"));
+  ui->label->hide();
+  ui->name_ed->hide();
+  ui->back_ed->setText(info->_name);
+  ui->sure_btn->setText(tr("接受"));
 }
 
-void ApplyFriend::SlotApplySure()
+void ApplyFriend::reject()
 {
-  qDebug() << "Slot Apply Sure called";
+  // 此协议的认证回包不带请求流水号，一次只允许一个申请/认证操作等待回包。
+  if (_pending && TcpMgr::GetInstance()->IsConnected()) return;
+  QDialog::reject();
+}
+
+void ApplyFriend::on_sure_btn_clicked()
+{
+  if (_pending || (!_si && !_applyInfo))
+    return;
+  QJsonObject request;
+  const int uid = UserMgr::GetInstance()->GetUid();
+  const int target = _applyInfo ? _applyInfo->_uid : _si->_uid;
+  if (uid <= 0 || target <= 0 || target == uid)
+    return;
+  const QString back = ui->back_ed->text().trimmed();
+  ReqId id = ID_ADD_FRIEND_REQ;
+  if (_applyInfo) {
+    id = ID_AUTH_FRIEND_REQ;
+    request = { { "fromuid", uid }, { "touid", target }, { "back", back } };
+  } else {
+    const auto name = ui->name_ed->text().trimmed();
+    request = { { "uid", uid },
+                { "touid", target },
+                { "bakname", back },
+                { "applyname", name.isEmpty() ? ui->name_ed->placeholderText() : name } };
+    // 对方通过申请时，通知包在同服转发场景下可能误带当前用户资料；
+    // 暂存搜索到的真实资料，收到通知后按对方 uid 取回。
+    UserMgr::GetInstance()->RememberOutgoingApply(_si);
+  }
+  _pending = true;
+  ui->sure_btn->setEnabled(false);
+  ui->cancel_btn->setEnabled(false);
+  emit TcpMgr::GetInstance()->sig_send_data(id,
+                                            QJsonDocument(request).toJson(QJsonDocument::Compact));
+}
+
+void ApplyFriend::on_cancel_btn_clicked()
+{
+  qDebug() << "Slot Apply Cancel";
   this->hide();
   deleteLater();
 }

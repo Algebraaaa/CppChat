@@ -28,6 +28,10 @@ class RecvNode : public MsgNode
 
 public:
 	RecvNode(short max_length, short message_id);
+	short GetMessageId() const
+	{
+		return _msg_id;
+	}
 
 private:
 	short _msg_id;

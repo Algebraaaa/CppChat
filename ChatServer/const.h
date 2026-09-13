@@ -6,6 +6,7 @@
 
 enum ErrorCodes
 {
+	NetworkError = -1, // 客户端本地网络错误，服务端不返回
 	Success = 0,
 	Error_Json = 1001,
 	RPCFailed = 1002,
@@ -19,7 +20,10 @@ enum ErrorCodes
 	TokenInvalid = 1010,
 	UidInvalid = 1011,
 	CreateChatFailed = 1012,
-	LoadChatFailed = 1013
+	LoadChatFailed = 1013,
+	DatabaseError = 1014,
+	RedisError = 1015,
+	InternalError = 1016,
 };
 
 class Defer
@@ -45,7 +49,9 @@ private:
 	std::function<void()> function_;
 };
 
-inline constexpr std::size_t MAX_LENGTH = 1024 * 2;
+// 历史记录和登录回包会携带数组，2KB 会让 CSession::Send 直接丢弃合法回包。
+// 包头长度字段在服务端使用有符号 short，16KB 保持在其安全范围内。
+inline constexpr std::size_t MAX_LENGTH = 1024 * 16;
 inline constexpr std::size_t HEAD_TOTAL_LEN = 4;
 inline constexpr std::size_t HEAD_ID_LEN = 2;
 inline constexpr std::size_t HEAD_DATA_LEN = 2;

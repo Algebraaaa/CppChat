@@ -33,32 +33,28 @@ void ResetDialog::initHttpHandlers()
 {
   // 注册获取验证码回包逻辑
   _handlers.insert(ReqId::ID_GET_VERIFY_CODE, [this](QJsonObject jsonObj) {
-    int error = jsonObj["error"].toInt();
-    if (error != ErrorCodes::SUCCESS) {
+    const int error = jsonObj.value(QStringLiteral("error")).toInt(ErrorCodes::Error_Json);
+    if (error != ErrorCodes::Success) {
       qWarning() << "Password-reset verification request rejected"
                  << "error:" << error;
-      showTip(tr("参数错误"), false);
+      showTip(errorCodeMessage(error), false);
       return;
     }
     showTip(tr("验证码已发送到邮箱，注意查收"), true);
     qInfo() << "Password-reset verification code request succeeded";
-    qDebug() << "Password-reset verification email accepted.";
   });
 
   // 注册注册用户回包逻辑
   _handlers.insert(ReqId::ID_RESET_PWD, [this](QJsonObject jsonObj) {
-    int error = jsonObj["error"].toInt();
-    if (error != ErrorCodes::SUCCESS) {
+    const int error = jsonObj.value(QStringLiteral("error")).toInt(ErrorCodes::Error_Json);
+    if (error != ErrorCodes::Success) {
       qWarning() << "Password reset request rejected"
                  << "error:" << error;
-      showTip(tr("参数错误"), false);
+      showTip(errorCodeMessage(error), false);
       return;
     }
     showTip(tr("重置成功,点击返回登录"), true);
     qInfo() << "Password reset succeeded";
-    qDebug() << "Password reset user"
-             << "email:" << jsonObj["email"].toString()
-             << "uid:" << jsonObj["uid"].toString();
   });
 }
 void ResetDialog::on_cancel_btn_clicked()
@@ -102,24 +98,24 @@ void ResetDialog::on_get_verify_btn_clicked()
                                       ReqId::ID_GET_VERIFY_CODE, Modules::RESETMOD);
 }
 
-void ResetDialog::slot_reset_mod_finish(ReqId id, QString res, ErrorCodes err)
+void ResetDialog::slot_reset_mod_finish(ReqId id, QByteArray data, ErrorCodes err)
 {
-  if (err != ErrorCodes::SUCCESS) {
-    showTip(tr("网络请求错误"), false);
+  if (err != ErrorCodes::Success) {
+    showTip(errorCodeMessage(err), false);
     return;
   }
 
-  // 解析 JSON 字符串,res需转化为QByteArray
-  QJsonDocument jsonDoc = QJsonDocument::fromJson(res.toUtf8());
+  // HTTP 回包保持为原始字节，可直接解析 JSON。
+  QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
   // json解析错误
   if (jsonDoc.isNull()) {
-    showTip(tr("json解析错误"), false);
+    showTip(errorCodeMessage(ErrorCodes::Error_Json), false);
     return;
   }
 
   // json解析错误
   if (!jsonDoc.isObject()) {
-    showTip(tr("json解析错误"), false);
+    showTip(errorCodeMessage(ErrorCodes::Error_Json), false);
     return;
   }
 

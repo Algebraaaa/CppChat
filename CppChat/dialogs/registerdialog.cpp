@@ -211,24 +211,24 @@ void RegisterDialog::on_cancel_btn_clicked()
   returnToLogin();
 }
 
-void RegisterDialog::slot_reg_mod_finish(ReqId id, QString res, ErrorCodes err)
+void RegisterDialog::slot_reg_mod_finish(ReqId id, QByteArray data, ErrorCodes err)
 {
-  if (err != ErrorCodes::SUCCESS) {
+  if (err != ErrorCodes::Success) {
     if (id == ReqId::ID_GET_VERIFY_CODE) {
       ui->get_code->resetCountdown();
     }
-    showTip(tr("网络请求错误"), false);
+    showTip(errorCodeMessage(err), false);
     return;
   }
 
-  // 解析JSON 字符串，res转化为QByteArray
+  // HTTP 回包保持为原始字节，可直接解析 JSON，避免 QString 往返转换。
   QJsonParseError parseError;
-  const QJsonDocument jsonDoc = QJsonDocument::fromJson(res.toUtf8(), &parseError);
+  const QJsonDocument jsonDoc = QJsonDocument::fromJson(data, &parseError);
   if (parseError.error != QJsonParseError::NoError || !jsonDoc.isObject()) {
     if (id == ReqId::ID_GET_VERIFY_CODE) {
       ui->get_code->resetCountdown();
     }
-    showTip(tr("json解析失败"), false);
+    showTip(errorCodeMessage(ErrorCodes::Error_Json), false);
     return;
   }
 
@@ -244,50 +244,34 @@ void RegisterDialog::initHttpHandlers()
 {
   // 注册获取验证码回报的逻辑
   _handlers.insert(ReqId::ID_GET_VERIFY_CODE, [this](const QJsonObject &jsonObj) {
-    int error = jsonObj["error"].toInt();
-    if (error != ErrorCodes::SUCCESS) {
+    // 也可以按辰哥在具体的cpp文件中这样写：int error = jsonObj["error"].toInt();但存在问题：
+    // QJsonValue::toInt()的默认参数是0。如果字段不存在比如服务端忘写了：{}
+    // 或类型错误，比如：{"error":"1004"}，会直接返回0，对应Success，造成误判
+    // toInt()允许指定转换失败时的默认值
+    // 这样写的意思是error是合法整数 → 返回真实错误码 error缺失或不是整数 → 返回Error_Json
+    const int error = jsonObj.value(QStringLiteral("error")).toInt(ErrorCodes::Error_Json);
+    if (error != ErrorCodes::Success) {
       qWarning() << "Registration verification request rejected"
                  << "error:" << error;
       ui->get_code->resetCountdown();
-      switch (error) {
-      case 1:
-        showTip(tr("验证码保存失败，请稍后重试"), false);
-        break;
-      case 2:
-        showTip(tr("邮件发送失败，请检查邮件服务配置"), false);
-        break;
-      case 1001:
-        showTip(tr("请求数据格式错误"), false);
-        break;
-      case 1002:
-        showTip(tr("验证码服务暂时不可用"), false);
-        break;
-      default:
-        showTip(tr("获取验证码失败，错误码：%1").arg(error), false);
-        break;
-      }
+      showTip(errorCodeMessage(error), false);
       return;
     }
     showTip(tr("验证码已经发送到邮箱"), true);
     qInfo() << "Registration verification code request succeeded";
-    qDebug() << "Registration verification email accepted.";
   });
 
   // 注册注册用户回包逻辑
   _handlers.insert(ReqId::ID_REG_USER, [this](const QJsonObject &jsonObj) {
-    int error = jsonObj["error"].toInt();
-    if (error != ErrorCodes::SUCCESS) {
+    const int error = jsonObj.value(QStringLiteral("error")).toInt(ErrorCodes::Error_Json);
+    if (error != ErrorCodes::Success) {
       qWarning() << "User registration request rejected"
                  << "error:" << error;
-      showTip(tr("参数错误"), false);
+      showTip(errorCodeMessage(error), false);
       return;
     }
     showTip(tr("用户注册成功"), true);
     qInfo() << "User registration succeeded";
-    // 测试阶段保留服务端返回的关键标识；协议字段当前统一为 uid。
-    qDebug() << "Registered user"
-             << "email:" << jsonObj["email"].toString()
-             << "uid:" << jsonObj["uid"].toString();
     ChangeTipPage();
   });
 }

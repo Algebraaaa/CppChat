@@ -165,7 +165,7 @@ LogicSystem::LogicSystem() {
 		std::string verify_code;
 		bool get_verify = RedisMgr::GetInstance()->Get(verify_code_key, verify_code);
 		if (!get_verify) {
-			// 查不到通常表示验证码未申请、已过期，或者 Redis 当前不可用。
+			// 查不到通常表示验证码未申请、已过期，或者 Redis 当前不可用
 			LOG_WARNING(
 				"User registration failed: verification code expired or was not found.");
 			response_json["error"] = ErrorCodes::VerifyExpired;
@@ -173,8 +173,7 @@ LogicSystem::LogicSystem() {
 			beast::ostream(connection->_response.body()) << jsonstr;
 			return true;
 		}
-
-		// Redis 中的正确验证码与客户端提交的验证码必须完全一致。
+		// 查到了但是与客户端输入的验证码不一致
 		if (verify_code != requested_verify_code) {
 			LOG_WARNING(
 				"User registration failed: verification code does not match.");
@@ -184,8 +183,8 @@ LogicSystem::LogicSystem() {
 			return true;
 		}
 
-		// HTTP 层不写 SQL，只通过 MysqlMgr 调用 DAO。
-		// RegUser 返回新 uid；用户名或邮箱重复返回 0；数据库故障返回 -1。
+		// 到此为止：验证码校验完成，开始向mysql中插入注册的用户信息
+		// RegUser 正常返回 uid；用户名或邮箱重复返回 0；数据库故障返回 -1
 		const int uid = MysqlMgr::GetInstance()->RegUser(name, email, password);
 		if (uid == 0) {
 			// 0 对应 users 表的 username/email 唯一索引冲突。
@@ -195,27 +194,24 @@ LogicSystem::LogicSystem() {
 			return true;
 		}
 		if (uid < 0) {
-			// -1 是数据库类错误，不能伪装成 UserExist，否则客户端会得到错误提示。
+			// -1 是数据库类错误
 			LOG_ERROR("User registration failed because MySQL is unavailable or returned an error.");
 			response_json["error"] = ErrorCodes::DatabaseError;
 			beast::ostream(connection->_response.body()) << response_json.toStyledString();
 			return true;
 		}
 
-		// 注册成功后验证码立即失效，防止同一验证码被重复用于创建账号。
-		// 删除失败只记日志，不回滚已经写入的用户：MySQL 注册已经成功是主结果。
+		// 注册成功后删除验证码
 		if (!RedisMgr::GetInstance()->Del(verify_code_key)) {
 			LOG_WARNING("User was registered, but the verification code could not be deleted.");
 		}
 
 		LOG_INFO("User registration completed: uid=", uid);
 
-		// 组织成功响应。ErrorCodes::Success 的值是 0。
 		response_json["error"] = ErrorCodes::Success;
 		response_json["uid"] = uid;
 		response_json["email"] = email;
 		response_json["user"] = name;
-		// 密码、确认密码和验证码属于敏感信息，绝不能放回 HTTP 响应。
 		// toStyledString 把 Json::Value 序列化成字符串，再写入 Beast 响应正文。
 		std::string jsonstr = response_json.toStyledString();
 		beast::ostream(connection->_response.body()) << jsonstr;

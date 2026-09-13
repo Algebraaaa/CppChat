@@ -490,7 +490,6 @@ int MysqlDao::RegUser(
 			return 0;
 		}
 
-		// 其他 SQL 异常记录错误码、SQLState 和说明，但绝不记录用户密码。
 		LOG_ERROR(
 			"MySQL registration failed: code=", exception.getErrorCode(),
 			", state=", exception.getSQLState(),
@@ -619,7 +618,7 @@ bool MysqlDao::UpdatePwd(const std::string& name, const std::string& new_passwor
 
 	try
 	{
-		// users 表只保存 hash、salt 和迭代次数，绝不保存 new_password 明文。
+		// users 表只保存 hash、salt 和迭代次数，不保存 new_password
 		std::unique_ptr<sql::PreparedStatement> update_statement(
 			connection.Get()->prepareStatement(
 				"UPDATE users SET password_hash = ?, password_salt = ?, "

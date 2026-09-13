@@ -7,7 +7,7 @@
 #include "Singleton.h"
 
 class HttpConnection;
-// 把 std::function<void(std::shared_ptr<HttpConnection>)> 
+// 把 std::function<void(std::shared_ptr<HttpConnection>)>
 // 这个很长的类型，起一个短名字叫 HttpHandler。
 // HttpHandler handler;就等价于：
 // std::function<void(std::shared_ptr<HttpConnection>)> handler;

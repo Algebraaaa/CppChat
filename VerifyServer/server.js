@@ -25,7 +25,7 @@ async function GetVerifyCode(grpcCall, grpcCallback) {
   const emailAddress = grpcCall.request.email;
   const verificationCodeKey =
     serverConstants.verificationCodeKeyPrefix + emailAddress;
-  console.log('Verification requested.');
+  console.log('Verification request received.');
 
   try {
     let verificationCode = await redisService.getValue(verificationCodeKey);

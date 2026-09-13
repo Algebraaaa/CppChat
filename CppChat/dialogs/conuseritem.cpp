@@ -76,3 +76,14 @@ std::shared_ptr<UserInfo> ConUserItem::GetInfo()
 {
   return _info;
 }
+
+void ConUserItem::SetInfo(std::shared_ptr<UserInfo> user)
+{
+  _info = user;
+  if (!user) return;
+  QPixmap pixmap(user->_icon);
+  if (pixmap.isNull()) pixmap.load(":/res/head_1.jpg");
+  ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+  ui->icon_lb->setScaledContents(true);
+  ui->user_name_lb->setText(user->_back.isEmpty() ? user->_name : user->_back);
+}

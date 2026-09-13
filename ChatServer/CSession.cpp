@@ -11,6 +11,36 @@
 #include "LogicSystem.h"
 #include "RedisMgr.h"
 
+namespace
+{
+	const char* IncomingRequestName(short message_id)
+	{
+		switch (message_id)
+		{
+		case MSG_CHAT_LOGIN:
+			return "chat login request";
+		case ID_SEARCH_USER_REQ:
+			return "user search request";
+		case ID_ADD_FRIEND_REQ:
+			return "add-friend request";
+		case ID_AUTH_FRIEND_REQ:
+			return "friend authorization request";
+		case ID_TEXT_CHAT_MSG_REQ:
+			return "text chat message request";
+		case ID_HEART_BEAT_REQ:
+			return "heartbeat request";
+		case ID_LOAD_CHAT_THREAD_REQ:
+			return "chat-thread list request";
+		case ID_CREATE_PRIVATE_CHAT_REQ:
+			return "private-chat creation request";
+		case ID_LOAD_CHAT_MSG_REQ:
+			return "chat-message history request";
+		default:
+			return nullptr;
+		}
+	}
+}
+
 CSession::CSession(boost::asio::io_context& io_context, CServer* server)
 	: socket_(io_context),
 	  uuid_(boost::uuids::to_string(boost::uuids::random_generator()())),
@@ -155,8 +185,20 @@ void CSession::AsyncReadBody(std::size_t total_length)
 			static_cast<short>(bytes_transferred);
 		self->receive_message_node_->_data[total_length] = '\0';
 
-		LOG_DEBUG("Received TCP message: uuid=", self->uuid_,
-			", bytes=", bytes_transferred, '.');
+		const short message_id = self->receive_message_node_->GetMessageId();
+		const char* request_name = IncomingRequestName(message_id);
+		if (request_name != nullptr)
+		{
+			LOG_DEBUG("Received ", request_name, ": uuid=", self->uuid_,
+				", message_id=", message_id,
+				", bytes=", bytes_transferred, '.');
+		}
+		else
+		{
+			LOG_WARNING("Received unrecognized TCP message: uuid=", self->uuid_,
+				", message_id=", message_id,
+				", bytes=", bytes_transferred, '.');
+		}
 		self->UpdateHeartbeat();
 		LogicSystem::GetInstance()->PostMsgToQue(std::make_shared<LogicNode>(
 			self,

@@ -18,7 +18,7 @@ message::GetChatServerRsp StatusGrpcClient::GetChatServer(int uid)
     return reply;
   }
 
-  // Defer 保证 RPC 完成或函数提前返回时，Stub 都能归还连接池。
+  // Defer方式：C++析构机制保证退出时执行
   Defer defer([&stub, this]() {
     pool_->ReturnStub(std::move(stub));
     });

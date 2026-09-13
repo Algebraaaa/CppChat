@@ -17,8 +17,10 @@ public:
   void InitTipLbs();
   void AddTipLbs(ClickedLabel *, QPoint cur_point, QPoint &next_point, int text_width,
                  int text_height);
-  bool eventFilter(QObject *obj, QEvent *event);
+  bool eventFilter(QObject *obj, QEvent *event) override;
   void SetSearchInfo(std::shared_ptr<SearchInfo> si);
+  void SetApplyInfo(std::shared_ptr<ApplyInfo> info);
+  void reject() override;
 
 private:
   Ui::ApplyFriend *ui;
@@ -35,6 +37,8 @@ private:
   std::vector<QString> _tip_data;
   QPoint _tip_cur_point;
   std::shared_ptr<SearchInfo> _si;
+  std::shared_ptr<ApplyInfo> _applyInfo;
+  bool _pending = false;
 public slots:
   // 显示更多label标签
   void ShowMoreLabel();
@@ -50,9 +54,8 @@ public slots:
   void SlotLabelEditFinished();
   // 输入标签显示提示框，点击提示框内容后添加好友便签
   void SlotAddFirendLabelByClickTip(QString text);
-  // 处理确认回调
-  void SlotApplySure();
-  // 处理取消回调
-  void SlotApplyCancel();
+private slots:
+  void on_sure_btn_clicked();
+  void on_cancel_btn_clicked();
 };
 #endif // APPLYFRIEND_H

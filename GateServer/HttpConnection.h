@@ -19,7 +19,7 @@ Content - Length : 26																		Content-Length: 38
 _request																								_response
 ├─ method       POST																	├─ version      HTTP/1.1
 ├─ target       /get_verifycode												├─ result       200
-├─ version      HTTP/1.1															├─ reason       OK	
+├─ version      HTTP/1.1															├─ reason       OK
 ├─ fields       Host、Content-Type、Content-Length		├─ fields       Server、Content-Type、Content-Length
 └─ body         {"email":"123@qq.com"}								└─ body         {"error":0,"email":"123@qq.com"}
 */

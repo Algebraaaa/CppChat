@@ -7,10 +7,10 @@
 #include <QJsonObject>
 #include <QPainter>
 #include <QPainterPath>
-#include <QRegularExpression>
 LoginDialog::LoginDialog(QWidget *parent) : QDialog(parent), ui(new Ui::LoginDialog)
 {
   ui->setupUi(this);
+  ui->pass_edit->setEchoMode(QLineEdit::Password);
   ui->forget_label->SetState("normal", "hover", "hover", "normal", "hover", "hover");
   ui->forget_label->setCursor(Qt::PointingHandCursor);
   connect(ui->forget_label, &ClickedLabel::clicked, this, &LoginDialog::slot_forget_pwd);
@@ -39,9 +39,9 @@ LoginDialog::~LoginDialog()
 void LoginDialog::initHttpHandlers()
 { // 注册获取登录回包逻辑
   _handlers.insert(ReqId::ID_LOGIN_USER, [this](QJsonObject jsonObj) {
-    int error = jsonObj["error"].toInt();
-    if (error != ErrorCodes::SUCCESS) {
-      showTip(tr("参数错误"), false);
+    const int error = jsonObj.value(QStringLiteral("error")).toInt(ErrorCodes::Error_Json);
+    if (error != ErrorCodes::Success) {
+      showTip(errorCodeMessage(error), false);
       enableBtn(true);
       return;
     }
@@ -56,7 +56,8 @@ void LoginDialog::initHttpHandlers()
 
     _uid = si.Uid;
     _token = si.Token;
-    qDebug() << "Chat endpoint received, uid:" << si.Uid;
+    qDebug() << "Connecting chat server" << si.Host << si.Port;
+    showTip(tr("账号验证成功，正在连接聊天服务..."), true);
     emit sig_connect_tcp(si);
   });
 }
@@ -69,13 +70,13 @@ void LoginDialog::slot_tcp_con_finish(bool bsuccess)
     jsonObj["token"] = _token;
 
     QJsonDocument doc(jsonObj);
-    QString jsonString = doc.toJson(QJsonDocument::Indented);
-
+    // QString jsonString = doc.toJson(QJsonDocument::Indented);
+    QByteArray jsonData = doc.toJson(QJsonDocument::Compact);
     // 发送tcp请求给chat server
-    TcpMgr::GetInstance()->sig_send_data(ReqId::ID_CHAT_LOGIN, jsonString);
+    TcpMgr::GetInstance()->sig_send_data(ReqId::ID_CHAT_LOGIN, jsonData);
 
   } else {
-    showTip(tr("网络异常"), false);
+    showTip(errorCodeMessage(ErrorCodes::NetworkError), false);
     enableBtn(true);
   }
 }
@@ -83,7 +84,7 @@ void LoginDialog::slot_tcp_con_finish(bool bsuccess)
 void LoginDialog::slot_login_failed(int error)
 {
   qWarning() << "TCP login failed, error:" << error;
-  showTip(tr("登录失败，错误码：%1").arg(error), false);
+  showTip(errorCodeMessage(error), false);
   enableBtn(true);
 }
 
@@ -160,28 +161,15 @@ void LoginDialog::showTip(QString str, bool b_ok)
 
 bool LoginDialog::checkPwdValid()
 {
-  auto pwd = ui->pass_edit->text();
-  if (pwd.length() < 6 || pwd.length() > 15) {
-    qDebug() << "Pass length invalid";
-    // 提示长度不准确
-    AddTipErr(TipError::TIP_PWD_ERR, tr("密码长度应为6~15"));
+  // 复用注册、重置密码页面使用的统一密码规则。
+  // 返回空字符串表示校验成功；非空字符串就是需要展示的错误原因。
+  const QString error = InputValidator::passwordError(ui->pass_edit->text());
+  if (!error.isEmpty()) {
+    AddTipErr(TipError::TIP_PWD_ERR, error);
     return false;
-  }
-
-  // 创建一个正则表达式对象，按照上述密码要求
-  // 这个正则表达式解释：
-  // ^[a-zA-Z0-9!@#$%^&*]{6,15}$ 密码长度至少6，可以是字母、数字和特定的特殊字符
-  QRegularExpression regExp("^[a-zA-Z0-9!@#$%^&*]{6,15}$");
-  bool match = regExp.match(pwd).hasMatch();
-  if (!match) {
-    // 提示字符非法
-    AddTipErr(TipError::TIP_PWD_ERR, tr("不能包含非法字符且长度为(6~15)"));
-    return false;
-    ;
   }
 
   DelTipErr(TipError::TIP_PWD_ERR);
-
   return true;
 }
 bool LoginDialog::enableBtn(bool enabled)
@@ -223,29 +211,41 @@ void LoginDialog::on_login_btn_clicked()
                                       ReqId::ID_LOGIN_USER, Modules::LOGINMOD);
 }
 
-void LoginDialog::slot_login_mod_finish(ReqId id, QString res, ErrorCodes err)
+void LoginDialog::slot_login_mod_finish(ReqId id, QByteArray data, ErrorCodes err)
 {
-  if (err != ErrorCodes::SUCCESS) {
-    showTip(tr("网络请求错误"), false);
+  if (err != ErrorCodes::Success) {
+    showTip(errorCodeMessage(err), false);
+    enableBtn(true);
     return;
   }
 
-  // 解析 JSON 字符串,res需转化为QByteArray
-  QJsonDocument jsonDoc = QJsonDocument::fromJson(res.toUtf8());
+  // HTTP 回包保持为原始字节，可直接解析 JSON。
+  QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
   // json解析错误
   if (jsonDoc.isNull()) {
-    showTip(tr("json解析错误"), false);
+    showTip(errorCodeMessage(ErrorCodes::Error_Json), false);
+    enableBtn(true);
     return;
   }
 
   // json解析错误
   if (!jsonDoc.isObject()) {
-    showTip(tr("json解析错误"), false);
+    showTip(errorCodeMessage(ErrorCodes::Error_Json), false);
+    enableBtn(true);
     return;
   }
 
   // 调用对应的逻辑,根据id回调。
   _handlers[id](jsonDoc.object());
-  showTip(tr("登录成功"), true);
   return;
+}
+
+void LoginDialog::ResetForLogin(const QString &message)
+{
+  _uid = 0;
+  _token.clear();
+  _tipErrors.clear();
+  ui->pass_edit->clear();
+  enableBtn(true);
+  showTip(message, false);
 }

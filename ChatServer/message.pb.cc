@@ -34,7 +34,12 @@ inline constexpr TextChatData::Impl_::Impl_(
             ::_pbi::ConstantInitialized()),
         msgcontent_(
             &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()) {}
+            ::_pbi::ConstantInitialized()),
+        chat_time_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        message_id_{0},
+        status_{0} {}
 
 template <typename>
 PROTOBUF_CONSTEXPR TextChatData::TextChatData(::_pbi::ConstantInitialized)
@@ -485,7 +490,8 @@ inline constexpr TextChatMsgReq::Impl_::Impl_(
       : _cached_size_{0},
         textmsgs_{},
         fromuid_{0},
-        touid_{0} {}
+        touid_{0},
+        thread_id_{0} {}
 
 template <typename>
 PROTOBUF_CONSTEXPR TextChatMsgReq::TextChatMsgReq(::_pbi::ConstantInitialized)
@@ -634,20 +640,28 @@ const ::uint32_t
         2,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::message::TextChatMsgReq, _impl_._has_bits_),
-        6, // hasbit index offset
+        7, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::message::TextChatMsgReq, _impl_.fromuid_),
         PROTOBUF_FIELD_OFFSET(::message::TextChatMsgReq, _impl_.touid_),
         PROTOBUF_FIELD_OFFSET(::message::TextChatMsgReq, _impl_.textmsgs_),
+        PROTOBUF_FIELD_OFFSET(::message::TextChatMsgReq, _impl_.thread_id_),
         1,
         2,
         0,
+        3,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::message::TextChatData, _impl_._has_bits_),
-        5, // hasbit index offset
+        8, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::message::TextChatData, _impl_.msgid_),
         PROTOBUF_FIELD_OFFSET(::message::TextChatData, _impl_.msgcontent_),
+        PROTOBUF_FIELD_OFFSET(::message::TextChatData, _impl_.message_id_),
+        PROTOBUF_FIELD_OFFSET(::message::TextChatData, _impl_.chat_time_),
+        PROTOBUF_FIELD_OFFSET(::message::TextChatData, _impl_.status_),
         0,
         1,
+        3,
+        2,
+        4,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::message::TextChatMsgRsp, _impl_._has_bits_),
         7, // hasbit index offset
@@ -678,8 +692,8 @@ static const ::_pbi::MigrationSchema
         {102, sizeof(::message::AuthFriendReq)},
         {109, sizeof(::message::AuthFriendRsp)},
         {118, sizeof(::message::TextChatMsgReq)},
-        {127, sizeof(::message::TextChatData)},
-        {134, sizeof(::message::TextChatMsgRsp)},
+        {129, sizeof(::message::TextChatData)},
+        {142, sizeof(::message::TextChatMsgRsp)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::message::_GetVerifyReq_default_instance_._instance,
@@ -722,34 +736,36 @@ const char descriptor_table_protodef_message_2eproto[] ABSL_ATTRIBUTE_SECTION_VA
     "rror\030\001 \001(\005\022\017\n\007fromuid\030\002 \001(\005\022\r\n\005touid\030\003 \001"
     "(\005\"/\n\rAuthFriendReq\022\017\n\007fromuid\030\001 \001(\005\022\r\n\005"
     "touid\030\002 \001(\005\">\n\rAuthFriendRsp\022\r\n\005error\030\001 "
-    "\001(\005\022\017\n\007fromuid\030\002 \001(\005\022\r\n\005touid\030\003 \001(\005\"Y\n\016T"
+    "\001(\005\022\017\n\007fromuid\030\002 \001(\005\022\r\n\005touid\030\003 \001(\005\"l\n\016T"
     "extChatMsgReq\022\017\n\007fromuid\030\001 \001(\005\022\r\n\005touid\030"
     "\002 \001(\005\022\'\n\010textmsgs\030\003 \003(\0132\025.message.TextCh"
-    "atData\"1\n\014TextChatData\022\r\n\005msgid\030\001 \001(\t\022\022\n"
-    "\nmsgcontent\030\002 \001(\t\"h\n\016TextChatMsgRsp\022\r\n\005e"
-    "rror\030\001 \001(\005\022\017\n\007fromuid\030\002 \001(\005\022\r\n\005touid\030\003 \001"
-    "(\005\022\'\n\010textmsgs\030\004 \003(\0132\025.message.TextChatD"
-    "ata2P\n\rVerifyService\022\?\n\rGetVerifyCode\022\025."
-    "message.GetVerifyReq\032\025.message.GetVerify"
-    "Rsp\"\0002\207\001\n\rStatusService\022G\n\rGetChatServer"
-    "\022\031.message.GetChatServerReq\032\031.message.Ge"
-    "tChatServerRsp\"\000\022-\n\005Login\022\021.message.Logi"
-    "nReq\032\021.message.LoginRsp2\345\002\n\013ChatService\022"
-    "A\n\017NotifyAddFriend\022\025.message.AddFriendRe"
-    "q\032\025.message.AddFriendRsp\"\000\022A\n\rRplyAddFri"
-    "end\022\026.message.RplyFriendReq\032\026.message.Rp"
-    "lyFriendRsp\"\000\022A\n\013SendChatMsg\022\027.message.S"
-    "endChatMsgReq\032\027.message.SendChatMsgRsp\"\000"
-    "\022D\n\020NotifyAuthFriend\022\026.message.AuthFrien"
-    "dReq\032\026.message.AuthFriendRsp\"\000\022G\n\021Notify"
-    "TextChatMsg\022\027.message.TextChatMsgReq\032\027.m"
-    "essage.TextChatMsgRsp\"\000b\006proto3"
+    "atData\022\021\n\tthread_id\030\004 \001(\005\"h\n\014TextChatDat"
+    "a\022\r\n\005msgid\030\001 \001(\t\022\022\n\nmsgcontent\030\002 \001(\t\022\022\n\n"
+    "message_id\030\003 \001(\005\022\021\n\tchat_time\030\004 \001(\t\022\016\n\006s"
+    "tatus\030\005 \001(\005\"h\n\016TextChatMsgRsp\022\r\n\005error\030\001"
+    " \001(\005\022\017\n\007fromuid\030\002 \001(\005\022\r\n\005touid\030\003 \001(\005\022\'\n\010"
+    "textmsgs\030\004 \003(\0132\025.message.TextChatData2P\n"
+    "\rVerifyService\022\?\n\rGetVerifyCode\022\025.messag"
+    "e.GetVerifyReq\032\025.message.GetVerifyRsp\"\0002"
+    "\207\001\n\rStatusService\022G\n\rGetChatServer\022\031.mes"
+    "sage.GetChatServerReq\032\031.message.GetChatS"
+    "erverRsp\"\000\022-\n\005Login\022\021.message.LoginReq\032\021"
+    ".message.LoginRsp2\345\002\n\013ChatService\022A\n\017Not"
+    "ifyAddFriend\022\025.message.AddFriendReq\032\025.me"
+    "ssage.AddFriendRsp\"\000\022A\n\rRplyAddFriend\022\026."
+    "message.RplyFriendReq\032\026.message.RplyFrie"
+    "ndRsp\"\000\022A\n\013SendChatMsg\022\027.message.SendCha"
+    "tMsgReq\032\027.message.SendChatMsgRsp\"\000\022D\n\020No"
+    "tifyAuthFriend\022\026.message.AuthFriendReq\032\026"
+    ".message.AuthFriendRsp\"\000\022G\n\021NotifyTextCh"
+    "atMsg\022\027.message.TextChatMsgReq\032\027.message"
+    ".TextChatMsgRsp\"\000b\006proto3"
 };
 static ::absl::once_flag descriptor_table_message_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_message_2eproto = {
     false,
     false,
-    1671,
+    1745,
     descriptor_table_protodef_message_2eproto,
     "message.proto",
     &descriptor_table_message_2eproto_once,
@@ -5391,9 +5407,9 @@ TextChatMsgReq::TextChatMsgReq(
                offsetof(Impl_, fromuid_),
            reinterpret_cast<const char*>(&from._impl_) +
                offsetof(Impl_, fromuid_),
-           offsetof(Impl_, touid_) -
+           offsetof(Impl_, thread_id_) -
                offsetof(Impl_, fromuid_) +
-               sizeof(Impl_::touid_));
+               sizeof(Impl_::thread_id_));
 
   // @@protoc_insertion_point(copy_constructor:message.TextChatMsgReq)
 }
@@ -5408,9 +5424,9 @@ inline void TextChatMsgReq::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   ::memset(reinterpret_cast<char*>(&_impl_) +
                offsetof(Impl_, fromuid_),
            0,
-           offsetof(Impl_, touid_) -
+           offsetof(Impl_, thread_id_) -
                offsetof(Impl_, fromuid_) +
-               sizeof(Impl_::touid_));
+               sizeof(Impl_::thread_id_));
 }
 TextChatMsgReq::~TextChatMsgReq() {
   // @@protoc_insertion_point(destructor:message.TextChatMsgReq)
@@ -5481,16 +5497,16 @@ TextChatMsgReq::GetClassData() const {
   return TextChatMsgReq_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<2, 3, 1, 0, 2>
+const ::_pbi::TcParseTable<2, 4, 1, 0, 2>
 TextChatMsgReq::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(TextChatMsgReq, _impl_._has_bits_),
     0, // no _extensions_
-    3, 24,  // max_field_number, fast_idx_mask
+    4, 24,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967288,  // skipmap
+    4294967280,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    3,  // num_field_entries
+    4,  // num_field_entries
     1,  // num_aux_entries
     offsetof(decltype(_table_), aux_entries),
     TextChatMsgReq_class_data_.base(),
@@ -5500,7 +5516,10 @@ TextChatMsgReq::_table_ = {
     ::_pbi::TcParser::GetTable<::message::TextChatMsgReq>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    {::_pbi::TcParser::MiniParse, {}},
+    // int32 thread_id = 4;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(TextChatMsgReq, _impl_.thread_id_), 3>(),
+     {32, 3, 0,
+      PROTOBUF_FIELD_OFFSET(TextChatMsgReq, _impl_.thread_id_)}},
     // int32 fromuid = 1;
     {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(TextChatMsgReq, _impl_.fromuid_), 1>(),
      {8, 1, 0,
@@ -5522,6 +5541,8 @@ TextChatMsgReq::_table_ = {
     {PROTOBUF_FIELD_OFFSET(TextChatMsgReq, _impl_.touid_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
     // repeated .message.TextChatData textmsgs = 3;
     {PROTOBUF_FIELD_OFFSET(TextChatMsgReq, _impl_.textmsgs_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+    // int32 thread_id = 4;
+    {PROTOBUF_FIELD_OFFSET(TextChatMsgReq, _impl_.thread_id_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
   }},
   {{
       {::_pbi::TcParser::GetTable<::message::TextChatData>()},
@@ -5540,10 +5561,10 @@ PROTOBUF_NOINLINE void TextChatMsgReq::Clear() {
   if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
     _impl_.textmsgs_.Clear();
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00000006U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000000eU)) {
     ::memset(&_impl_.fromuid_, 0, static_cast<::size_t>(
-        reinterpret_cast<char*>(&_impl_.touid_) -
-        reinterpret_cast<char*>(&_impl_.fromuid_)) + sizeof(_impl_.touid_));
+        reinterpret_cast<char*>(&_impl_.thread_id_) -
+        reinterpret_cast<char*>(&_impl_.fromuid_)) + sizeof(_impl_.thread_id_));
   }
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
@@ -5599,6 +5620,15 @@ PROTOBUF_NOINLINE void TextChatMsgReq::Clear() {
     }
   }
 
+  // int32 thread_id = 4;
+  if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+    if (this_._internal_thread_id() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<4>(
+              stream, this_._internal_thread_id(), target);
+    }
+  }
+
   if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
     target =
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -5624,7 +5654,7 @@ PROTOBUF_NOINLINE void TextChatMsgReq::Clear() {
 
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x00000007U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000000fU)) {
     // repeated .message.TextChatData textmsgs = 3;
     if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
       total_size += 1UL * this_._internal_textmsgs_size();
@@ -5644,6 +5674,13 @@ PROTOBUF_NOINLINE void TextChatMsgReq::Clear() {
       if (this_._internal_touid() != 0) {
         total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
             this_._internal_touid());
+      }
+    }
+    // int32 thread_id = 4;
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (this_._internal_thread_id() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_thread_id());
       }
     }
   }
@@ -5666,7 +5703,7 @@ void TextChatMsgReq::MergeImpl(::google::protobuf::MessageLite& to_msg,
   (void)cached_has_bits;
 
   cached_has_bits = from._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x00000007U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000000fU)) {
     if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
       _this->_internal_mutable_textmsgs()->InternalMergeFromWithArena(
           ::google::protobuf::MessageLite::internal_visibility(), arena,
@@ -5680,6 +5717,11 @@ void TextChatMsgReq::MergeImpl(::google::protobuf::MessageLite& to_msg,
     if (CheckHasBit(cached_has_bits, 0x00000004U)) {
       if (from._internal_touid() != 0) {
         _this->_impl_.touid_ = from._impl_.touid_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (from._internal_thread_id() != 0) {
+        _this->_impl_.thread_id_ = from._impl_.thread_id_;
       }
     }
   }
@@ -5702,8 +5744,8 @@ void TextChatMsgReq::InternalSwap(TextChatMsgReq* PROTOBUF_RESTRICT PROTOBUF_NON
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   _impl_.textmsgs_.InternalSwap(&other->_impl_.textmsgs_);
   ::google::protobuf::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(TextChatMsgReq, _impl_.touid_)
-      + sizeof(TextChatMsgReq::_impl_.touid_)
+      PROTOBUF_FIELD_OFFSET(TextChatMsgReq, _impl_.thread_id_)
+      + sizeof(TextChatMsgReq::_impl_.thread_id_)
       - PROTOBUF_FIELD_OFFSET(TextChatMsgReq, _impl_.fromuid_)>(
           reinterpret_cast<char*>(&_impl_.fromuid_),
           reinterpret_cast<char*>(&other->_impl_.fromuid_));
@@ -5738,7 +5780,8 @@ PROTOBUF_NDEBUG_INLINE TextChatData::Impl_::Impl_(
       : _has_bits_{from._has_bits_},
         _cached_size_{0},
         msgid_(arena, from.msgid_),
-        msgcontent_(arena, from.msgcontent_) {}
+        msgcontent_(arena, from.msgcontent_),
+        chat_time_(arena, from.chat_time_) {}
 
 TextChatData::TextChatData(
     ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
@@ -5753,6 +5796,13 @@ TextChatData::TextChatData(
   _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+  ::memcpy(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, message_id_),
+           reinterpret_cast<const char*>(&from._impl_) +
+               offsetof(Impl_, message_id_),
+           offsetof(Impl_, status_) -
+               offsetof(Impl_, message_id_) +
+               sizeof(Impl_::status_));
 
   // @@protoc_insertion_point(copy_constructor:message.TextChatData)
 }
@@ -5761,10 +5811,17 @@ PROTOBUF_NDEBUG_INLINE TextChatData::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
       : _cached_size_{0},
         msgid_(arena),
-        msgcontent_(arena) {}
+        msgcontent_(arena),
+        chat_time_(arena) {}
 
 inline void TextChatData::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
+  ::memset(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, message_id_),
+           0,
+           offsetof(Impl_, status_) -
+               offsetof(Impl_, message_id_) +
+               sizeof(Impl_::status_));
 }
 TextChatData::~TextChatData() {
   // @@protoc_insertion_point(destructor:message.TextChatData)
@@ -5779,6 +5836,7 @@ inline void TextChatData::SharedDtor(MessageLite& self) {
   ABSL_DCHECK(this_.GetArena() == nullptr);
   this_._impl_.msgid_.Destroy();
   this_._impl_.msgcontent_.Destroy();
+  this_._impl_.chat_time_.Destroy();
   this_._impl_.~Impl_();
 }
 
@@ -5825,16 +5883,16 @@ TextChatData::GetClassData() const {
   return TextChatData_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<1, 2, 0, 44, 2>
+const ::_pbi::TcParseTable<3, 5, 0, 53, 2>
 TextChatData::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(TextChatData, _impl_._has_bits_),
     0, // no _extensions_
-    2, 8,  // max_field_number, fast_idx_mask
+    5, 56,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967292,  // skipmap
+    4294967264,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    2,  // num_field_entries
+    5,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     TextChatData_class_data_.base(),
@@ -5844,14 +5902,29 @@ TextChatData::_table_ = {
     ::_pbi::TcParser::GetTable<::message::TextChatData>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // string msgcontent = 2;
-    {::_pbi::TcParser::FastUS1,
-     {18, 1, 0,
-      PROTOBUF_FIELD_OFFSET(TextChatData, _impl_.msgcontent_)}},
+    {::_pbi::TcParser::MiniParse, {}},
     // string msgid = 1;
     {::_pbi::TcParser::FastUS1,
      {10, 0, 0,
       PROTOBUF_FIELD_OFFSET(TextChatData, _impl_.msgid_)}},
+    // string msgcontent = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 1, 0,
+      PROTOBUF_FIELD_OFFSET(TextChatData, _impl_.msgcontent_)}},
+    // int32 message_id = 3;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(TextChatData, _impl_.message_id_), 3>(),
+     {24, 3, 0,
+      PROTOBUF_FIELD_OFFSET(TextChatData, _impl_.message_id_)}},
+    // string chat_time = 4;
+    {::_pbi::TcParser::FastUS1,
+     {34, 2, 0,
+      PROTOBUF_FIELD_OFFSET(TextChatData, _impl_.chat_time_)}},
+    // int32 status = 5;
+    {::_pbi::TcParser::SingularVarintNoZag1<::uint32_t, offsetof(TextChatData, _impl_.status_), 4>(),
+     {40, 4, 0,
+      PROTOBUF_FIELD_OFFSET(TextChatData, _impl_.status_)}},
+    {::_pbi::TcParser::MiniParse, {}},
+    {::_pbi::TcParser::MiniParse, {}},
   }}, {{
     65535, 65535
   }}, {{
@@ -5859,13 +5932,20 @@ TextChatData::_table_ = {
     {PROTOBUF_FIELD_OFFSET(TextChatData, _impl_.msgid_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string msgcontent = 2;
     {PROTOBUF_FIELD_OFFSET(TextChatData, _impl_.msgcontent_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // int32 message_id = 3;
+    {PROTOBUF_FIELD_OFFSET(TextChatData, _impl_.message_id_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
+    // string chat_time = 4;
+    {PROTOBUF_FIELD_OFFSET(TextChatData, _impl_.chat_time_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // int32 status = 5;
+    {PROTOBUF_FIELD_OFFSET(TextChatData, _impl_.status_), _Internal::kHasBitsOffset + 4, 0, (0 | ::_fl::kFcOptional | ::_fl::kInt32)},
   }},
   // no aux_entries
   {{
-    "\24\5\12\0\0\0\0\0"
+    "\24\5\12\0\11\0\0\0"
     "message.TextChatData"
     "msgid"
     "msgcontent"
+    "chat_time"
   }},
 };
 PROTOBUF_NOINLINE void TextChatData::Clear() {
@@ -5876,13 +5956,21 @@ PROTOBUF_NOINLINE void TextChatData::Clear() {
   (void) cached_has_bits;
 
   cached_has_bits = _impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x00000007U)) {
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       _impl_.msgid_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
       _impl_.msgcontent_.ClearNonDefaultToEmpty();
     }
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      _impl_.chat_time_.ClearNonDefaultToEmpty();
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000018U)) {
+    ::memset(&_impl_.message_id_, 0, static_cast<::size_t>(
+        reinterpret_cast<char*>(&_impl_.status_) -
+        reinterpret_cast<char*>(&_impl_.message_id_)) + sizeof(_impl_.status_));
   }
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
@@ -5927,6 +6015,34 @@ PROTOBUF_NOINLINE void TextChatData::Clear() {
     }
   }
 
+  // int32 message_id = 3;
+  if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+    if (this_._internal_message_id() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<3>(
+              stream, this_._internal_message_id(), target);
+    }
+  }
+
+  // string chat_time = 4;
+  if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+    if (!this_._internal_chat_time().empty()) {
+      const ::std::string& _s = this_._internal_chat_time();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "message.TextChatData.chat_time");
+      target = stream->WriteStringMaybeAliased(4, _s, target);
+    }
+  }
+
+  // int32 status = 5;
+  if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+    if (this_._internal_status() != 0) {
+      target =
+          ::google::protobuf::internal::WireFormatLite::WriteInt32ToArrayWithField<5>(
+              stream, this_._internal_status(), target);
+    }
+  }
+
   if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
     target =
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
@@ -5952,7 +6068,7 @@ PROTOBUF_NOINLINE void TextChatData::Clear() {
 
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000001fU)) {
     // string msgid = 1;
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!this_._internal_msgid().empty()) {
@@ -5965,6 +6081,27 @@ PROTOBUF_NOINLINE void TextChatData::Clear() {
       if (!this_._internal_msgcontent().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_msgcontent());
+      }
+    }
+    // string chat_time = 4;
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (!this_._internal_chat_time().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_chat_time());
+      }
+    }
+    // int32 message_id = 3;
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (this_._internal_message_id() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_message_id());
+      }
+    }
+    // int32 status = 5;
+    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+      if (this_._internal_status() != 0) {
+        total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(
+            this_._internal_status());
       }
     }
   }
@@ -5986,7 +6123,7 @@ void TextChatData::MergeImpl(::google::protobuf::MessageLite& to_msg,
   (void)cached_has_bits;
 
   cached_has_bits = from._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000001fU)) {
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!from._internal_msgid().empty()) {
         _this->_internal_set_msgid(from._internal_msgid());
@@ -6003,6 +6140,25 @@ void TextChatData::MergeImpl(::google::protobuf::MessageLite& to_msg,
         if (_this->_impl_.msgcontent_.IsDefault()) {
           _this->_internal_set_msgcontent("");
         }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000004U)) {
+      if (!from._internal_chat_time().empty()) {
+        _this->_internal_set_chat_time(from._internal_chat_time());
+      } else {
+        if (_this->_impl_.chat_time_.IsDefault()) {
+          _this->_internal_set_chat_time("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000008U)) {
+      if (from._internal_message_id() != 0) {
+        _this->_impl_.message_id_ = from._impl_.message_id_;
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000010U)) {
+      if (from._internal_status() != 0) {
+        _this->_impl_.status_ = from._impl_.status_;
       }
     }
   }
@@ -6027,6 +6183,13 @@ void TextChatData::InternalSwap(TextChatData* PROTOBUF_RESTRICT PROTOBUF_NONNULL
   swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.msgid_, &other->_impl_.msgid_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.msgcontent_, &other->_impl_.msgcontent_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.chat_time_, &other->_impl_.chat_time_, arena);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(TextChatData, _impl_.status_)
+      + sizeof(TextChatData::_impl_.status_)
+      - PROTOBUF_FIELD_OFFSET(TextChatData, _impl_.message_id_)>(
+          reinterpret_cast<char*>(&_impl_.message_id_),
+          reinterpret_cast<char*>(&other->_impl_.message_id_));
 }
 
 ::google::protobuf::Metadata TextChatData::GetMetadata() const {

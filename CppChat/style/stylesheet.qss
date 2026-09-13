@@ -367,18 +367,28 @@ QDialog#ChatDialog #chat_user_list {
     border: none;
 }
 
-/* ChatUserList 内部的选中联系人条目。 */
-QDialog#ChatDialog #chat_user_list::item:selected {
-    background-color: #d3d7d4;
-    border: none;
-    outline: none;
+/*
+ * 会话条目的交互状态。未选中悬浮、按下、选中，以及选中后的
+ * 悬浮/按下分别设置，避免后写的 hover 规则覆盖 selected 规则。
+ */
+QDialog#ChatDialog #chat_user_list::item:hover:!selected {
+    background-color: #e9e9ea;
 }
 
-/* ChatUserList 内部鼠标悬停的联系人条目。 */
-QDialog#ChatDialog #chat_user_list::item:hover {
-    background-color: rgb(206, 207, 208);
-    border: none;
-    outline: none;
+QDialog#ChatDialog #chat_user_list::item:pressed:!selected {
+    background-color: #dcdcdc;
+}
+
+QDialog#ChatDialog #chat_user_list::item:selected {
+    background-color: #cfd3d1;
+}
+
+QDialog#ChatDialog #chat_user_list::item:selected:hover {
+    background-color: #c8cdca;
+}
+
+QDialog#ChatDialog #chat_user_list::item:selected:pressed {
+    background-color: #bbc3be;
 }
 
 /* ChatUserList 获得键盘焦点时不显示系统默认焦点框。 */
@@ -447,7 +457,8 @@ QDialog#ChatDialog #side_contact_lb[state="selected_pressed"] {
 
 /* 类选择器：作用于每一个 ChatUserWid 实例。 */
 ChatUserWid {
-    background-color: rgb(247, 247, 247);
+    /* 让 QListWidget::item 的 hover/pressed/selected 背景透出来。 */
+    background-color: transparent;
     border: none;
 }
 
@@ -476,18 +487,19 @@ ChatUserWid#ChatUserWid #time_lb {
 
 /*
  * ============================================================
- * 5. 联系人列表和聊天记录区的滚动条
- * C++ 类：ChatUserList、ChatView
+ * 5. 列表和聊天记录区的滚动条
+ * 公共滚动类：SmoothScrollList
+ * 使用列表：ChatUserList、ContactUserList、ApplyFriendList、ChatView
  * Qt 类：QScrollBar
  * ============================================================
  */
 
 /*
- * chat_user_overlay_scrollbar：ChatUserList 的浮动滚动条。
+ * smooth_scrollbar：SmoothScrollList 为三个用户列表创建的浮动滚动条。
  * chat_view_scrollbar：ChatView 内部 QScrollArea 的原生滚动条。
  * 两者共用透明轨道和半透明滑块外观。
  */
-QDialog#ChatDialog #chat_user_overlay_scrollbar:vertical,
+QDialog#ChatDialog #smooth_scrollbar:vertical,
 QDialog#ChatDialog #chat_page #chat_view_scrollbar:vertical {
     background-color: transparent;
     border: none;
@@ -496,7 +508,7 @@ QDialog#ChatDialog #chat_page #chat_view_scrollbar:vertical {
 }
 
 /* QScrollBar::handle：用户可以拖动的滑块。 */
-QDialog#ChatDialog #chat_user_overlay_scrollbar::handle:vertical,
+QDialog#ChatDialog #smooth_scrollbar::handle:vertical,
 QDialog#ChatDialog #chat_page #chat_view_scrollbar::handle:vertical {
     background-color: rgba(80, 80, 80, 110);
     min-height: 30px;
@@ -504,19 +516,19 @@ QDialog#ChatDialog #chat_page #chat_view_scrollbar::handle:vertical {
     border-radius: 4px;
 }
 
-QDialog#ChatDialog #chat_user_overlay_scrollbar::handle:vertical:hover,
+QDialog#ChatDialog #smooth_scrollbar::handle:vertical:hover,
 QDialog#ChatDialog #chat_page #chat_view_scrollbar::handle:vertical:hover {
     background-color: rgba(80, 80, 80, 170);
 }
 
-QDialog#ChatDialog #chat_user_overlay_scrollbar::handle:vertical:pressed,
+QDialog#ChatDialog #smooth_scrollbar::handle:vertical:pressed,
 QDialog#ChatDialog #chat_page #chat_view_scrollbar::handle:vertical:pressed {
     background-color: rgba(60, 60, 60, 210);
 }
 
 /* 隐藏 QScrollBar 上下两端的增减按钮。 */
-QDialog#ChatDialog #chat_user_overlay_scrollbar::add-line:vertical,
-QDialog#ChatDialog #chat_user_overlay_scrollbar::sub-line:vertical,
+QDialog#ChatDialog #smooth_scrollbar::add-line:vertical,
+QDialog#ChatDialog #smooth_scrollbar::sub-line:vertical,
 QDialog#ChatDialog #chat_page #chat_view_scrollbar::add-line:vertical,
 QDialog#ChatDialog #chat_page #chat_view_scrollbar::sub-line:vertical {
     height: 0;
@@ -525,8 +537,8 @@ QDialog#ChatDialog #chat_page #chat_view_scrollbar::sub-line:vertical {
 }
 
 /* QScrollBar 滑块前后的轨道区域保持透明。 */
-QDialog#ChatDialog #chat_user_overlay_scrollbar::add-page:vertical,
-QDialog#ChatDialog #chat_user_overlay_scrollbar::sub-page:vertical,
+QDialog#ChatDialog #smooth_scrollbar::add-page:vertical,
+QDialog#ChatDialog #smooth_scrollbar::sub-page:vertical,
 QDialog#ChatDialog #chat_page #chat_view_scrollbar::add-page:vertical,
 QDialog#ChatDialog #chat_page #chat_view_scrollbar::sub-page:vertical {
     background-color: transparent;
@@ -717,169 +729,290 @@ QWidget#AddUserItem #message_tip {
 
 /*
  * ============================================================
- * 10. FindSuccessDlg 搜索成功窗口
+ * 10. FindFailDlg 未找到用户窗口
+ * C++ 类：FindFailDlg、ClickedBtn
+ * UI 文件：dialogs/findfaildlg.ui
+ * ============================================================
+ */
+
+QDialog#FindFailDlg {
+    background-color: #ffffff;
+    border: 1px solid #dfe3e6;
+    border-radius: 10px;
+    font-family: "Microsoft YaHei";
+}
+
+QDialog#FindFailDlg QWidget {
+    background-color: transparent;
+}
+
+QDialog#FindFailDlg #fail_tip {
+    color: #202124;
+    font-size: 16px;
+    font-weight: 600;
+    padding-left: 12px;
+}
+
+QDialog#FindFailDlg #fail_tip2 {
+    color: #8a8f98;
+    font-size: 13px;
+    padding-left: 12px;
+}
+
+QDialog#FindFailDlg #fail_sure_btn {
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    outline: none;
+}
+
+QDialog#FindFailDlg #fail_sure_btn[state="normal"] {
+    background-color: #07c160;
+}
+
+QDialog#FindFailDlg #fail_sure_btn[state="hover"] {
+    background-color: #20c875;
+}
+
+QDialog#FindFailDlg #fail_sure_btn[state="pressed"] {
+    background-color: #06ad56;
+}
+
+/*
+ * ============================================================
+ * 11. FindSuccessDlg 找到用户窗口
  * C++ 类：FindSuccessDlg、ClickedBtn
  * UI 文件：dialogs/findsuccessdlg.ui
  * ============================================================
  */
 
-
 QDialog#FindSuccessDlg {
     background-color: #ffffff;
+    border: 1px solid #dfe3e6;
+    border-radius: 10px;
+    font-family: "Microsoft YaHei";
+}
+
+QDialog#FindSuccessDlg QWidget {
+    background-color: transparent;
+}
+
+QDialog#FindSuccessDlg #head_lb {
+    background-color: #f2f4f5;
+    border: 1px solid #e7eaec;
+    border-radius: 8px;
 }
 
 QDialog#FindSuccessDlg #name_lb {
-    font-size: 14px;
-    font-family: "Microsoft YaHei";
+    color: #202124;
+    font-size: 16px;
+    font-weight: 600;
 }
 
-/* 三个状态共用的字体、文字颜色和圆角。 */
 QDialog#FindSuccessDlg #add_friend_btn {
     color: #ffffff;
-    font-size: 14px;
-    font-family: "Microsoft YaHei";
     border: none;
-    border-radius: 20px;
+    border-radius: 5px;
+    font-size: 14px;
+    outline: none;
 }
 
-QDialog#FindSuccessDlg #add_friend_btn[state="normal"],
-QDialog#FindSuccessDlg #add_friend_btn[state="press"] {
+QDialog#FindSuccessDlg #add_friend_btn[state="normal"] {
     background-color: #07c160;
 }
 
 QDialog#FindSuccessDlg #add_friend_btn[state="hover"] {
-    background-color: #3bbb4b;
+    background-color: #20c875;
+}
+
+QDialog#FindSuccessDlg #add_friend_btn[state="press"] {
+    background-color: #06ad56;
 }
 
 /*
  * ============================================================
- * 11. ApplyFriend 好友申请窗口
+ * 12. ApplyFriend 添加好友窗口
  * C++ 类：ApplyFriend、CustomizeEdit、ClickedLabel、ClickedOnceLabel、ClickedBtn
  * UI 文件：dialogs/applyfriend.ui
  * ============================================================
  */
 
-
 QDialog#ApplyFriend {
-    border: 2px solid #f1f1f1;
+    color: #202124;
+    background-color: #ffffff;
+    border: 1px solid #dfe3e6;
+    border-radius: 10px;
+    font-family: "Microsoft YaHei";
     font-size: 14px;
-    background-color: #f7f7f8;
 }
 
-QDialog#ApplyFriend #scrollArea {
-    background-color: #f7f7f8;
-    border: none;
-}
-
+QDialog#ApplyFriend #scrollArea,
+QDialog#ApplyFriend #scrollArea QWidget#qt_scrollarea_viewport,
 QDialog#ApplyFriend #scrollcontent {
-    background-color: #f7f7f8;
-}
-
-QDialog#ApplyFriend #scrollcontent #apply_lb {
-    font-family: "Microsoft YaHei";
-    font-size: 16px;
-    font-weight: normal;
-}
-
-/* 普通说明文字；具体标签的颜色由后面的更精确规则控制。
- * QLabel 的实际高度由 .ui / 布局控制，不使用无效的 height 声明。
- */
-QDialog#ApplyFriend #apply_wid QLabel {
-    color: rgb(140, 140, 140);
-    font-size: 14px;
-    font-family: "Microsoft YaHei";
-}
-
-QDialog#ApplyFriend #apply_wid #name_ed,
-QDialog#ApplyFriend #apply_wid #back_ed {
-    border: 1px solid #f7f7f8;
-    font-size: 14px;
-    font-family: "Microsoft YaHei";
-}
-
-QDialog#ApplyFriend #apply_wid #lb_ed {
+    background-color: #ffffff;
     border: none;
-    font-size: 14px;
-    font-family: "Microsoft YaHei";
 }
 
-QDialog#ApplyFriend #apply_wid #more_lb {
+QDialog#ApplyFriend #apply_lb {
+    color: #202124;
+    background-color: #ffffff;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+QDialog#ApplyFriend #apply_wid {
+    background-color: #ffffff;
+}
+
+QDialog#ApplyFriend #apply_wid QFrame#line {
+    color: #eceff1;
+    background-color: #eceff1;
+    border: none;
+    max-height: 1px;
+}
+
+QDialog#ApplyFriend #apply_wid QLabel {
+    color: #7d838b;
+    font-size: 13px;
+    background-color: transparent;
+}
+
+QDialog#ApplyFriend #name_ed,
+QDialog#ApplyFriend #back_ed,
+QDialog#ApplyFriend #lb_ed {
+    color: #202124;
+    background-color: #f6f7f8;
+    border: 1px solid #e3e6e8;
+    border-radius: 5px;
+    padding: 0 10px;
+    font-size: 14px;
+    selection-background-color: #95dcb7;
+    outline: none;
+}
+
+QDialog#ApplyFriend #name_ed:hover,
+QDialog#ApplyFriend #back_ed:hover,
+QDialog#ApplyFriend #lb_ed:hover {
+    background-color: #ffffff;
+    border-color: #b9ddc9;
+}
+
+QDialog#ApplyFriend #name_ed:focus,
+QDialog#ApplyFriend #back_ed:focus,
+QDialog#ApplyFriend #lb_ed:focus {
+    background-color: #ffffff;
+    border-color: #07c160;
+}
+
+QDialog#ApplyFriend #more_lb {
     border-image: url(:/res/arowdown.png);
 }
 
-/* 动态创建的候选标签：公共外观只写一次。
- * state 名称与 ApplyFriend 中 ClickedLabel::SetState() 的六个参数一致。
- * C++ 事件处理必须切换对应 state，选中悬停/按下样式才会生效。
- */
-QDialog#ApplyFriend #apply_wid #tipslb {
-    padding: 2px;
-    background-color: #e1e1e1;
+/* 动态创建的候选标签，state 名称来自 ClickedLabel::SetState()。 */
+QDialog#ApplyFriend #tipslb {
+    color: #4f555c;
+    background-color: #f1f3f4;
+    border: 1px solid #e5e8ea;
     border-radius: 10px;
+    padding: 2px 8px;
 }
 
-QDialog#ApplyFriend #apply_wid #tipslb[state="normal"],
-QDialog#ApplyFriend #apply_wid #tipslb[state="hover"],
-QDialog#ApplyFriend #apply_wid #tipslb[state="selected_pressed"] {
-    color: #1e1e1e;
+QDialog#ApplyFriend #tipslb[state="hover"] {
+    color: #079447;
+    background-color: #edf9f2;
+    border-color: #a9e5c4;
 }
 
-QDialog#ApplyFriend #apply_wid #tipslb[state="pressed"],
-QDialog#ApplyFriend #apply_wid #tipslb[state="selected_normal"],
-QDialog#ApplyFriend #apply_wid #tipslb[state="selected_hover"] {
-    color: #48bf56;
+QDialog#ApplyFriend #tipslb[state="pressed"] {
+    color: #067f3e;
+    background-color: #dff4e9;
+    border-color: #7ed3a5;
 }
 
-/* 输入新标签时的提示区域和标签网格背景。 */
+QDialog#ApplyFriend #tipslb[state="selected_normal"],
+QDialog#ApplyFriend #tipslb[state="selected_hover"],
+QDialog#ApplyFriend #tipslb[state="selected_pressed"] {
+    color: #ffffff;
+    background-color: #07c160;
+    border-color: #07c160;
+}
+
 QDialog#ApplyFriend #input_tip_wid {
-    background-color: #d3eaf8;
+    background-color: #edf9f2;
+    border: 1px solid #c8ead7;
+    border-radius: 5px;
 }
 
-QDialog#ApplyFriend #gridWidget {
-    background-color: #fdfdfd;
+QDialog#ApplyFriend #gridWidget,
+QDialog#ApplyFriend #lb_group_wid,
+QDialog#ApplyFriend #lb_list,
+QDialog#ApplyFriend #more_lb_wid {
+    background-color: #ffffff;
 }
 
-QDialog#ApplyFriend #apply_wid #tip_lb {
-    padding-left: 2px;
-    color: rgb(153, 153, 153);
+QDialog#ApplyFriend #tip_lb {
+    color: #079447;
+    background-color: transparent;
+    padding-left: 6px;
+    font-size: 13px;
+}
+
+QDialog#ApplyFriend #apply_sure_wid {
+    background-color: #ffffff;
+    border-top: 1px solid #eceff1;
+}
+
+QDialog#ApplyFriend #sure_btn,
+QDialog#ApplyFriend #cancel_btn {
+    border-radius: 5px;
     font-size: 14px;
-    font-family: "Microsoft YaHei";
+    outline: none;
 }
 
-/* 确认、取消按钮：字体和各状态背景共用，文字颜色分别设置。 */
-QDialog#ApplyFriend #apply_sure_wid #sure_btn,
-QDialog#ApplyFriend #apply_sure_wid #cancel_btn {
-    font-size: 16px;
-    font-family: "Microsoft YaHei";
-    border: none;
-    border-radius: 20px;
+QDialog#ApplyFriend #sure_btn {
+    color: #ffffff;
+    border: 1px solid #07c160;
 }
 
-QDialog#ApplyFriend #apply_sure_wid #sure_btn {
-    color: #2cb46e;
+QDialog#ApplyFriend #sure_btn[state="normal"] {
+    background-color: #07c160;
 }
 
-QDialog#ApplyFriend #apply_sure_wid #cancel_btn {
-    color: #2e2f30;
+QDialog#ApplyFriend #sure_btn[state="hover"] {
+    background-color: #20c875;
+    border-color: #20c875;
 }
 
-QDialog#ApplyFriend #apply_sure_wid #sure_btn[state="normal"],
-QDialog#ApplyFriend #apply_sure_wid #cancel_btn[state="normal"] {
-    background-color: #f0f0f0;
+QDialog#ApplyFriend #sure_btn[state="press"] {
+    background-color: #06ad56;
+    border-color: #06ad56;
 }
 
-QDialog#ApplyFriend #apply_sure_wid #sure_btn[state="hover"],
-QDialog#ApplyFriend #apply_sure_wid #cancel_btn[state="hover"] {
-    background-color: #d2d2d2;
+QDialog#ApplyFriend #cancel_btn {
+    color: #35383c;
+    border: 1px solid #d9dde0;
 }
 
-QDialog#ApplyFriend #apply_sure_wid #sure_btn[state="press"],
-QDialog#ApplyFriend #apply_sure_wid #cancel_btn[state="press"] {
-    background-color: #c6c6c6;
+QDialog#ApplyFriend #cancel_btn[state="normal"] {
+    background-color: #ffffff;
+}
+
+QDialog#ApplyFriend #cancel_btn[state="hover"] {
+    color: #079447;
+    background-color: #f2fbf6;
+    border-color: #8dd8b0;
+}
+
+QDialog#ApplyFriend #cancel_btn[state="press"] {
+    color: #067f3e;
+    background-color: #e5f6ed;
+    border-color: #6bc996;
 }
 
 /*
  * ============================================================
- * 12. FriendLabel 已添加的好友标签
+ * 13. FriendLabel 已添加的好友标签
  * C++ 类：FriendLabel（继承 QFrame）、ClickedLabel
  * UI 文件：dialogs/friendlabel.ui
  * ============================================================
@@ -901,16 +1034,31 @@ QDialog#ChatDialog #con_user_list {
     border: none;
 }
 
-QDialog#ChatDialog #con_user_list::item:selected {
-    background-color: #d3d7d4;
-    border: none;
-    outline: none;
+/* 联系人条目采用与会话列表一致的五种交互状态。 */
+QDialog#ChatDialog #con_user_list::item:hover:!selected {
+    background-color: #e9e9ea;
 }
 
-QDialog#ChatDialog #con_user_list::item:hover {
-    background-color: rgb(206,207,208);
+QDialog#ChatDialog #con_user_list::item:pressed:!selected {
+    background-color: #dcdcdc;
+}
+
+QDialog#ChatDialog #con_user_list::item:selected {
+    background-color: #cfd3d1;
+}
+
+QDialog#ChatDialog #con_user_list::item:selected:hover {
+    background-color: #c8cdca;
+}
+
+QDialog#ChatDialog #con_user_list::item:selected:pressed {
+    background-color: #bbc3be;
+}
+
+/* 自定义联系人 QWidget 不绘制底色，避免盖住 QListWidget 条目状态。 */
+ConUserItem#ConUserItem {
+    background-color: transparent;
     border: none;
-    outline: none;
 }
 
 QDialog#ChatDialog #con_user_list:focus {
@@ -1006,4 +1154,84 @@ ConUserItem#ConUserItem #user_name_lb {
     font-size: 16px;
     font-weight: normal;
     font-family: "Microsoft YaHei";
+}
+
+/* 个人资料、联系人详情：与现有认证页和聊天页使用相同的绿/灰配色。 */
+QDialog#ChatDialog QWidget#friend_info_page,
+QDialog#ChatDialog QWidget#user_info_page {
+    background: #f5f5f5;
+    color: #202020;
+}
+QDialog#ChatDialog #friend_info_page QLabel,
+QDialog#ChatDialog #user_info_page QLabel {
+    background: transparent;
+    color: #333333;
+}
+QDialog#ChatDialog #user_info_page QLineEdit {
+    border: 1px solid #dddddd;
+    border-radius: 5px;
+    padding: 6px 10px;
+    background: #ffffff;
+    color: #333333;
+}
+QDialog#ChatDialog #friend_info_page #msg_chat,
+QDialog#ChatDialog #user_info_page #up_btn {
+    background: #07c160;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 6px 12px;
+    font-family: "Microsoft YaHei";
+    font-size: 14px;
+}
+QDialog#ChatDialog #friend_info_page #msg_chat:hover,
+QDialog#ChatDialog #user_info_page #up_btn:hover {
+    background: #06ad56;
+}
+QDialog#ChatDialog #friend_info_page #msg_chat:pressed,
+QDialog#ChatDialog #user_info_page #up_btn:pressed {
+    background: #05984b;
+}
+QDialog#ChatDialog #user_info_page #submit_btn {
+    background: #eeeeee;
+    border: 1px solid #d8d8d8;
+    border-radius: 5px;
+    color: #333333;
+    padding: 6px 12px;
+}
+QDialog#ChatDialog #user_info_page #submit_btn:hover {
+    background: #e2e2e2;
+}
+QDialog#ChatDialog #chat_page QLabel#message_status {
+    color: #999999;
+    font-size: 11px;
+    background: transparent;
+}
+QDialog#ChatDialog #chat_page QLabel#message_status[failed="true"] {
+    color: #d94c4c;
+}
+QDialog#ChatDialog #chat_page QLabel#chat_status {
+    background: #fff5df;
+    color: #86632c;
+    padding: 6px 12px;
+}
+QDialog#ChatDialog #chat_user_list QLabel#unread_dot {
+    background: #fa5151;
+    border: none;
+    border-radius: 4px;
+}
+QDialog#FindSuccessDlg QPushButton#close_btn {
+    background: transparent;
+    border: none;
+    color: #888888;
+    font-size: 18px;
+}
+QDialog#FindSuccessDlg QPushButton#close_btn:hover {
+    color: #333333;
+    background: #eeeeee;
+}
+QDialog#ApplyFriend #sure_btn:disabled,
+QDialog#ApplyFriend #cancel_btn:disabled {
+    background: #e4e4e4;
+    color: #aaaaaa;
 }

@@ -22,7 +22,8 @@ namespace
 			}
 		}
 	};
-
+	//第一个参数 T        管理什么类型的对象
+	//第二个参数 Deleter  对象最后怎么释放
 	// ReplyPtr 的使用方式和普通 unique_ptr 相同，但析构时执行 ReplyDeleter。
 	using ReplyPtr = std::unique_ptr<redisReply, ReplyDeleter>;
 
@@ -120,17 +121,17 @@ RedisMgr::~RedisMgr()
 
 bool RedisMgr::Get(const std::string& key, std::string& value)
 {
-	// 1. 从连接池借连接，并交给守卫；本函数结束时守卫自动归还连接。
+	// 第一步：从连接池借Redis连接；本函数结束时守卫自动归还连接
 	RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
 	if (connection.Get() == nullptr)
 	{
 		return false;
 	}
 
-	// 2. %b 表示二进制安全字符串，后面必须依次传数据指针和字节长度。
-	//    因此 key 即使不是以 '\0' 结尾也能被 hiredis 正确读取。
-	ReplyPtr reply(static_cast<redisReply*>(redisCommand(
-		connection.Get(), "GET %b", key.data(), key.size())));
+	//和% s 相比，% b 不依赖字符串末尾的 '\0'，可以按照明确长度读取数据
+	//因此它后面必须提供两个参数：key.data(), key.size()
+	//redisCommand()的返回类型是void*，执行成功，这个指针会指向：redisReply
+	ReplyPtr reply(static_cast<redisReply*>(redisCommand(connection.Get(), "GET %b", key.data(), key.size())));
 	// 3. GET 命中字符串键时返回 STRING；键不存在时通常返回 NIL，也会在这里失败。
 	if (!reply || reply->type != REDIS_REPLY_STRING || reply->str == nullptr)
 	{

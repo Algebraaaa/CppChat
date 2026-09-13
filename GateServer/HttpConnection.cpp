@@ -34,7 +34,7 @@ void HttpConnection::Start()
 				LOG_WARNING("HTTP read failed: ", ec.message());
 				return;
 			}
-			// 表示当前代码故意不使用这个数，避免编译器警告。
+			// 表示当前代码故意不使用这个数，避免编译器警告，这里直接忽略就行
 			boost::ignore_unused(bytes_transferred);
 			self->HandleReq();
 		}
