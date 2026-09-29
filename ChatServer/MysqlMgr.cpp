@@ -56,6 +56,17 @@ std::shared_ptr<UserInfo> MysqlMgr::GetUser(const std::string& name)
 	return _dao.GetUser(name);
 }
 
+int MysqlMgr::UpdateProfile(int uid, const std::string& name, const std::string& nick,
+	const std::string& description, const std::string& avatar, bool has_avatar)
+{
+	return _dao.UpdateProfile(uid, name, nick, description, avatar, has_avatar);
+}
+
+bool MysqlMgr::GetAvatar(int uid, std::string& avatar)
+{
+	return _dao.GetAvatar(uid, avatar);
+}
+
 bool MysqlMgr::GetApplyList(
 	int to_uid,
 	std::vector<std::shared_ptr<ApplyInfo>>& applications,

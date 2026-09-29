@@ -99,9 +99,13 @@ void ChatPage::AppendChatMsg(std::shared_ptr<ChatDataBase> message)
   const auto role = self ? ChatRole::Self : ChatRole::Other;
   auto *item = new ChatItemBase(role);
   item->setUserName(user ? user->_name : tr("用户 %1").arg(message->GetSendUid()));
-  QPixmap icon(user ? user->_icon : QString());
-  if (icon.isNull()) icon.load(":/res/head_1.jpg");
+  const int senderUid = message->GetSendUid();
+  const QString fallback = user ? user->_icon : QString();
+  QPixmap icon = mgr->AvatarPixmap(senderUid, fallback);
   item->setUserIcon(icon);
+  connect(mgr.get(), &UserMgr::sig_avatar_ready, item, [mgr, item, senderUid, fallback](int uid) {
+    if (uid == senderUid) item->setUserIcon(mgr->AvatarPixmap(uid, fallback));
+  });
   item->setWidget(new TextBubble(role, message->GetContent()));
   const bool pending = message->GetMsgId() == 0;
   item->setStatus(pending && message->GetStatus() != SEND_FAILED ? -1 : message->GetStatus());

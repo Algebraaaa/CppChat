@@ -102,6 +102,9 @@ public:
 		std::vector<std::shared_ptr<ChatMessage>>& initial_messages);
 	std::shared_ptr<UserInfo> GetUser(int uid);
 	std::shared_ptr<UserInfo> GetUser(const std::string& name);
+	int UpdateProfile(int uid, const std::string& name, const std::string& nick,
+		const std::string& description, const std::string& avatar, bool has_avatar);
+	bool GetAvatar(int uid, std::string& avatar);
 	bool GetApplyList(
 		int to_uid,
 		std::vector<std::shared_ptr<ApplyInfo>>& applications,

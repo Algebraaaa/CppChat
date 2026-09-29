@@ -4,6 +4,11 @@
 #include "common/singleton.h"
 #include "common/userdata.h"
 #include <QObject>
+#include <QByteArray>
+#include <QPixmap>
+#include <QSet>
+#include <QMap>
+class QLabel;
 
 // 保存本次登录的用户、好友、申请和会话。界面只读取这里的真实数据。
 class UserMgr : public QObject, public Singleton<UserMgr> {
@@ -18,6 +23,10 @@ public:
   QString GetNick() const;
   QString GetIcon() const;
   QString GetDesc() const;
+  QPixmap AvatarPixmap(int uid, const QString &fallback);
+  void RefreshAvatar(int uid);
+  void AttachAvatarLabel(QLabel *label, int uid, const QString &fallback);
+  void SetAvatar(int uid, const QByteArray &image);
   std::shared_ptr<UserInfo> GetUserInfo() const { return _user_info; }
   void AppendApplyList(QJsonArray array);
   void AppendFriendList(QJsonArray array);
@@ -40,7 +49,11 @@ public:
   std::shared_ptr<ChatThreadData> GetChatThreadByUid(int uid) const;
   const QMap<int, std::shared_ptr<ChatThreadData>> &GetChatThreads() const { return _chat_map; }
 private:
-  UserMgr() = default;
+  UserMgr();
+  void RequestAvatar(int uid);
+signals:
+  void sig_avatar_ready(int uid);
+private:
   std::shared_ptr<UserInfo> _user_info;
   QString _token;
   std::vector<std::shared_ptr<ApplyInfo>> _apply_list;
@@ -50,5 +63,10 @@ private:
   QMap<int, std::shared_ptr<UserInfo>> _friend_map;
   QMap<int, std::shared_ptr<ChatThreadData>> _chat_map;
   QMap<int, int> _uid_to_thread_id;
+  QMap<int, QPixmap> _avatars;
+  QSet<int> _avatarLoaded;
+  QSet<int> _avatarRequested;
+  QMap<int, int> _avatarRequestGeneration;
+  int _avatarGenerationCounter = 0;
 };
 #endif // USERMGR_H

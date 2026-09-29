@@ -45,7 +45,10 @@ ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog
   connect(ui->side_contact_lb, &StateWidget::clicked, this, &ChatDialog::ShowContactPage);
   ui->side_head_lb->setCursor(Qt::PointingHandCursor);
   ui->side_head_lb->setToolTip(tr("个人资料"));
-  connect(_userInfoPage, &UserInfoPage::sig_avatar_changed, this, &ChatDialog::RefreshAvatar);
+  connect(_userInfoPage, &UserInfoPage::sig_profile_changed, this, &ChatDialog::RefreshAvatar);
+  connect(UserMgr::GetInstance().get(), &UserMgr::sig_avatar_ready, this, [this](int uid) {
+    if (uid == UserMgr::GetInstance()->GetUid()) RefreshAvatar();
+  });
   connect(_userInfoPage, &UserInfoPage::sig_logout, this, &ChatDialog::sig_logout);
   connect(ui->chat_user_list, &ChatUserList::sig_loading_chat_user, this, [this] {
     AddChatUserList();
@@ -135,8 +138,8 @@ void ChatDialog::ResetSession()
 }
 void ChatDialog::RefreshAvatar()
 {
-  QPixmap icon(UserMgr::GetInstance()->GetIcon());
-  if (icon.isNull()) icon.load(":/res/head_1.jpg");
+  QPixmap icon = UserMgr::GetInstance()->AvatarPixmap(
+      UserMgr::GetInstance()->GetUid(), UserMgr::GetInstance()->GetIcon());
   ui->side_head_lb->setPixmap(icon.scaled(ui->side_head_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
   if (_currentThread > 0) ui->chat_page->SetChatData(UserMgr::GetInstance()->GetChatThreadByThreadId(_currentThread));
 }

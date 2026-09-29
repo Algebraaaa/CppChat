@@ -997,6 +997,76 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(const std::string& name)
 	}
 }
 
+int MysqlDao::UpdateProfile(int uid, const std::string& name, const std::string& nick,
+	const std::string& description, const std::string& avatar, bool has_avatar)
+{
+	if (uid <= 0 || !_pool) return ErrorCodes::DatabaseError;
+	MySqlConnectionGuard connection(_pool.get(), _pool->GetConnection());
+	if (!connection.Get()) return ErrorCodes::DatabaseError;
+	try
+	{
+		if (has_avatar)
+		{
+			// A separate table keeps the binary image out of login and friend-list packets.
+			std::unique_ptr<sql::Statement> schema(connection.Get()->createStatement());
+			schema->execute("CREATE TABLE IF NOT EXISTS user_avatars ("
+				"uid INT UNSIGNED NOT NULL PRIMARY KEY, "
+				"image MEDIUMBLOB NOT NULL, "
+				"FOREIGN KEY (uid) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB");
+		}
+		MySqlTransaction transaction(connection.Get());
+		std::unique_ptr<sql::PreparedStatement> update(connection.Get()->prepareStatement(
+			"UPDATE users SET username=?, nick=?, profile_description=? WHERE id=?"));
+		update->setString(1, name);
+		update->setString(2, nick);
+		update->setString(3, description);
+		update->setInt(4, uid);
+		update->executeUpdate();
+		if (has_avatar)
+		{
+			std::unique_ptr<sql::PreparedStatement> image(connection.Get()->prepareStatement(
+				"INSERT INTO user_avatars(uid, image) VALUES(?, ?) "
+				"ON DUPLICATE KEY UPDATE image=VALUES(image)"));
+			image->setInt(1, uid);
+			std::istringstream image_stream(avatar, std::ios::binary);
+			image->setBlob(2, &image_stream);
+			image->executeUpdate();
+		}
+		transaction.Commit();
+		return ErrorCodes::Success;
+	}
+	catch (const sql::SQLException& exception)
+	{
+		if (exception.getErrorCode() == 1062) return ErrorCodes::UserExist;
+		LogSqlError("MySQL profile update failed", exception);
+		return ErrorCodes::DatabaseError;
+	}
+}
+
+bool MysqlDao::GetAvatar(int uid, std::string& avatar)
+{
+	avatar.clear();
+	if (uid <= 0 || !_pool) return false;
+	MySqlConnectionGuard connection(_pool.get(), _pool->GetConnection());
+	if (!connection.Get()) return false;
+	try
+	{
+		std::unique_ptr<sql::PreparedStatement> query(connection.Get()->prepareStatement(
+			"SELECT image FROM user_avatars WHERE uid=?"));
+		query->setInt(1, uid);
+		std::unique_ptr<sql::ResultSet> result(query->executeQuery());
+		if (result->next()) avatar = result->getString("image");
+		return true;
+	}
+	catch (const sql::SQLException& exception)
+	{
+		// Existing installations may not have uploaded an avatar yet.
+		if (exception.getErrorCode() == 1146) return true;
+		LogSqlError("MySQL avatar query failed", exception);
+		return false;
+	}
+}
+
 bool MysqlDao::GetApplyList(
 	int to_uid,
 	std::vector<std::shared_ptr<ApplyInfo>>& applications,

@@ -46,6 +46,8 @@ private:
 	void GetUserThreadsHandler(std::shared_ptr<CSession> session, short message_id, const std::string& message_data);
 	void CreatePrivateChat(std::shared_ptr<CSession> session, short message_id, const std::string& message_data);
 	void LoadChatMsg(std::shared_ptr<CSession> session, short message_id, const std::string& message_data);
+	void UpdateProfile(std::shared_ptr<CSession> session, short message_id, const std::string& message_data);
+	void GetAvatar(std::shared_ptr<CSession> session, short message_id, const std::string& message_data);
 
 	bool IsPureDigit(const std::string& text) const;
 	void GetUserByUid(const std::string& uid_text, Json::Value& response);

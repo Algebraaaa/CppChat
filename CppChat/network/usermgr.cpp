@@ -1,6 +1,17 @@
 #include "usermgr.h"
-#include <QFileInfo>
-#include <QStandardPaths>
+#include <QLabel>
+#include <QJsonDocument>
+#include <QTimer>
+#include "network/tcpmgr.h"
+
+UserMgr::UserMgr()
+{
+  connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_avatar_received, this,
+          [this](int uid, const QByteArray &image, bool success) {
+    _avatarRequested.remove(uid);
+    if (success) SetAvatar(uid, image);
+  });
+}
 
 void UserMgr::Reset()
 {
@@ -12,15 +23,15 @@ void UserMgr::Reset()
   _friend_map.clear();
   _chat_map.clear();
   _uid_to_thread_id.clear();
+  _avatars.clear();
+  _avatarLoaded.clear();
+  _avatarRequested.clear();
+  _avatarRequestGeneration.clear();
 }
 
 void UserMgr::SetUserInfo(std::shared_ptr<UserInfo> user)
 {
   _user_info = user;
-  if (!user) return;
-  const auto path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-      + QStringLiteral("/avatars/%1.png").arg(user->_uid);
-  if (QFileInfo::exists(path)) user->_icon = path;
 }
 
 int UserMgr::GetUid() const { return _user_info ? _user_info->_uid : 0; }
@@ -28,6 +39,67 @@ QString UserMgr::GetName() const { return _user_info ? _user_info->_name : QStri
 QString UserMgr::GetNick() const { return _user_info ? _user_info->_nick : QString(); }
 QString UserMgr::GetIcon() const { return _user_info ? _user_info->_icon : QString(); }
 QString UserMgr::GetDesc() const { return _user_info ? _user_info->_desc : QString(); }
+
+void UserMgr::RequestAvatar(int uid)
+{
+  if (uid <= 0 || _avatarLoaded.contains(uid) || _avatarRequested.contains(uid) ||
+      !TcpMgr::GetInstance()->IsConnected()) return;
+  _avatarRequested.insert(uid);
+  const int generation = ++_avatarGenerationCounter;
+  _avatarRequestGeneration[uid] = generation;
+  const QJsonObject request{{"uid", uid}};
+  emit TcpMgr::GetInstance()->sig_send_data(ID_GET_AVATAR_REQ,
+      QJsonDocument(request).toJson(QJsonDocument::Compact));
+  QTimer::singleShot(15000, this, [this, uid, generation] {
+    if (_avatarRequestGeneration.value(uid) == generation) _avatarRequested.remove(uid);
+  });
+}
+
+QPixmap UserMgr::AvatarPixmap(int uid, const QString &fallback)
+{
+  RequestAvatar(uid);
+  if (_avatars.contains(uid)) return _avatars.value(uid);
+  QPixmap image(fallback);
+  if (image.isNull()) image.load(":/res/head_1.jpg");
+  return image;
+}
+
+void UserMgr::RefreshAvatar(int uid)
+{
+  if (uid <= 0) return;
+  _avatarLoaded.remove(uid);
+  RequestAvatar(uid);
+}
+
+void UserMgr::AttachAvatarLabel(QLabel *label, int uid, const QString &fallback)
+{
+  if (!label) return;
+  label->setProperty("avatar_uid", uid);
+  label->setProperty("avatar_fallback", fallback);
+  if (!label->property("avatar_connected").toBool()) {
+    label->setProperty("avatar_connected", true);
+    connect(this, &UserMgr::sig_avatar_ready, label, [this, label](int readyUid) {
+      if (label->property("avatar_uid").toInt() != readyUid) return;
+      const QPixmap pixmap = AvatarPixmap(readyUid,
+          label->property("avatar_fallback").toString());
+      label->setPixmap(pixmap.scaled(label->size(), Qt::KeepAspectRatio,
+                                     Qt::SmoothTransformation));
+    });
+  }
+  const QPixmap pixmap = AvatarPixmap(uid, fallback);
+  label->setPixmap(pixmap.scaled(label->size(), Qt::KeepAspectRatio,
+                                 Qt::SmoothTransformation));
+}
+
+void UserMgr::SetAvatar(int uid, const QByteArray &image)
+{
+  if (uid <= 0) return;
+  QPixmap pixmap;
+  if (pixmap.loadFromData(image)) _avatars.insert(uid, pixmap);
+  else _avatars.remove(uid);
+  _avatarLoaded.insert(uid);
+  emit sig_avatar_ready(uid);
+}
 
 void UserMgr::AppendApplyList(QJsonArray array)
 {

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <utility>
+#include <openssl/evp.h>
 
 #include <json/reader.h>
 
@@ -49,6 +50,33 @@ namespace
 		value["msg_content"] = message.content;
 		value["chat_time"] = message.chat_time;
 		value["status"] = message.status;
+	}
+
+	bool DecodeAvatar(const std::string& encoded, std::string& decoded)
+	{
+		if (encoded.empty() || encoded.size() > 12000 || encoded.size() % 4 != 0) return false;
+		decoded.resize(encoded.size() / 4 * 3);
+		const int size = EVP_DecodeBlock(reinterpret_cast<unsigned char*>(&decoded[0]),
+			reinterpret_cast<const unsigned char*>(encoded.data()), static_cast<int>(encoded.size()));
+		if (size < 0) return false;
+		int padding = 0;
+		if (encoded.back() == '=') ++padding;
+		if (encoded[encoded.size() - 2] == '=') ++padding;
+		decoded.resize(static_cast<std::size_t>(size - padding));
+		return decoded.size() <= 8192 && decoded.size() >= 4 &&
+			static_cast<unsigned char>(decoded[0]) == 0xff &&
+			static_cast<unsigned char>(decoded[1]) == 0xd8 &&
+			static_cast<unsigned char>(decoded[decoded.size() - 2]) == 0xff &&
+			static_cast<unsigned char>(decoded.back()) == 0xd9;
+	}
+
+	std::string EncodeAvatar(const std::string& data)
+	{
+		std::string encoded((data.size() + 2) / 3 * 4 + 1, '\0');
+		const int size = EVP_EncodeBlock(reinterpret_cast<unsigned char*>(&encoded[0]),
+			reinterpret_cast<const unsigned char*>(data.data()), static_cast<int>(data.size()));
+		encoded.resize(static_cast<std::size_t>(size));
+		return encoded;
 	}
 }
 
@@ -149,6 +177,8 @@ void LogicSystem::RegisterCallbacks()
 	callbacks_[ID_LOAD_CHAT_THREAD_REQ] = bind(&LogicSystem::GetUserThreadsHandler);
 	callbacks_[ID_CREATE_PRIVATE_CHAT_REQ] = bind(&LogicSystem::CreatePrivateChat);
 	callbacks_[ID_LOAD_CHAT_MSG_REQ] = bind(&LogicSystem::LoadChatMsg);
+	callbacks_[ID_UPDATE_PROFILE_REQ] = bind(&LogicSystem::UpdateProfile);
+	callbacks_[ID_GET_AVATAR_REQ] = bind(&LogicSystem::GetAvatar);
 }
 
 void LogicSystem::LoginHandler(
@@ -538,6 +568,123 @@ bool LogicSystem::IsPureDigit(const std::string& text) const
 	});
 }
 
+void LogicSystem::UpdateProfile(std::shared_ptr<CSession> session, short,
+	const std::string& message_data)
+{
+	Json::Value request;
+	Json::Value response;
+	Defer send_response([&response, session]() {
+		session->Send(response.toStyledString(), ID_UPDATE_PROFILE_RSP);
+	});
+	const int uid = session->GetUserId();
+	if (uid <= 0)
+	{
+		response["error"] = ErrorCodes::TokenInvalid;
+		return;
+	}
+	if (!ParseRequest(message_data, request) || !request["name"].isString() ||
+		!request["nick"].isString() || !request["desc"].isString() ||
+		(request.isMember("avatar") && !request["avatar"].isString()))
+	{
+		response["error"] = ErrorCodes::Error_Json;
+		return;
+	}
+	const std::string name = request["name"].asString();
+	const std::string nick = request["nick"].asString();
+	const std::string description = request["desc"].asString();
+	if (name.empty() || name.size() > 64 || nick.size() > 64 ||
+		description.size() > 255)
+	{
+		response["error"] = ErrorCodes::Error_Json;
+		return;
+	}
+	std::string avatar;
+	const bool has_avatar = request.isMember("avatar");
+	if (has_avatar && !DecodeAvatar(request["avatar"].asString(), avatar))
+	{
+		response["error"] = ErrorCodes::Error_Json;
+		return;
+	}
+	const auto old_user = MysqlMgr::GetInstance()->GetUser(uid);
+	if (!old_user)
+	{
+		response["error"] = ErrorCodes::DatabaseError;
+		return;
+	}
+	// Keep existing legacy names (including names containing spaces) editable.
+	if (name != old_user->name &&
+		(name.size() < 3 || std::any_of(name.begin(), name.end(),
+			[](unsigned char ch) { return ch <= 32 || ch == 127; })))
+	{
+		response["error"] = ErrorCodes::Error_Json;
+		return;
+	}
+	auto redis = RedisMgr::GetInstance();
+	const std::string base_key = std::string(USER_BASE_INFO) + std::to_string(uid);
+	const std::string old_name_key = std::string(NAME_INFO) + old_user->name;
+	const std::string new_name_key = std::string(NAME_INFO) + name;
+	const bool pre_base_cleared = redis->Del(base_key);
+	const bool pre_old_cleared = redis->Del(old_name_key);
+	const bool pre_new_cleared = redis->Del(new_name_key);
+	if (!pre_base_cleared || !pre_old_cleared || !pre_new_cleared)
+	{
+		response["error"] = ErrorCodes::RedisError;
+		return;
+	}
+	const int result = MysqlMgr::GetInstance()->UpdateProfile(uid, name, nick,
+		description, avatar, has_avatar);
+	response["error"] = result;
+	if (result != ErrorCodes::Success) return;
+	response["uid"] = uid;
+	response["name"] = name;
+	response["nick"] = nick;
+	response["desc"] = description;
+	response["avatar_changed"] = has_avatar;
+	response["committed"] = true;
+
+	// Other ChatServer instances read these shared Redis keys on their next lookup/login.
+	const bool base_cleared = redis->Del(base_key);
+	const bool old_name_cleared = redis->Del(old_name_key);
+	const bool new_name_cleared = redis->Del(new_name_key);
+	const bool cleared = base_cleared && old_name_cleared && new_name_cleared;
+	if (!cleared)
+	{
+		response["error"] = ErrorCodes::RedisError;
+		return;
+	}
+}
+
+void LogicSystem::GetAvatar(std::shared_ptr<CSession> session, short,
+	const std::string& message_data)
+{
+	Json::Value request;
+	Json::Value response;
+	Defer send_response([&response, session]() {
+		session->Send(response.toStyledString(), ID_GET_AVATAR_RSP);
+	});
+	if (session->GetUserId() <= 0)
+	{
+		response["error"] = ErrorCodes::TokenInvalid;
+		return;
+	}
+	if (!ParseRequest(message_data, request) || !request["uid"].isInt() ||
+		request["uid"].asInt() <= 0)
+	{
+		response["error"] = ErrorCodes::Error_Json;
+		return;
+	}
+	const int uid = request["uid"].asInt();
+	response["uid"] = uid;
+	std::string avatar;
+	if (!MysqlMgr::GetInstance()->GetAvatar(uid, avatar) || avatar.size() > 8192)
+	{
+		response["error"] = ErrorCodes::DatabaseError;
+		return;
+	}
+	response["error"] = ErrorCodes::Success;
+	response["avatar"] = avatar.empty() ? "" : EncodeAvatar(avatar);
+}
+
 void LogicSystem::GetUserByUid(const std::string& uid_text, Json::Value& response)
 {
 	try
@@ -560,19 +707,8 @@ void LogicSystem::GetUserByUid(const std::string& uid_text, Json::Value& respons
 
 void LogicSystem::GetUserByName(const std::string& name, Json::Value& response)
 {
-	std::string cached;
 	const std::string key = std::string(NAME_INFO) + name;
-	if (RedisMgr::GetInstance()->Get(key, cached))
-	{
-		Json::Value value;
-		if (ParseRequest(cached, value))
-		{
-			response = value;
-			response["error"] = ErrorCodes::Success;
-			return;
-		}
-	}
-
+	// Names are mutable; always check MySQL so an old cache key cannot resolve a renamed user.
 	auto user = MysqlMgr::GetInstance()->GetUser(name);
 	if (!user)
 	{
@@ -591,23 +727,7 @@ bool LogicSystem::GetBaseInfo(
 	int uid,
 	std::shared_ptr<UserInfo>& user_info)
 {
-	std::string cached;
-	if (RedisMgr::GetInstance()->Get(base_key, cached))
-	{
-		Json::Value value;
-		if (ParseRequest(cached, value))
-		{
-			user_info->uid = value["uid"].asInt();
-			user_info->name = value["name"].asString();
-			user_info->email = value["email"].asString();
-			user_info->nick = value["nick"].asString();
-			user_info->desc = value["desc"].asString();
-			user_info->sex = value["sex"].asInt();
-			user_info->icon = value["icon"].asString();
-			return true;
-		}
-	}
-
+	// Read current profile fields from MySQL even if Redis still has an old snapshot.
 	auto database_user = MysqlMgr::GetInstance()->GetUser(uid);
 	if (!database_user)
 	{

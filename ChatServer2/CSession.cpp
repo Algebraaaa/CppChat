@@ -35,6 +35,10 @@ namespace
 			return "private-chat creation request";
 		case ID_LOAD_CHAT_MSG_REQ:
 			return "chat-message history request";
+		case ID_UPDATE_PROFILE_REQ:
+			return "profile update request";
+		case ID_GET_AVATAR_REQ:
+			return "avatar request";
 		default:
 			return nullptr;
 		}

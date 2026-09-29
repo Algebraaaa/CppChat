@@ -291,7 +291,20 @@
           </size>
          </property>
          <property name="text">
-          <string>提交</string>
+          <string>保存资料</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="logout_btn">
+         <property name="minimumSize">
+          <size><width>100</width><height>30</height></size>
+         </property>
+         <property name="maximumSize">
+          <size><width>100</width><height>30</height></size>
+         </property>
+         <property name="text">
+          <string>退出登录</string>
          </property>
         </widget>
        </item>

@@ -6,6 +6,7 @@
 
 enum ErrorCodes
 {
+	NetworkError = -1, // 客户端本地网络错误，服务端不返回
 	Success = 0,
 	Error_Json = 1001,
 	RPCFailed = 1002,
@@ -19,7 +20,10 @@ enum ErrorCodes
 	TokenInvalid = 1010,
 	UidInvalid = 1011,
 	CreateChatFailed = 1012,
-	LoadChatFailed = 1013
+	LoadChatFailed = 1013,
+	DatabaseError = 1014,
+	RedisError = 1015,
+	InternalError = 1016,
 };
 
 class Defer
@@ -77,7 +81,11 @@ enum MessageIds : short
 	ID_CREATE_PRIVATE_CHAT_REQ = 1027,
 	ID_CREATE_PRIVATE_CHAT_RSP = 1028,
 	ID_LOAD_CHAT_MSG_REQ = 1029,
-	ID_LOAD_CHAT_MSG_RSP = 1030
+	ID_LOAD_CHAT_MSG_RSP = 1030,
+	ID_UPDATE_PROFILE_REQ = 1031,
+	ID_UPDATE_PROFILE_RSP = 1032,
+	ID_GET_AVATAR_REQ = 1033,
+	ID_GET_AVATAR_RSP = 1034
 };
 
 inline constexpr char USER_IP_PREFIX[] = "uip_";

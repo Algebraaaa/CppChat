@@ -1,5 +1,6 @@
 #include "applyfrienditem.h"
 #include "ui_applyfrienditem.h"
+#include "network/usermgr.h"
 
 ApplyFriendItem::ApplyFriendItem(QWidget *parent)
   : ListItemBase(parent), _added(false), ui(new Ui::ApplyFriendItem)
@@ -8,7 +9,6 @@ ApplyFriendItem::ApplyFriendItem(QWidget *parent)
   SetItemType(ListItemType::APPLY_FRIEND_ITEM);
   ui->addBtn->SetState("normal", "hover", "press");
   ui->addBtn->hide();
-  connect(ui->addBtn, &ClickedBtn::clicked, [this]() { emit this->sig_auth_friend(_apply_info); });
 }
 
 ApplyFriendItem::~ApplyFriendItem()
@@ -19,13 +19,7 @@ ApplyFriendItem::~ApplyFriendItem()
 void ApplyFriendItem::SetInfo(std::shared_ptr<ApplyInfo> apply_info)
 {
   _apply_info = apply_info;
-  // 加载图片
-  QPixmap pixmap(_apply_info->_icon);
-  if (pixmap.isNull()) pixmap.load(":/res/head_1.jpg");
-
-  // 设置图片自动缩放
-  ui->icon_lb->setPixmap(
-    pixmap.scaled(ui->icon_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+  UserMgr::GetInstance()->AttachAvatarLabel(ui->icon_lb, _apply_info->_uid, _apply_info->_icon);
   ui->icon_lb->setScaledContents(true);
 
   ui->user_name_lb->setText(_apply_info->_name);
@@ -48,4 +42,9 @@ void ApplyFriendItem::ShowAddBtn(bool bshow)
 int ApplyFriendItem::GetUid()
 {
   return _apply_info->_uid;
+}
+
+void ApplyFriendItem::on_addBtn_clicked()
+{
+  emit this->sig_auth_friend(_apply_info);
 }

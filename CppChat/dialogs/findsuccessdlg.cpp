@@ -21,9 +21,8 @@ void FindSuccessDlg::SetSearchInfo(std::shared_ptr<SearchInfo> info)
 {
   _si = info;
   ui->name_lb->setText(info->_name);
-  QPixmap icon(info->_icon);
-  if (icon.isNull()) icon.load(":/res/head_1.jpg");
-  ui->head_lb->setPixmap(icon.scaled(ui->head_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+  UserMgr::GetInstance()->RefreshAvatar(info->_uid);
+  UserMgr::GetInstance()->AttachAvatarLabel(ui->head_lb, info->_uid, info->_icon);
   const auto mgr = UserMgr::GetInstance();
   const bool self = info->_uid == mgr->GetUid();
   ui->add_friend_btn->setEnabled(!self);

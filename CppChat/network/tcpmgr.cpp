@@ -18,6 +18,7 @@ QString timeoutMessage(ReqId request)
   case ID_ADD_FRIEND_REQ: return QObject::tr("发送好友申请超时，请重试");
   case ID_AUTH_FRIEND_REQ: return QObject::tr("处理好友申请超时，请重试");
   case ID_CHAT_LOGIN: return QObject::tr("聊天服务器登录超时，请重试");
+  case ID_UPDATE_PROFILE_REQ: return QObject::tr("保存资料超时，请重试");
   default: return QObject::tr("服务器响应超时，请重试");
   }
 }
@@ -34,6 +35,7 @@ ReqId requestForResponse(ReqId response)
   case ID_LOAD_CHAT_THREAD_RSP: return ID_LOAD_CHAT_THREAD_REQ;
   case ID_CREATE_PRIVATE_CHAT_RSP: return ID_CREATE_PRIVATE_CHAT_REQ;
   case ID_LOAD_CHAT_MSG_RSP: return ID_LOAD_CHAT_MSG_REQ;
+  case ID_UPDATE_PROFILE_RSP: return ID_UPDATE_PROFILE_REQ;
   default: return static_cast<ReqId>(0);
   }
 }
@@ -148,7 +150,8 @@ void TcpMgr::readPackets()
 void TcpMgr::startRequestTimer(ReqId request)
 {
   // 文本可以连续发送，逐条超时由 ChatPage 按 unique_id 管理。
-  if (request == ID_TEXT_CHAT_MSG_REQ || request == ID_HEART_BEAT_REQ) return;
+  if (request == ID_TEXT_CHAT_MSG_REQ || request == ID_HEART_BEAT_REQ ||
+      request == ID_GET_AVATAR_REQ) return;
   if (!_requestTimers.contains(request)) {
     auto *timer = new QTimer(this);
     timer->setSingleShot(true);
@@ -177,7 +180,8 @@ void TcpMgr::failRequest(ReqId request, const QString &message)
 
 void TcpMgr::slot_send_data(ReqId id, QByteArray body)
 {
-  if (body.size() > 2048
+  const int maxBody = id == ID_UPDATE_PROFILE_REQ ? 16000 : 2048;
+  if (body.size() > maxBody
       || _socket.state() != QAbstractSocket::ConnectedState) {
     emit sig_send_failed(id);
     failRequest(id, tr("消息过大或聊天连接已断开"));
@@ -189,7 +193,7 @@ void TcpMgr::slot_send_data(ReqId id, QByteArray body)
   stream << static_cast<quint16>(id) << static_cast<quint16>(body.size());
   packet.append(body);
   if (id == ID_ADD_FRIEND_REQ) _applyTarget = QJsonDocument::fromJson(body).object()["touid"].toInt();
-  if (id != ID_TEXT_CHAT_MSG_REQ && id != ID_HEART_BEAT_REQ)
+  if (id != ID_TEXT_CHAT_MSG_REQ && id != ID_HEART_BEAT_REQ && id != ID_GET_AVATAR_REQ)
     _pendingRequests.insert(id, QJsonDocument::fromJson(body).object());
   startRequestTimer(id);
   qInfo() << "TCP request queued:" << static_cast<int>(id) << "bytes:" << body.size();
@@ -228,6 +232,11 @@ void TcpMgr::handleMsg(ReqId id, const QByteArray &data)
       emit sig_login_failed(error);
     } else if (request == ID_SEARCH_USER_REQ && document.isObject() && error == UidInvalid) {
       emit sig_user_search(nullptr);
+    } else if (id == ID_GET_AVATAR_RSP && document.isObject()) {
+      emit sig_avatar_received(object["uid"].toInt(), {}, false);
+    } else if (request == ID_UPDATE_PROFILE_REQ && document.isObject() &&
+               error == RedisError && object["committed"].toBool()) {
+      emit sig_profile_updated(object);
     } else if (request != 0) {
       failRequest(request, errorCodeMessage(error));
     }
@@ -331,4 +340,11 @@ void TcpMgr::initHandlers()
     emit sig_notify_offline();
   });
   _handlers.insert(ID_HEARTBEAT_RSP, [this](const QJsonObject &) { _lastHeartbeat.restart(); });
+  _handlers.insert(ID_UPDATE_PROFILE_RSP, [this](const QJsonObject &o) {
+    emit sig_profile_updated(o);
+  });
+  _handlers.insert(ID_GET_AVATAR_RSP, [this](const QJsonObject &o) {
+    emit sig_avatar_received(o["uid"].toInt(),
+        QByteArray::fromBase64(o["avatar"].toString().toLatin1()), true);
+  });
 }

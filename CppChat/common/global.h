@@ -50,6 +50,10 @@ enum ReqId {
   ID_CREATE_PRIVATE_CHAT_RSP = 1028,  // 创建私聊回复
   ID_LOAD_CHAT_MSG_REQ = 1029,        // 加载聊天消息
   ID_LOAD_CHAT_MSG_RSP = 1030,        // 加载聊天消息
+  ID_UPDATE_PROFILE_REQ = 1031,       // 更新个人资料
+  ID_UPDATE_PROFILE_RSP = 1032,
+  ID_GET_AVATAR_REQ = 1033,           // 按 uid 获取头像
+  ID_GET_AVATAR_RSP = 1034,
 };
 enum Modules { REGISTERMOD = 0, RESETMOD = 1, LOGINMOD = 2 };
 enum ErrorCodes {
@@ -111,7 +115,7 @@ inline QString errorCodeMessage(int errorCode)
   case ErrorCodes::DatabaseError:
     return QStringLiteral("数据库服务异常，请稍后重试");
   case ErrorCodes::RedisError:
-    return QStringLiteral("验证码存储服务异常，请稍后重试");
+    return QStringLiteral("缓存服务异常，请稍后重试");
   case ErrorCodes::InternalError:
     return QStringLiteral("服务器内部错误，请稍后重试");
   default:

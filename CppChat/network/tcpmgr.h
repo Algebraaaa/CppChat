@@ -4,6 +4,7 @@
 #include "common/singleton.h"
 #include "common/userdata.h"
 #include <QElapsedTimer>
+#include <QJsonObject>
 #include <QTcpSocket>
 #include <QTimer>
 #include <functional>
@@ -37,6 +38,8 @@ signals:
   void sig_create_private_chat(int uid, int otherId, int threadId);
   void sig_load_chat_msg(int threadId, int messageId, bool more, std::vector<std::shared_ptr<TextChatData>> messages);
   void sig_chat_msg_rsp(int threadId, std::vector<std::shared_ptr<TextChatData>> messages);
+  void sig_profile_updated(QJsonObject profile);
+  void sig_avatar_received(int uid, QByteArray image, bool success);
 private:
   TcpMgr();
   void initHandlers();

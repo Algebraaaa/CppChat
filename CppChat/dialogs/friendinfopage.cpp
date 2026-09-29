@@ -1,6 +1,7 @@
 #include "friendinfopage.h"
 #include "ui_friendinfopage.h"
 #include <QDebug>
+#include "network/usermgr.h"
 
 FriendInfoPage::FriendInfoPage(QWidget *parent) :
     QWidget(parent),
@@ -22,6 +23,7 @@ void FriendInfoPage::SetInfo(std::shared_ptr<UserInfo> user_info)
 {
     _user_info = user_info;
     if (!user_info) {
+        ui->icon_lb->setProperty("avatar_uid", 0);
         ui->icon_lb->clear();
         ui->name_lb->clear();
         ui->nick_lb->clear();
@@ -29,12 +31,8 @@ void FriendInfoPage::SetInfo(std::shared_ptr<UserInfo> user_info)
         ui->sex_lb->clear();
         return;
     }
-    // 加载图片
-    QPixmap pixmap(user_info->_icon);
-    if (pixmap.isNull()) pixmap.load(":/res/head_1.jpg");
-
-    // 设置图片自动缩放
-    ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    UserMgr::GetInstance()->RefreshAvatar(user_info->_uid);
+    UserMgr::GetInstance()->AttachAvatarLabel(ui->icon_lb, user_info->_uid, user_info->_icon);
     ui->icon_lb->setScaledContents(true);
 
     ui->name_lb->setText(user_info->_name);

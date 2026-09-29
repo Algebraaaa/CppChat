@@ -75,3 +75,29 @@ StatusServer：
 
 
 
+## 本机开发环境
+
+以下版本为本项目当前使用的本机开发、构建与联调环境，仅供复现时参考：
+
+| 项目 | 版本 |
+| --- | --- |
+| 操作系统 | Windows 10 Pro 25H2（内部版本 26200，按本机注册表显示） |
+| C++ 标准 | C++17 |
+| Qt | 6.5.3（MinGW 64-bit） |
+| MinGW-w64 GCC | 11.2.0（Qt 配套工具链） |
+| MSVC Platform Toolset | v143 |
+| Windows SDK | 10.0 |
+| CMake | 4.0.3 |
+| vcpkg | 2026-07-13（bf04c909169fdbb30821c02c6eb01f1cd1295d05） |
+| Boost | 1.91.0 |
+| gRPC | 1.81.1 |
+| Protocol Buffers | 6.33.4#2 |
+| OpenSSL | 3.6.3 |
+| MySQL Server | 8.0.42 |
+| MySQL Connector/C++ | 9.7.0 |
+| hiredis | 1.3.0 |
+| Node.js | 24.12.0 |
+| npm | 11.6.2 |
+| Git for Windows | 2.50.1.windows.1 |
+
+

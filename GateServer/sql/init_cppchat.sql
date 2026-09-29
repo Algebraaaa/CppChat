@@ -50,6 +50,16 @@ CREATE TABLE IF NOT EXISTS `users`
   DEFAULT CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
+-- 头像独立保存，避免图片二进制进入用户资料、登录和好友列表回包。
+CREATE TABLE IF NOT EXISTS `user_avatars`
+(
+    `uid` INT UNSIGNED NOT NULL,
+    `image` MEDIUMBLOB NOT NULL,
+    PRIMARY KEY (`uid`),
+    CONSTRAINT `fk_user_avatars_uid` FOREIGN KEY (`uid`) REFERENCES `users` (`id`)
+        ON DELETE CASCADE
+) ENGINE = InnoDB;
+
 -- CREATE TABLE IF NOT EXISTS 不会给已经存在的旧 users 表补字段。
 -- 以下四段动态 SQL 只在字段缺失时执行 ALTER，因此整份脚本可以重复运行。
 SET @ddl = IF(

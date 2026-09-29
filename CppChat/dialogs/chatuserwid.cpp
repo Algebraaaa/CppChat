@@ -59,6 +59,7 @@ void ChatUserWid::SetChatData(std::shared_ptr<ChatThreadData> data)
                          : tr("用户 %1").arg(data->GetOtherId());
   const auto icon = user ? user->_icon : QStringLiteral(":/res/head_1.jpg");
   SetInfo(name, icon, data->GetLastMsg());
+  UserMgr::GetInstance()->AttachAvatarLabel(ui->icon_lb, data->GetOtherId(), icon);
 }
 void ChatUserWid::ShowRedPoint(bool show)
 { _unreadLabel->setVisible(show); _unreadLabel->raise(); }
