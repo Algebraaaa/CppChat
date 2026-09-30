@@ -21,7 +21,7 @@ ApplyFriend::ApplyFriend(QWidget *parent)
   ui->lb_ed->SetMaxLength(21);
   ui->lb_ed->move(2, 2);
   ui->lb_ed->setFixedHeight(20);
-  ui->lb_ed->setMaxLength(10);
+  // ui->lb_ed->setMaxLength(10);
   ui->input_tip_wid->hide();
 
   _tip_cur_point = QPoint(5, 5);
@@ -100,13 +100,12 @@ void ApplyFriend::InitTipLbs()
 
     auto next_point = _tip_cur_point;
 
-    AddTipLbs(lb, _tip_cur_point, next_point, textWidth, textHeight);
+    AddTipLbs(lb, _tip_cur_point, next_point, textWidth);
 
     _tip_cur_point = next_point;
   }
 }
-void ApplyFriend::AddTipLbs(ClickedLabel *lb, QPoint cur_point, QPoint &next_point, int text_width,
-                            int text_height)
+void ApplyFriend::AddTipLbs(ClickedLabel *lb, QPoint cur_point, QPoint &next_point, int text_width)
 {
   lb->move(cur_point);
   lb->show();
@@ -188,7 +187,7 @@ void ApplyFriend::ShowMoreLabel()
 
     next_point = _tip_cur_point;
 
-    AddTipLbs(lb, _tip_cur_point, next_point, textWidth, textHeight);
+    AddTipLbs(lb, _tip_cur_point, next_point, textWidth);
 
     _tip_cur_point = next_point;
   }
@@ -314,7 +313,7 @@ void ApplyFriend::SlotLabelEnter()
 
   auto next_point = _tip_cur_point;
 
-  AddTipLbs(lb, _tip_cur_point, next_point, textWidth, textHeight);
+  AddTipLbs(lb, _tip_cur_point, next_point, textWidth);
   _tip_cur_point = next_point;
 
   int diff_height = next_point.y() + textHeight + tip_offset - ui->lb_list->height();
@@ -449,7 +448,7 @@ void ApplyFriend::SlotAddFirendLabelByClickTip(QString text)
 
   auto next_point = _tip_cur_point;
 
-  AddTipLbs(lb, _tip_cur_point, next_point, textWidth, textHeight);
+  AddTipLbs(lb, _tip_cur_point, next_point, textWidth);
   _tip_cur_point = next_point;
 
   int diff_height = next_point.y() + textHeight + tip_offset - ui->lb_list->height();

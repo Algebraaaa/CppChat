@@ -93,7 +93,7 @@ struct AuthRsp {
 };
 
 struct UserInfo {
-    UserInfo(int uid, QString name, QString nick, QString icon, int sex, QString last_msg = "", QString desc=""):
+    UserInfo(int uid, QString name, QString nick, QString icon, int sex, QString = "", QString desc=""):
         _uid(uid),_name(name),_nick(nick),_icon(icon),_sex(sex),_desc(desc){}
 
     UserInfo(std::shared_ptr<AuthInfo> auth):
@@ -101,7 +101,7 @@ struct UserInfo {
         _icon(auth->_icon),_sex(auth->_sex),_desc(""){}
 
     UserInfo(int uid, QString name, QString icon):
-    _uid(uid), _name(name), _icon(icon),_nick(_name),
+    _uid(uid), _name(name), _nick(_name), _icon(icon),
     _sex(0),_desc(""){
 
     }
@@ -195,7 +195,7 @@ struct ChatThreadInfo {
 class ChatThreadData {
 public:
     ChatThreadData(int other_id, int thread_id, int last_msg_id):
-        _other_id(other_id), _thread_id(thread_id), _last_msg_id(last_msg_id){}
+        _other_id(other_id), _last_msg_id(last_msg_id), _thread_id(thread_id){}
     void AddMsg(std::shared_ptr<ChatDataBase> msg);
     void MoveMsg(std::shared_ptr<ChatDataBase> msg);
     void SetLastMsgId(int msg_id);

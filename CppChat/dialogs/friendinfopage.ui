@@ -3,411 +3,191 @@
  <class>FriendInfoPage</class>
  <widget class="QWidget" name="FriendInfoPage">
   <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>789</width>
-    <height>511</height>
-   </rect>
+   <rect><x>0</x><y>0</y><width>720</width><height>640</height></rect>
   </property>
-  <property name="windowTitle">
-   <string>Form</string>
-  </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
-   <property name="leftMargin">
-    <number>120</number>
-   </property>
-   <property name="topMargin">
-    <number>120</number>
-   </property>
-   <property name="rightMargin">
-    <number>120</number>
-   </property>
-   <property name="bottomMargin">
-    <number>120</number>
-   </property>
+  <property name="windowTitle"><string>联系人资料</string></property>
+  <layout class="QVBoxLayout" name="page_layout">
+   <property name="leftMargin"><number>40</number></property>
+   <property name="topMargin"><number>34</number></property>
+   <property name="rightMargin"><number>40</number></property>
+   <property name="bottomMargin"><number>34</number></property>
+   <property name="spacing"><number>0</number></property>
    <item>
-    <widget class="QWidget" name="widget" native="true">
-     <layout class="QHBoxLayout" name="horizontalLayout">
+    <widget class="QLabel" name="title_lb">
+     <property name="text"><string>联系人资料</string></property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="subtitle_lb">
+     <property name="text"><string>查看联系人信息并开始聊天</string></property>
+    </widget>
+   </item>
+   <item>
+    <spacer name="header_spacer">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeType"><enum>QSizePolicy::Fixed</enum></property>
+     <property name="sizeHint" stdset="0"><size><width>20</width><height>24</height></size></property>
+    </spacer>
+   </item>
+   <item>
+    <widget class="QWidget" name="contact_card" native="true">
+     <property name="minimumSize"><size><width>400</width><height>0</height></size></property>
+     <layout class="QVBoxLayout" name="card_layout">
+      <property name="leftMargin"><number>30</number></property>
+      <property name="topMargin"><number>28</number></property>
+      <property name="rightMargin"><number>30</number></property>
+      <property name="bottomMargin"><number>28</number></property>
+      <property name="spacing"><number>0</number></property>
       <item>
-       <widget class="QLabel" name="icon_lb">
-        <property name="minimumSize">
-         <size>
-          <width>85</width>
-          <height>85</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>85</width>
-          <height>85</height>
-         </size>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QWidget" name="widget_3" native="true">
-        <layout class="QVBoxLayout" name="verticalLayout_2">
-         <item>
-          <widget class="QWidget" name="widget_4" native="true">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>40</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>40</height>
-            </size>
-           </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_2">
-            <property name="leftMargin">
-             <number>0</number>
-            </property>
-            <property name="topMargin">
-             <number>0</number>
-            </property>
-            <property name="rightMargin">
-             <number>0</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
+       <layout class="QHBoxLayout" name="identity_layout">
+        <property name="spacing"><number>24</number></property>
+        <item>
+         <widget class="QLabel" name="icon_lb">
+          <property name="minimumSize"><size><width>112</width><height>112</height></size></property>
+          <property name="maximumSize"><size><width>112</width><height>112</height></size></property>
+          <property name="text"><string/></property>
+          <property name="alignment"><set>Qt::AlignCenter</set></property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QVBoxLayout" name="identity_text_layout">
+          <property name="spacing"><number>7</number></property>
+          <item>
+           <layout class="QHBoxLayout" name="name_layout">
+            <property name="spacing"><number>10</number></property>
             <item>
              <widget class="QLabel" name="name_lb">
-              <property name="minimumSize">
-               <size>
-                <width>40</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>16777215</width>
-                <height>16777215</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>琳琳</string>
-              </property>
+              <property name="text"><string>用户名</string></property>
              </widget>
             </item>
             <item>
              <widget class="QLabel" name="sex_lb">
-              <property name="minimumSize">
-               <size>
-                <width>40</width>
-                <height>40</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>40</width>
-                <height>40</height>
-               </size>
-              </property>
-              <property name="text">
-               <string/>
-              </property>
+              <property name="text"><string/></property>
+              <property name="alignment"><set>Qt::AlignCenter</set></property>
              </widget>
             </item>
             <item>
-             <spacer name="horizontalSpacer">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
+             <spacer name="name_right_spacer">
+              <property name="orientation"><enum>Qt::Horizontal</enum></property>
+              <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
              </spacer>
             </item>
            </layout>
-          </widget>
-         </item>
-         <item>
-          <widget class="QWidget" name="widget_2" native="true">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>40</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>40</height>
-            </size>
-           </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_3">
-            <property name="leftMargin">
-             <number>0</number>
-            </property>
-            <property name="topMargin">
-             <number>0</number>
-            </property>
-            <property name="rightMargin">
-             <number>0</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
-            <item>
-             <widget class="QLabel" name="nick_tip">
-              <property name="minimumSize">
-               <size>
-                <width>0</width>
-                <height>30</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>50</width>
-                <height>30</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>昵称：</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLabel" name="nick_lb">
-              <property name="text">
-               <string>琳琳</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="horizontalSpacer_2">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
-          </widget>
-         </item>
-         <item>
-          <widget class="QWidget" name="widget_5" native="true">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>40</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>40</height>
-            </size>
-           </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_4">
-            <property name="leftMargin">
-             <number>0</number>
-            </property>
-            <property name="topMargin">
-             <number>0</number>
-            </property>
-            <property name="rightMargin">
-             <number>0</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
-            <item>
-             <widget class="QLabel" name="bak_tip">
-              <property name="minimumSize">
-               <size>
-                <width>0</width>
-                <height>30</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>50</width>
-                <height>30</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>备注：</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QLabel" name="bak_lb">
-              <property name="text">
-               <string>琳琳</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <spacer name="horizontalSpacer_7">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
-          </widget>
-         </item>
-        </layout>
+          </item>
+          <item>
+           <widget class="QLabel" name="contact_type_lb">
+            <property name="text"><string>联系人</string></property>
+            <property name="maximumSize"><size><width>58</width><height>24</height></size></property>
+            <property name="alignment"><set>Qt::AlignCenter</set></property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="identity_bottom_spacer">
+            <property name="orientation"><enum>Qt::Vertical</enum></property>
+            <property name="sizeHint" stdset="0"><size><width>20</width><height>20</height></size></property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="identity_section_spacer">
+        <property name="orientation"><enum>Qt::Vertical</enum></property>
+        <property name="sizeType"><enum>QSizePolicy::Fixed</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>20</width><height>24</height></size></property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="Line" name="contact_divider">
+        <property name="orientation"><enum>Qt::Horizontal</enum></property>
        </widget>
+      </item>
+      <item>
+       <spacer name="details_top_spacer">
+        <property name="orientation"><enum>Qt::Vertical</enum></property>
+        <property name="sizeType"><enum>QSizePolicy::Fixed</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>20</width><height>20</height></size></property>
+       </spacer>
+      </item>
+      <item>
+       <layout class="QVBoxLayout" name="details_layout">
+        <property name="spacing"><number>12</number></property>
+        <item>
+         <widget class="QWidget" name="nick_row" native="true">
+          <property name="minimumSize"><size><width>0</width><height>50</height></size></property>
+          <layout class="QHBoxLayout" name="nick_row_layout">
+           <property name="leftMargin"><number>16</number></property>
+           <property name="topMargin"><number>0</number></property>
+           <property name="rightMargin"><number>16</number></property>
+           <property name="bottomMargin"><number>0</number></property>
+           <property name="spacing"><number>16</number></property>
+           <item><widget class="QLabel" name="nick_tip"><property name="text"><string>昵称</string></property><property name="minimumSize"><size><width>72</width><height>0</height></size></property></widget></item>
+           <item><widget class="QLabel" name="nick_lb"><property name="text"><string>未设置</string></property><property name="textInteractionFlags"><set>Qt::TextSelectableByMouse</set></property></widget></item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QWidget" name="remark_row" native="true">
+          <property name="minimumSize"><size><width>0</width><height>50</height></size></property>
+          <layout class="QHBoxLayout" name="remark_row_layout">
+           <property name="leftMargin"><number>16</number></property>
+           <property name="topMargin"><number>0</number></property>
+           <property name="rightMargin"><number>16</number></property>
+           <property name="bottomMargin"><number>0</number></property>
+           <property name="spacing"><number>16</number></property>
+           <item><widget class="QLabel" name="bak_tip"><property name="text"><string>备注</string></property><property name="minimumSize"><size><width>72</width><height>0</height></size></property></widget></item>
+           <item><widget class="QLabel" name="bak_lb"><property name="text"><string>未设置</string></property><property name="textInteractionFlags"><set>Qt::TextSelectableByMouse</set></property></widget></item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QWidget" name="desc_row" native="true">
+          <property name="minimumSize"><size><width>0</width><height>58</height></size></property>
+          <layout class="QHBoxLayout" name="desc_row_layout">
+           <property name="leftMargin"><number>16</number></property>
+           <property name="topMargin"><number>8</number></property>
+           <property name="rightMargin"><number>16</number></property>
+           <property name="bottomMargin"><number>8</number></property>
+           <property name="spacing"><number>16</number></property>
+           <item><widget class="QLabel" name="desc_tip"><property name="text"><string>个人描述</string></property><property name="minimumSize"><size><width>72</width><height>0</height></size></property><property name="alignment"><set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set></property></widget></item>
+           <item><widget class="QLabel" name="desc_lb"><property name="text"><string>暂无个人描述</string></property><property name="wordWrap"><bool>true</bool></property><property name="textInteractionFlags"><set>Qt::TextSelectableByMouse</set></property></widget></item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="action_top_spacer">
+        <property name="orientation"><enum>Qt::Vertical</enum></property>
+        <property name="sizeType"><enum>QSizePolicy::Fixed</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>20</width><height>24</height></size></property>
+       </spacer>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="action_layout">
+        <item>
+         <spacer name="action_left_spacer">
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="ClickedBtn" name="msg_chat">
+          <property name="minimumSize"><size><width>132</width><height>40</height></size></property>
+          <property name="maximumSize"><size><width>132</width><height>40</height></size></property>
+          <property name="text"><string>发消息</string></property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>
    </item>
    <item>
-    <widget class="QWidget" name="widget_6" native="true">
-     <layout class="QHBoxLayout" name="horizontalLayout_5">
-      <item>
-       <spacer name="horizontalSpacer_3">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
-       <widget class="ClickedBtn" name="msg_chat">
-        <property name="minimumSize">
-         <size>
-          <width>120</width>
-          <height>42</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>120</width>
-          <height>42</height>
-         </size>
-        </property>
-        <property name="text">
-         <string>发消息</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="horizontalSpacer_5">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeType">
-         <enum>QSizePolicy::Fixed</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
-       <widget class="ClickedBtn" name="voice_chat">
-        <property name="minimumSize">
-         <size>
-          <width>50</width>
-          <height>50</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>50</width>
-          <height>50</height>
-         </size>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="horizontalSpacer_6">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeType">
-         <enum>QSizePolicy::Fixed</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
-       <widget class="ClickedBtn" name="video_chat">
-        <property name="minimumSize">
-         <size>
-          <width>50</width>
-          <height>50</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>50</width>
-          <height>50</height>
-         </size>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="horizontalSpacer_4">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <spacer name="verticalSpacer_2">
-     <property name="orientation">
-      <enum>Qt::Vertical</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>20</width>
-       <height>40</height>
-      </size>
-     </property>
+    <spacer name="page_bottom_spacer">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint" stdset="0"><size><width>20</width><height>20</height></size></property>
     </spacer>
    </item>
   </layout>
@@ -416,7 +196,7 @@
   <customwidget>
    <class>ClickedBtn</class>
    <extends>QPushButton</extends>
-   <header>widgets/clickedbtn.h</header>
+   <header location="global">widgets/clickedbtn.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

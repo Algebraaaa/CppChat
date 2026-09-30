@@ -34,11 +34,14 @@ void ChatUserWid::SetInfo(QString name, QString head, QString msg)
   _name = name;
   _head = head;
   _msg = msg;
-  // 加载图片
-  QPixmap pixmap(_head);
+  // 新注册用户的 icon 字段为空，此时直接使用客户端内置默认头像。
+  QPixmap pixmap;
+  if (!_head.isEmpty()) pixmap.load(_head);
   if (pixmap.isNull()) {
-    qCWarning(chatUserWidgetLog) << "Failed to load avatar resource"
-                                 << "user=" << _name << "resource=" << _head;
+    if (!_head.isEmpty()) {
+      qCWarning(chatUserWidgetLog) << "Failed to load avatar resource"
+                                   << "user=" << _name << "resource=" << _head;
+    }
     pixmap.load(":/res/head_1.jpg");
   }
 

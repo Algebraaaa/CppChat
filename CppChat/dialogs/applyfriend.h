@@ -15,8 +15,7 @@ public:
   explicit ApplyFriend(QWidget *parent = nullptr);
   ~ApplyFriend();
   void InitTipLbs();
-  void AddTipLbs(ClickedLabel *, QPoint cur_point, QPoint &next_point, int text_width,
-                 int text_height);
+  void AddTipLbs(ClickedLabel *, QPoint cur_point, QPoint &next_point, int text_width);
   bool eventFilter(QObject *obj, QEvent *event) override;
   void SetSearchInfo(std::shared_ptr<SearchInfo> si);
   void SetApplyInfo(std::shared_ptr<ApplyInfo> info);

@@ -1156,51 +1156,232 @@ ConUserItem#ConUserItem #user_name_lb {
     font-family: "Microsoft YaHei";
 }
 
-/* 个人资料、联系人详情：与现有认证页和聊天页使用相同的绿/灰配色。 */
-QDialog#ChatDialog QWidget#friend_info_page,
-QDialog#ChatDialog QWidget#user_info_page {
-    background: #f5f5f5;
-    color: #202020;
+/* 联系人资料页：标题、资料卡和聊天入口。 */
+QDialog#ChatDialog QWidget#friend_info_page {
+    background: #f4f5f6;
+    color: #202124;
+    font-family: "Microsoft YaHei UI", "Microsoft YaHei";
 }
-QDialog#ChatDialog #friend_info_page QLabel,
-QDialog#ChatDialog #user_info_page QLabel {
+QDialog#ChatDialog #friend_info_page QLabel {
     background: transparent;
-    color: #333333;
+    color: #303236;
 }
-QDialog#ChatDialog #user_info_page QLineEdit {
-    border: 1px solid #dddddd;
-    border-radius: 5px;
-    padding: 6px 10px;
+QDialog#ChatDialog #friend_info_page #title_lb {
+    color: #202124;
+    font-size: 23px;
+    font-weight: 600;
+}
+QDialog#ChatDialog #friend_info_page #subtitle_lb {
+    color: #858b93;
+    font-size: 13px;
+    padding-top: 4px;
+}
+QDialog#ChatDialog #friend_info_page QWidget#contact_card {
     background: #ffffff;
-    color: #333333;
+    border: 1px solid #e2e5e8;
+    border-radius: 12px;
 }
-QDialog#ChatDialog #friend_info_page #msg_chat,
-QDialog#ChatDialog #user_info_page #up_btn {
-    background: #07c160;
-    color: white;
+QDialog#ChatDialog #friend_info_page #icon_lb {
+    background: #f0f2f3;
+    border: 1px solid #e1e4e7;
+    border-radius: 10px;
+}
+QDialog#ChatDialog #friend_info_page #name_lb {
+    color: #202124;
+    font-size: 20px;
+    font-weight: 600;
+}
+QDialog#ChatDialog #friend_info_page #contact_type_lb {
+    color: #078a47;
+    background: #e8f8ef;
+    border: 1px solid #c9efd9;
+    border-radius: 6px;
+    font-size: 12px;
+    padding: 2px 8px;
+}
+QDialog#ChatDialog #friend_info_page #sex_lb {
+    color: #5e6670;
+    background: #f0f2f4;
+    border-radius: 6px;
+    font-size: 12px;
+    padding: 2px 8px;
+}
+QDialog#ChatDialog #friend_info_page #contact_divider {
+    background: transparent;
     border: none;
-    border-radius: 5px;
-    padding: 6px 12px;
-    font-family: "Microsoft YaHei";
+    border-top: 1px solid #eceeef;
+}
+QDialog#ChatDialog #friend_info_page QWidget#nick_row,
+QDialog#ChatDialog #friend_info_page QWidget#remark_row,
+QDialog#ChatDialog #friend_info_page QWidget#desc_row {
+    background: #f8f9fa;
+    border: 1px solid #eceff1;
+    border-radius: 7px;
+}
+QDialog#ChatDialog #friend_info_page #nick_tip,
+QDialog#ChatDialog #friend_info_page #bak_tip,
+QDialog#ChatDialog #friend_info_page #desc_tip {
+    color: #858b93;
+    font-size: 13px;
+}
+QDialog#ChatDialog #friend_info_page #nick_lb,
+QDialog#ChatDialog #friend_info_page #bak_lb,
+QDialog#ChatDialog #friend_info_page #desc_lb {
+    color: #303236;
     font-size: 14px;
 }
-QDialog#ChatDialog #friend_info_page #msg_chat:hover,
-QDialog#ChatDialog #user_info_page #up_btn:hover {
-    background: #06ad56;
+QDialog#ChatDialog #friend_info_page #msg_chat {
+    background: #07c160;
+    color: #ffffff;
+    border: none;
+    border-radius: 7px;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 0;
 }
-QDialog#ChatDialog #friend_info_page #msg_chat:pressed,
+QDialog#ChatDialog #friend_info_page #msg_chat:hover {
+    background: #06b459;
+}
+QDialog#ChatDialog #friend_info_page #msg_chat:pressed {
+    background: #059b4c;
+}
+QDialog#ChatDialog #friend_info_page #msg_chat:disabled {
+    background: #b9dfca;
+    color: #f4fbf7;
+}
+
+/* 个人资料页：标题、资料卡、表单和操作按钮。 */
+QDialog#ChatDialog QWidget#user_info_page {
+    background: #f4f5f6;
+    color: #202124;
+    font-family: "Microsoft YaHei UI", "Microsoft YaHei";
+}
+QDialog#ChatDialog #user_info_page QLabel {
+    background: transparent;
+    color: #303236;
+}
+QDialog#ChatDialog #user_info_page #title_lb {
+    color: #202124;
+    font-size: 23px;
+    font-weight: 600;
+}
+QDialog#ChatDialog #user_info_page #subtitle_lb {
+    color: #858b93;
+    font-size: 13px;
+    padding-top: 4px;
+}
+QDialog#ChatDialog #user_info_page QWidget#profile_card {
+    background: #ffffff;
+    border: 1px solid #e2e5e8;
+    border-radius: 12px;
+}
+QDialog#ChatDialog #user_info_page #head_lb {
+    background: #f0f2f3;
+    border: 1px solid #e1e4e7;
+    border-radius: 10px;
+}
+QDialog#ChatDialog #user_info_page #avatar_title_lb {
+    color: #24272b;
+    font-size: 16px;
+    font-weight: 600;
+}
+QDialog#ChatDialog #user_info_page #avatar_hint_lb,
+QDialog#ChatDialog #user_info_page #name_hint_lb {
+    color: #8b9198;
+    font-size: 12px;
+}
+QDialog#ChatDialog #user_info_page #name_title_lb,
+QDialog#ChatDialog #user_info_page #nick_title_lb,
+QDialog#ChatDialog #user_info_page #desc_title_lb {
+    color: #4a4e54;
+    font-size: 13px;
+    font-weight: 600;
+}
+QDialog#ChatDialog #user_info_page #profile_divider {
+    background: transparent;
+    border: none;
+    border-top: 1px solid #eceeef;
+}
+
+/* 只保留水平内边距，给字形基线下方的下划线留足空间。 */
+QDialog#ChatDialog #user_info_page QLineEdit {
+    color: #24272b;
+    background: #f8f9fa;
+    border: 1px solid #dde1e4;
+    border-radius: 7px;
+    padding-left: 12px;
+    padding-right: 12px;
+    font-family: "Microsoft YaHei UI", "Microsoft YaHei";
+    font-size: 14px;
+    selection-color: #ffffff;
+    selection-background-color: #07c160;
+    outline: none;
+}
+QDialog#ChatDialog #user_info_page QLineEdit:hover {
+    background: #ffffff;
+    border-color: #bdc4c9;
+}
+QDialog#ChatDialog #user_info_page QLineEdit:focus {
+    background: #ffffff;
+    border-color: #07c160;
+}
+QDialog#ChatDialog #user_info_page QLineEdit:disabled {
+    color: #9ca1a7;
+    background: #f1f2f3;
+    border-color: #e3e5e7;
+}
+
+QDialog#ChatDialog #user_info_page QPushButton {
+    border-radius: 7px;
+    padding-left: 15px;
+    padding-right: 15px;
+    font-family: "Microsoft YaHei UI", "Microsoft YaHei";
+    font-size: 13px;
+    outline: none;
+}
+QDialog#ChatDialog #user_info_page #up_btn {
+    color: #079a4d;
+    background: #ffffff;
+    border: 1px solid #87d9ad;
+}
+QDialog#ChatDialog #user_info_page #up_btn:hover {
+    color: #067c40;
+    background: #f0fbf5;
+    border-color: #45bf7d;
+}
 QDialog#ChatDialog #user_info_page #up_btn:pressed {
-    background: #05984b;
+    background: #e2f6eb;
 }
 QDialog#ChatDialog #user_info_page #submit_btn {
-    background: #eeeeee;
-    border: 1px solid #d8d8d8;
-    border-radius: 5px;
-    color: #333333;
-    padding: 6px 12px;
+    color: #ffffff;
+    background: #07c160;
+    border: 1px solid #07c160;
 }
 QDialog#ChatDialog #user_info_page #submit_btn:hover {
-    background: #e2e2e2;
+    background: #06ad56;
+    border-color: #06ad56;
+}
+QDialog#ChatDialog #user_info_page #submit_btn:pressed {
+    background: #05984b;
+    border-color: #05984b;
+}
+QDialog#ChatDialog #user_info_page #logout_btn {
+    color: #b94a4a;
+    background: #ffffff;
+    border: 1px solid #eccaca;
+}
+QDialog#ChatDialog #user_info_page #logout_btn:hover {
+    color: #a43c3c;
+    background: #fff6f6;
+    border-color: #dfaaaa;
+}
+QDialog#ChatDialog #user_info_page #logout_btn:pressed {
+    background: #fdeaea;
+}
+QDialog#ChatDialog #user_info_page QPushButton:disabled {
+    color: #a5a9ae;
+    background: #eef0f1;
+    border-color: #e0e3e5;
 }
 QDialog#ChatDialog #chat_page QLabel#message_status {
     color: #999999;

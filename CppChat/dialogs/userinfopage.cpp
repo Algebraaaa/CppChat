@@ -14,10 +14,11 @@ UserInfoPage::UserInfoPage(QWidget *parent) : QWidget(parent), ui(new Ui::UserIn
 {
   ui->setupUi(this);
   setAttribute(Qt::WA_StyledBackground);
+  ui->profile_card->setAttribute(Qt::WA_StyledBackground);
   ui->name_ed->setMaxLength(64);
   ui->nick_ed->setMaxLength(64);
   ui->desc_ed->setMaxLength(255);
-  ui->up_btn->setText(tr("选择头像"));
+  ui->up_btn->setText(tr("更换头像"));
   ui->submit_btn->setText(tr("保存资料"));
   connect(ui->logout_btn, &QPushButton::clicked, this, &UserInfoPage::sig_logout);
   const auto tcp = TcpMgr::GetInstance();
