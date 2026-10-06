@@ -1,9 +1,13 @@
-#include "BubbleFrame.h"
+#include "bubbleframe.h"
 #include <QDebug>
 #include <QPainter>
 const int WIDTH_SANJIAO = 8; // 三角宽
-BubbleFrame::BubbleFrame(ChatRole role, QWidget *parent) : QFrame(parent), m_role(role), m_margin(3)
+BubbleFrame::BubbleFrame(ChatRole role, QWidget *parent) : QFrame(parent), m_role(role), m_margin(4)
 {
+  setContextMenuPolicy(Qt::CustomContextMenu);
+  connect(this, &QWidget::customContextMenuRequested, this, [this](const QPoint &position) {
+    emit messageContextMenuRequested(mapToGlobal(position));
+  });
   m_pHLayout = new QHBoxLayout();
   if (m_role == ChatRole::Self)
     m_pHLayout->setContentsMargins(m_margin, m_margin, WIDTH_SANJIAO + m_margin, m_margin);
@@ -31,33 +35,34 @@ void BubbleFrame::setWidget(QWidget *w)
 void BubbleFrame::paintEvent(QPaintEvent *e)
 {
   QPainter painter(this);
+  painter.setRenderHint(QPainter::Antialiasing, true);
   painter.setPen(Qt::NoPen);
 
   if (m_role == ChatRole::Other) {
     // 画气泡
-    QColor bk_color(Qt::white);
+    const QColor bk_color(255, 255, 255);
     painter.setBrush(QBrush(bk_color));
     QRect bk_rect = QRect(WIDTH_SANJIAO, 0, this->width() - WIDTH_SANJIAO, this->height());
-    painter.drawRoundedRect(bk_rect, 5, 5);
+    painter.drawRoundedRect(bk_rect, 9, 9);
     // 画小三角
     QPointF points[3] = {
-      QPointF(bk_rect.x(), 12),
-      QPointF(bk_rect.x(), 10 + WIDTH_SANJIAO + 2),
-      QPointF(bk_rect.x() - WIDTH_SANJIAO, 10 + WIDTH_SANJIAO - WIDTH_SANJIAO / 2),
+        QPointF(bk_rect.x(), 12),
+        QPointF(bk_rect.x(), 10 + WIDTH_SANJIAO + 2),
+        QPointF(bk_rect.x() - WIDTH_SANJIAO, 10 + WIDTH_SANJIAO - WIDTH_SANJIAO / 2),
     };
     painter.drawPolygon(points, 3);
   } else {
-    QColor bk_color(158, 234, 106);
+    const QColor bk_color(149, 236, 105);
     painter.setBrush(QBrush(bk_color));
     // 画气泡
     QRect bk_rect = QRect(0, 0, this->width() - WIDTH_SANJIAO, this->height());
-    painter.drawRoundedRect(bk_rect, 5, 5);
+    painter.drawRoundedRect(bk_rect, 9, 9);
     // 画三角
     QPointF points[3] = {
-      QPointF(bk_rect.x() + bk_rect.width(), 12),
-      QPointF(bk_rect.x() + bk_rect.width(), 12 + WIDTH_SANJIAO + 2),
-      QPointF(bk_rect.x() + bk_rect.width() + WIDTH_SANJIAO,
-              10 + WIDTH_SANJIAO - WIDTH_SANJIAO / 2),
+        QPointF(bk_rect.x() + bk_rect.width(), 12),
+        QPointF(bk_rect.x() + bk_rect.width(), 12 + WIDTH_SANJIAO + 2),
+        QPointF(bk_rect.x() + bk_rect.width() + WIDTH_SANJIAO,
+                10 + WIDTH_SANJIAO - WIDTH_SANJIAO / 2),
     };
     painter.drawPolygon(points, 3);
   }

@@ -1,0 +1,778 @@
+/* Search/add-friend dialogs, sidebar menu, tags, emoji picker, image viewer and screen capture. */
+
+QDialog#ChatHistoryDialog,
+QDialog#ChatHistoryDialog QWidget#history_toolbar,
+QDialog#ChatHistoryDialog QScrollArea#records_scroll,
+QDialog#ChatHistoryDialog QWidget#records_content {
+    background-color: ${color.surface.subtle};
+    border: none;
+}
+
+QDialog#ChatHistoryDialog QFrame#history_search_bar {
+    background-color: ${color.surface.subtle};
+    border: 1px solid ${color.brand};
+    border-radius: ${radius.avatar};
+}
+
+QDialog#ChatHistoryDialog QLineEdit#search_edit {
+    color: ${color.text.primary};
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-size: ${font.size.subheading};
+    selection-background-color: ${color.selection};
+}
+
+QDialog#ChatHistoryDialog QPushButton {
+    color: #244a91;
+    background: transparent;
+    border: none;
+    border-radius: ${radius.control};
+    padding: 8px 4px;
+    font-size: ${font.size.message};
+}
+
+QDialog#ChatHistoryDialog QPushButton:hover,
+QDialog#ChatHistoryDialog QPushButton:checked,
+QDialog#ChatHistoryDialog QPushButton:focus {
+    background-color: ${color.surface.hover};
+}
+
+QDialog#ChatHistoryDialog QPushButton#voice_search_btn {
+    padding: 0;
+}
+
+QDialog#ChatHistoryDialog QFrame#history_separator {
+    background-color: ${color.border.subtle};
+    border: none;
+}
+
+QDialog#ChatHistoryDialog QLabel#empty_title {
+    color: ${color.text.body};
+    font-size: ${font.size.section};
+}
+
+QDialog#ChatHistoryDialog QLabel#empty_description {
+    color: ${color.text.muted};
+    font-size: ${font.size.base};
+}
+
+QDialog#ChatHistoryDialog QScrollBar:vertical {
+    background: transparent;
+    width: 8px;
+    margin: 3px;
+}
+
+QDialog#ChatHistoryDialog QScrollBar::handle:vertical {
+    background: #b1b1b1;
+    border-radius: ${radius.dot};
+    min-height: 30px;
+}
+
+QDialog#ChatHistoryDialog QScrollBar::add-line:vertical,
+QDialog#ChatHistoryDialog QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
+QDialog#ChatHistoryDialog QScrollBar::add-page:vertical,
+QDialog#ChatHistoryDialog QScrollBar::sub-page:vertical {
+    background: transparent;
+}
+
+/* 会话右键菜单：布局在 conversationmenu.ui，透明边距留给 C++ 阴影。 */
+QWidget#ConversationMenu {
+    background: transparent;
+    border: none;
+}
+
+QWidget#ConversationMenu QFrame#menu_panel {
+    background: ${color.surface};
+    border: 1px solid ${color.border.window};
+    border-radius: ${radius.panel};
+}
+
+QWidget#ConversationMenu QPushButton {
+    background: transparent;
+    color: ${color.text.primary};
+    border: none;
+    border-radius: ${radius.compact};
+    padding: 0 12px;
+    text-align: left;
+    font-size: ${font.size.base};
+}
+
+QWidget#ConversationMenu QPushButton:hover,
+QWidget#ConversationMenu QPushButton:focus {
+    background: ${color.surface.hover};
+}
+
+QWidget#ConversationMenu QPushButton:pressed {
+    background: ${color.surface.pressed};
+}
+
+QWidget#ConversationMenu QPushButton#delete_btn {
+    color: ${color.status.error};
+}
+
+QWidget#ConversationMenu QFrame#separator_3,
+QWidget#ConversationMenu QFrame#separator_5 {
+    background: ${color.border.card};
+    border: none;
+    margin: 0 10px;
+}
+
+/* 消息体右键菜单：布局在 messagemenu.ui，所有菜单项保留相同图标列。 */
+QWidget#MessageMenu {
+    background: transparent;
+    border: none;
+}
+
+QWidget#MessageMenu QFrame#menu_panel {
+    background: #f7f7f7;
+    border: 1px solid ${color.border.window};
+    border-radius: ${radius.panel};
+}
+
+QWidget#MessageMenu QPushButton {
+    background: transparent;
+    color: ${color.text.primary};
+    border: 1px solid transparent;
+    border-radius: ${radius.compact};
+    padding: 0 9px;
+    text-align: left;
+    font-size: ${font.size.base};
+}
+
+QWidget#MessageMenu QPushButton:hover {
+    background: ${color.surface.hover};
+}
+
+QWidget#MessageMenu QPushButton:focus {
+    border-color: ${color.border.input.hover};
+}
+
+QWidget#MessageMenu QPushButton:pressed {
+    background: ${color.surface.pressed};
+}
+
+QWidget#MessageMenu QPushButton#delete_btn {
+    color: ${color.status.error};
+}
+
+QWidget#MessageMenu QPushButton:disabled {
+    color: ${color.text.muted};
+}
+
+QWidget#MessageMenu QFrame#separator_1,
+QWidget#MessageMenu QFrame#separator_2,
+QWidget#MessageMenu QFrame#retry_separator {
+    background: ${color.border.card};
+    border: none;
+    margin: 4px 10px;
+}
+
+/* 左下角全局菜单：布局在 sidemenupopup.ui，透明边距留给 C++ 阴影。 */
+QDialog#SideMenuPopup {
+    background-color: transparent;
+    border: none;
+}
+
+QDialog#SideMenuPopup QFrame#menu_panel {
+    background-color: ${color.surface.hover};
+    border: 1px solid ${color.border.window};
+    border-radius: ${radius.panel};
+}
+
+QDialog#SideMenuPopup QPushButton {
+    color: ${color.text.primary};
+    background-color: transparent;
+    border: none;
+    border-radius: ${radius.compact};
+    padding: 0 14px;
+    text-align: left;
+    font-size: ${font.size.subheading};
+}
+
+QDialog#SideMenuPopup QPushButton:hover,
+QDialog#SideMenuPopup QPushButton:focus {
+    background-color: ${color.surface.pressed};
+}
+
+QDialog#SideMenuPopup QPushButton:pressed {
+    background-color: ${color.border.card};
+}
+
+/* 快捷菜单的按钮、图标和尺寸由 quickactionmenu.ui 定义。 */
+QWidget#QuickActionMenu {
+    background-color: transparent;
+    border: none;
+}
+
+QWidget#QuickActionMenu QFrame#quick_action_panel {
+    background-color: ${color.surface};
+    border: 1px solid ${color.border.window};
+    border-radius: ${radius.panel};
+}
+
+QWidget#QuickActionMenu QPushButton {
+    color: ${color.text.primary};
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: ${radius.compact};
+    padding: 0 12px;
+    text-align: left;
+    font-size: ${font.size.base};
+}
+
+QWidget#QuickActionMenu QPushButton:hover {
+    background-color: ${color.surface.hover};
+}
+
+QWidget#QuickActionMenu QPushButton:focus {
+    border-color: ${color.border.input.hover};
+}
+
+QWidget#QuickActionMenu QPushButton:pressed {
+    background-color: ${color.surface.pressed};
+}
+
+/* AddFriendDialog、FindSuccessDlg、ApplyFriend：共用外框和可拖动标题栏。 */
+QDialog#AddFriendDialog,
+QDialog#FindSuccessDlg,
+QDialog#ApplyFriend {
+    color: ${color.text.primary};
+    background-color: transparent;
+    border: none;
+}
+
+/* 外框在各自的 .ui 中定义；标题栏拖动由 DialogTitleBar 统一处理。 */
+QDialog#AddFriendDialog QFrame#add_friend_frame,
+QDialog#FindSuccessDlg QFrame#dialog_frame,
+QDialog#ApplyFriend QFrame#dialog_frame {
+    background-color: ${color.surface};
+    border: 1px solid ${color.border.window};
+    border-radius: ${radius.panel};
+}
+
+QDialog#AddFriendDialog QWidget#add_friend_content,
+QDialog#FindSuccessDlg QWidget#dialog_content {
+    background-color: ${color.surface};
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+QDialog#AddFriendDialog DialogTitleBar#add_friend_header,
+QDialog#FindSuccessDlg DialogTitleBar#dialog_title_bar,
+QDialog#ApplyFriend DialogTitleBar#dialog_title_bar {
+    background-color: ${color.surface.subtle};
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border-bottom: 1px solid ${color.border.subtle};
+}
+
+QDialog#AddFriendDialog QLabel#add_friend_title,
+QDialog#FindSuccessDlg QLabel#dialog_title {
+    color: ${color.text.primary};
+    font-size: ${font.size.base};
+    font-weight: ${font.weight.medium};
+}
+
+QDialog#AddFriendDialog QPushButton#add_friend_close_btn,
+QDialog#FindSuccessDlg QPushButton#close_btn,
+QDialog#ApplyFriend QPushButton#close_btn {
+    color: ${color.text.muted};
+    background-color: transparent;
+    border: none;
+    border-radius: ${radius.compact};
+    padding: 0;
+}
+
+QDialog#AddFriendDialog QPushButton#add_friend_close_btn:hover,
+QDialog#FindSuccessDlg QPushButton#close_btn:hover,
+QDialog#ApplyFriend QPushButton#close_btn:hover {
+    color: ${color.text.primary};
+    background-color: ${color.surface.hover};
+}
+
+QDialog#AddFriendDialog CustomizeEdit#add_friend_search_edit {
+    min-height: 34px;
+    max-height: 34px;
+    color: ${color.text.body};
+    background-color: ${color.surface};
+    border: 1px solid ${color.border.input};
+    border-radius: ${radius.control};
+    padding: 0 6px;
+    font-size: ${font.size.label};
+    selection-background-color: ${color.selection};
+}
+
+QDialog#AddFriendDialog CustomizeEdit#add_friend_search_edit:hover {
+    border-color: ${color.border.input.hover};
+}
+
+QDialog#AddFriendDialog CustomizeEdit#add_friend_search_edit:focus {
+    border-color: ${color.brand};
+}
+
+QDialog#AddFriendDialog QPushButton#add_friend_search_btn {
+    color: ${color.surface};
+    background-color: ${color.brand};
+    border: none;
+    border-radius: ${radius.action};
+    font-size: ${font.size.base};
+}
+
+QDialog#AddFriendDialog QPushButton#add_friend_search_btn:hover {
+    background-color: ${color.brand.hover};
+}
+
+QDialog#AddFriendDialog QPushButton#add_friend_search_btn:pressed {
+    background-color: ${color.brand.pressed};
+}
+
+QDialog#AddFriendDialog QPushButton#add_friend_search_btn:disabled {
+    color: ${color.surface};
+    background-color: ${color.brand.disabled};
+}
+
+QDialog#AddFriendDialog QLabel#add_friend_hint {
+    color: ${color.text.muted};
+    background-color: transparent;
+    font-size: ${font.size.small};
+}
+
+QFrame#capture_toolbar {
+    background-color: ${color.surface};
+    border: 1px solid ${color.border.window};
+    border-radius: ${radius.control};
+}
+
+QFrame#capture_toolbar QPushButton {
+    font-size: ${font.size.small};
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+QDialog#LoadingDlg {
+    background-color: #f2eada;
+    border: 1px solid ${color.border.window};
+}
+
+QFrame#emoji_popup {
+    background: transparent;
+    border: none;
+}
+
+QFrame#emoji_popup QFrame#emoji_panel {
+    background-color: #fafafa;
+    border: 1px solid ${color.border.window};
+    border-radius: 14px;
+}
+
+QFrame#emoji_popup QScrollArea#emoji_scroll,
+QFrame#emoji_popup QWidget#emoji_content,
+QFrame#emoji_popup QWidget#emoji_content QWidget {
+    background: transparent;
+    border: none;
+}
+
+QFrame#emoji_popup QLabel#emoji_title {
+    color: #9698a1;
+    font-size: ${font.size.heading};
+    padding: 8px 6px 0;
+}
+
+QFrame#emoji_popup QLabel#emoji_empty {
+    color: ${color.text.muted};
+    font-size: ${font.size.small};
+    padding: 0 6px;
+}
+
+QFrame#emoji_popup QToolButton#emoji_option {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 0;
+}
+
+QFrame#emoji_popup QToolButton#emoji_option:hover {
+    background-color: #eeeeef;
+}
+
+QFrame#emoji_popup QToolButton#emoji_option:pressed {
+    background-color: #e2e2e5;
+}
+
+QFrame#emoji_popup QFrame#emoji_toolbar {
+    background: #fafafa;
+    border: none;
+    border-top: 1px solid #e5e5e7;
+    border-bottom-left-radius: 14px;
+    border-bottom-right-radius: 14px;
+}
+
+QFrame#emoji_popup QToolButton#emoji_tab {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 0;
+}
+
+QFrame#emoji_popup QToolButton#emoji_tab:hover {
+    background-color: #eeeeef;
+}
+
+QFrame#emoji_popup QToolButton#emoji_tab:checked {
+    background-color: #dff3e8;
+}
+
+QFrame#emoji_popup QToolButton#emoji_tab:pressed {
+    background-color: #d4e8dc;
+}
+
+/* 鼠标点击不会获取 TabFocus，键盘焦点只显示细边框。 */
+QFrame#emoji_popup QToolButton#emoji_tab:focus,
+QFrame#emoji_popup QToolButton#emoji_option:focus {
+    border-color: #86bea1;
+}
+
+QFrame#emoji_popup QLineEdit#emoji_search {
+    background: ${color.surface};
+    border: 1px solid ${color.border.input};
+    border-radius: ${radius.control};
+    color: ${color.text.primary};
+    padding: 8px 12px;
+    margin: 0 26px 10px;
+}
+
+QFrame#emoji_popup QScrollBar:vertical {
+    background: transparent;
+    width: 6px;
+    margin: 4px 0;
+}
+
+QFrame#emoji_popup QScrollBar::handle:vertical {
+    background: #d5d5d8;
+    border-radius: 3px;
+    min-height: 30px;
+}
+
+QFrame#emoji_popup QScrollBar::add-line:vertical,
+QFrame#emoji_popup QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
+QFrame#emoji_popup QScrollBar::add-page:vertical,
+QFrame#emoji_popup QScrollBar::sub-page:vertical {
+    background: transparent;
+}
+
+QDialog#FindFailDlg {
+    background-color: ${color.surface};
+    border: 1px solid ${color.border.window};
+    border-radius: ${radius.panel};
+}
+
+QDialog#FindFailDlg QWidget {
+    background-color: transparent;
+}
+
+QDialog#FindFailDlg #fail_tip {
+    color: ${color.text.primary};
+    font-size: ${font.size.subheading};
+    font-weight: ${font.weight.medium};
+    padding-left: 12px;
+}
+
+QDialog#FindFailDlg #fail_tip2 {
+    color: #8a8f98;
+    font-size: ${font.size.label};
+    padding-left: 12px;
+}
+
+QDialog#FindFailDlg #fail_sure_btn {
+    color: ${color.surface};
+    border: none;
+    border-radius: ${radius.control};
+    font-size: ${font.size.base};
+    outline: none;
+}
+
+QDialog#FindFailDlg #fail_sure_btn[state="normal"] {
+    background-color: ${color.brand};
+}
+
+QDialog#FindFailDlg #fail_sure_btn[state="hover"] {
+    background-color: ${color.brand.hover};
+}
+
+QDialog#FindFailDlg #fail_sure_btn[state="pressed"] {
+    background-color: ${color.brand.pressed};
+}
+
+QDialog#FindSuccessDlg QWidget {
+    background-color: transparent;
+}
+
+QDialog#FindSuccessDlg #head_lb {
+    background-color: #f2f4f5;
+    border: 1px solid #e7eaec;
+    border-radius: ${radius.avatar};
+}
+
+QDialog#FindSuccessDlg #name_lb {
+    color: ${color.text.primary};
+    font-size: ${font.size.subheading};
+    font-weight: ${font.weight.medium};
+}
+
+QDialog#FindSuccessDlg #nick_lb {
+    color: ${color.text.body};
+    font-size: ${font.size.base};
+}
+
+QDialog#FindSuccessDlg #description_title {
+    color: ${color.text.muted};
+    font-size: ${font.size.label};
+}
+
+QDialog#FindSuccessDlg #description_text {
+    color: ${color.text.body};
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-size: ${font.size.base};
+    selection-background-color: ${color.selection};
+}
+
+QDialog#FindSuccessDlg #add_friend_btn {
+    color: ${color.surface};
+    border: none;
+    border-radius: ${radius.control};
+    font-size: ${font.size.base};
+    outline: none;
+}
+
+QDialog#FindSuccessDlg #add_friend_btn[state="normal"] {
+    background-color: ${color.brand};
+}
+
+QDialog#FindSuccessDlg #add_friend_btn[state="hover"] {
+    background-color: ${color.brand.hover};
+}
+
+QDialog#FindSuccessDlg #add_friend_btn[state="press"] {
+    background-color: ${color.brand.pressed};
+}
+
+QDialog#ApplyFriend {
+    font-size: ${font.size.base};
+}
+
+QDialog#ApplyFriend #scrollArea,
+QDialog#ApplyFriend #scrollArea QWidget#qt_scrollarea_viewport,
+QDialog#ApplyFriend #scrollcontent {
+    background-color: ${color.surface};
+    border: none;
+}
+
+QDialog#ApplyFriend #apply_lb {
+    color: ${color.text.primary};
+    background-color: transparent;
+    font-size: ${font.size.heading};
+    font-weight: ${font.weight.medium};
+}
+
+QDialog#ApplyFriend #apply_wid {
+    background-color: ${color.surface};
+}
+
+QDialog#ApplyFriend #apply_wid QFrame#line {
+    color: ${color.border.subtle};
+    background-color: ${color.border.subtle};
+    border: none;
+    max-height: 1px;
+}
+
+QDialog#ApplyFriend #apply_wid QLabel {
+    color: #7d838b;
+    font-size: ${font.size.label};
+    background-color: transparent;
+}
+
+QDialog#ApplyFriend #name_ed,
+QDialog#ApplyFriend #back_ed,
+QDialog#ApplyFriend #lb_ed {
+    color: ${color.text.primary};
+    background-color: #f6f7f8;
+    border: 1px solid #e3e6e8;
+    border-radius: ${radius.control};
+    padding: 0 10px;
+    font-size: ${font.size.base};
+    selection-background-color: #95dcb7;
+    outline: none;
+}
+
+QDialog#ApplyFriend #name_ed:hover,
+QDialog#ApplyFriend #back_ed:hover,
+QDialog#ApplyFriend #lb_ed:hover {
+    background-color: ${color.surface};
+    border-color: #b9ddc9;
+}
+
+QDialog#ApplyFriend #name_ed:focus,
+QDialog#ApplyFriend #back_ed:focus,
+QDialog#ApplyFriend #lb_ed:focus {
+    background-color: ${color.surface};
+    border-color: ${color.brand};
+}
+
+QDialog#ApplyFriend #more_lb {
+    border-image: url(:/res/arowdown.png);
+}
+
+QDialog#ApplyFriend #tipslb {
+    color: #4f555c;
+    background-color: #f1f3f4;
+    border: 1px solid #e5e8ea;
+    border-radius: ${radius.panel};
+    padding: 2px 8px;
+}
+
+QDialog#ApplyFriend #tipslb[state="hover"] {
+    color: ${color.secondary.text};
+    background-color: #edf9f2;
+    border-color: #a9e5c4;
+}
+
+QDialog#ApplyFriend #tipslb[state="pressed"] {
+    color: #067f3e;
+    background-color: #dff4e9;
+    border-color: #7ed3a5;
+}
+
+QDialog#ApplyFriend #tipslb[selected="true"] {
+    color: ${color.surface};
+    background-color: ${color.brand};
+    border-color: ${color.brand};
+}
+
+QDialog#ApplyFriend #input_tip_wid {
+    background-color: #edf9f2;
+    border: 1px solid #c8ead7;
+    border-radius: ${radius.control};
+}
+
+QDialog#ApplyFriend #gridWidget,
+QDialog#ApplyFriend #lb_group_wid,
+QDialog#ApplyFriend #lb_list,
+QDialog#ApplyFriend #more_lb_wid {
+    background-color: ${color.surface};
+}
+
+QDialog#ApplyFriend #tip_lb {
+    color: ${color.secondary.text};
+    background-color: transparent;
+    padding-left: 6px;
+    font-size: ${font.size.label};
+}
+
+QDialog#ApplyFriend #apply_sure_wid {
+    background-color: ${color.surface};
+    border-top: 1px solid ${color.border.subtle};
+}
+
+QDialog#ApplyFriend #sure_btn,
+QDialog#ApplyFriend #cancel_btn {
+    border-radius: ${radius.control};
+    font-size: ${font.size.base};
+    outline: none;
+}
+
+QDialog#ApplyFriend #sure_btn {
+    color: ${color.surface};
+    border: 1px solid ${color.brand};
+}
+
+QDialog#ApplyFriend #sure_btn[state="normal"] {
+    background-color: ${color.brand};
+}
+
+QDialog#ApplyFriend #sure_btn[state="hover"] {
+    background-color: ${color.brand.hover};
+    border-color: ${color.brand.hover};
+}
+
+QDialog#ApplyFriend #sure_btn[state="press"] {
+    background-color: ${color.brand.pressed};
+    border-color: ${color.brand.pressed};
+}
+
+QDialog#ApplyFriend #cancel_btn {
+    color: #35383c;
+    border: 1px solid #d9dde0;
+}
+
+QDialog#ApplyFriend #cancel_btn[state="normal"] {
+    background-color: ${color.surface};
+}
+
+QDialog#ApplyFriend #cancel_btn[state="hover"] {
+    color: ${color.secondary.text};
+    background-color: #f2fbf6;
+    border-color: ${color.secondary.border.hover};
+}
+
+QDialog#ApplyFriend #cancel_btn[state="press"] {
+    color: #067f3e;
+    background-color: #e5f6ed;
+    border-color: ${color.secondary.border.pressed};
+}
+
+QDialog#ApplyFriend #apply_wid #FriendLabel {
+    background-color: #daf6e7;
+    color: ${color.secondary.text};
+    border-radius: ${radius.panel};
+}
+
+QDialog#ApplyFriend #FriendLabel #tip_lb {
+    color: ${color.secondary.text};
+    padding: 0;
+}
+
+FriendLabel#FriendLabel #close_lb {
+    border-image: url(:/res/tipclose.png);
+}
+
+QDialog#ApplyFriend #sure_btn:disabled,
+QDialog#ApplyFriend #cancel_btn:disabled {
+    background: #e4e4e4;
+    color: ${color.text.disabled};
+}
+
+QDialog#image_preview_dialog {
+    background: ${color.surface.subtle};
+}
+
+QDialog#image_preview_dialog QScrollArea {
+    border: none;
+    background: #eef0f2;
+}
+
+QDialog#image_preview_dialog QLabel {
+    color: #666d75;
+    font-size: ${font.size.label};
+}
+
+QDialog#image_preview_dialog QPushButton {
+    color: #30353b;
+    background: ${color.surface};
+    border: 1px solid #dce1e5;
+    border-radius: ${radius.compact};
+    padding: 6px 12px;
+}
+
+QDialog#image_preview_dialog QPushButton:hover {
+    background: #edf4ef;
+    border-color: #b8cec0;
+}

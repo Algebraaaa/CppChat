@@ -4,8 +4,7 @@
 #include <QTextBoundaryFinder>
 
 // 构造 QLineEdit 基类，并把最大字素数初始化为 0（不限制）。
-CustomizeEdit::CustomizeEdit(QWidget *parent)
-    : QLineEdit(parent), _max_grapheme_count(0)
+CustomizeEdit::CustomizeEdit(QWidget *parent) : QLineEdit(parent), _max_grapheme_count(0)
 {
   // 改前：监听 textChanged，用户输入和程序调用 setText() 都会触发限制逻辑，
   //       limitTextLength() 内再次调用 setText() 时还可能重复进入该逻辑。
@@ -31,16 +30,16 @@ void CustomizeEdit::SetMaxLength(int maxLen)
 // 当输入框失去键盘焦点时，Qt 会调用这个重写函数。
 void CustomizeEdit::focusOutEvent(QFocusEvent *event)
 {
-  // 先执行 QLineEdit 原本的焦点移出处理，保留 Qt 默认行为。
+  // 先执行 QLineEdit 原本的焦点移出处理，保留 Qt 默认行为
   QLineEdit::focusOutEvent(event);
-  // 再通知外部：这个自定义输入框已经失去焦点。
+  // 再通知外部：这个自定义输入框已经失去焦点
   emit sig_foucus_out();
 }
 
-// 用户编辑文本后检查长度；text 是本次编辑后的完整内容。
+// 用户编辑文本后检查长度；text 是本次编辑后的完整内容
 void CustomizeEdit::limitTextLength(const QString &text)
 {
-  // 0 或负数代表不启用字符数量限制，直接保留原文本。
+  // 0 或负数代表不启用字符数量限制，直接保留原文本
   if (_max_grapheme_count <= 0) {
     return;
   }

@@ -1,0 +1,29 @@
+{
+  "name": "wechat-light",
+  "tokens": "tokens.json",
+  "fontFamilies": [
+    "Source Han Sans CN",
+    "Microsoft YaHei UI",
+    "Microsoft YaHei",
+    "Segoe UI",
+    "Segoe UI Emoji"
+  ],
+  "fontResources": [
+    ":/fonts/SourceHanSansCN-Regular.otf",
+    ":/fonts/SourceHanSansCN-Medium.otf"
+  ],
+  "styles": [
+    "base.qss",
+    "components/controls.qss",
+    "components/icons.qss",
+    "components/scrollbars.qss",
+    "pages/window.qss",
+    "pages/auth.qss",
+    "pages/chat.qss",
+    "pages/favorites.qss",
+    "pages/discover.qss",
+    "pages/contacts.qss",
+    "pages/dialogs.qss",
+    "pages/profile.qss"
+  ]
+}

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>ConversationMenu</class>
+ <widget class="QWidget" name="ConversationMenu">
+  <property name="windowTitle"><string>会话操作</string></property>
+  <property name="minimumSize"><size><width>224</width><height>0</height></size></property>
+  <property name="maximumSize"><size><width>224</width><height>16777215</height></size></property>
+  <layout class="QVBoxLayout" name="popup_layout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>8</number></property>
+   <property name="topMargin"><number>8</number></property>
+   <property name="rightMargin"><number>8</number></property>
+   <property name="bottomMargin"><number>10</number></property>
+   <item><widget class="QFrame" name="menu_panel">
+    <property name="frameShape"><enum>QFrame::NoFrame</enum></property>
+    <layout class="QVBoxLayout" name="menu_layout">
+     <property name="spacing"><number>2</number></property>
+     <property name="leftMargin"><number>5</number></property>
+     <property name="topMargin"><number>5</number></property>
+     <property name="rightMargin"><number>5</number></property>
+     <property name="bottomMargin"><number>5</number></property>
+      <item><widget class="QPushButton" name="pin_btn">
+       <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
+       <property name="maximumSize"><size><width>16777215</width><height>38</height></size></property>
+       <property name="text"><string>置顶</string></property>
+       <property name="toolTip"><string>置顶</string></property>
+       <property name="accessibleName"><string>置顶</string></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="focusPolicy"><enum>Qt::StrongFocus</enum></property>
+       <property name="autoDefault"><bool>false</bool></property>
+       <property name="icon"><iconset resource="../rc.qrc"><normaloff>:/icons/conversation-pin.svg</normaloff>:/icons/conversation-pin.svg</iconset></property>
+       <property name="iconSize"><size><width>18</width><height>18</height></size></property>
+      </widget></item>
+      <item><widget class="QPushButton" name="read_btn">
+       <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
+       <property name="maximumSize"><size><width>16777215</width><height>38</height></size></property>
+       <property name="text"><string>标为未读</string></property>
+       <property name="toolTip"><string>标为未读</string></property>
+       <property name="accessibleName"><string>标为未读</string></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="focusPolicy"><enum>Qt::StrongFocus</enum></property>
+       <property name="autoDefault"><bool>false</bool></property>
+       <property name="icon"><iconset resource="../rc.qrc"><normaloff>:/icons/conversation-mail.svg</normaloff>:/icons/conversation-mail.svg</iconset></property>
+       <property name="iconSize"><size><width>18</width><height>18</height></size></property>
+      </widget></item>
+      <item><widget class="QPushButton" name="mute_btn">
+       <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
+       <property name="maximumSize"><size><width>16777215</width><height>38</height></size></property>
+       <property name="text"><string>消息免打扰</string></property>
+       <property name="toolTip"><string>消息免打扰（暂未实现）</string></property>
+       <property name="accessibleName"><string>消息免打扰</string></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="focusPolicy"><enum>Qt::StrongFocus</enum></property>
+       <property name="autoDefault"><bool>false</bool></property>
+       <property name="icon"><iconset resource="../rc.qrc"><normaloff>:/icons/conversation-bell-off.svg</normaloff>:/icons/conversation-bell-off.svg</iconset></property>
+       <property name="iconSize"><size><width>18</width><height>18</height></size></property>
+      </widget></item>
+      <item><widget class="QFrame" name="separator_3">
+       <property name="frameShape"><enum>QFrame::HLine</enum></property>
+       <property name="minimumSize"><size><width>0</width><height>1</height></size></property>
+       <property name="maximumSize"><size><width>16777215</width><height>1</height></size></property>
+      </widget></item>
+      <item><widget class="QPushButton" name="window_btn">
+       <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
+       <property name="maximumSize"><size><width>16777215</width><height>38</height></size></property>
+       <property name="text"><string>独立窗口显示</string></property>
+       <property name="toolTip"><string>独立窗口显示（暂未实现）</string></property>
+       <property name="accessibleName"><string>独立窗口显示</string></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="focusPolicy"><enum>Qt::StrongFocus</enum></property>
+       <property name="autoDefault"><bool>false</bool></property>
+       <property name="icon"><iconset resource="../rc.qrc"><normaloff>:/icons/conversation-external-link.svg</normaloff>:/icons/conversation-external-link.svg</iconset></property>
+       <property name="iconSize"><size><width>18</width><height>18</height></size></property>
+      </widget></item>
+      <item><widget class="QPushButton" name="hide_btn">
+       <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
+       <property name="maximumSize"><size><width>16777215</width><height>38</height></size></property>
+       <property name="text"><string>不显示</string></property>
+       <property name="toolTip"><string>不显示（暂未实现）</string></property>
+       <property name="accessibleName"><string>不显示</string></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="focusPolicy"><enum>Qt::StrongFocus</enum></property>
+       <property name="autoDefault"><bool>false</bool></property>
+       <property name="icon"><iconset resource="../rc.qrc"><normaloff>:/icons/conversation-eye-off.svg</normaloff>:/icons/conversation-eye-off.svg</iconset></property>
+       <property name="iconSize"><size><width>18</width><height>18</height></size></property>
+      </widget></item>
+      <item><widget class="QFrame" name="separator_5">
+       <property name="frameShape"><enum>QFrame::HLine</enum></property>
+       <property name="minimumSize"><size><width>0</width><height>1</height></size></property>
+       <property name="maximumSize"><size><width>16777215</width><height>1</height></size></property>
+      </widget></item>
+      <item><widget class="QPushButton" name="delete_btn">
+       <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
+       <property name="maximumSize"><size><width>16777215</width><height>38</height></size></property>
+       <property name="text"><string>删除</string></property>
+       <property name="toolTip"><string>删除（暂未实现）</string></property>
+       <property name="accessibleName"><string>删除</string></property>
+       <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+       <property name="focusPolicy"><enum>Qt::StrongFocus</enum></property>
+       <property name="autoDefault"><bool>false</bool></property>
+       <property name="icon"><iconset resource="../rc.qrc"><normaloff>:/icons/conversation-trash-2.svg</normaloff>:/icons/conversation-trash-2.svg</iconset></property>
+       <property name="iconSize"><size><width>18</width><height>18</height></size></property>
+      </widget></item>
+    </layout>
+   </widget></item>
+  </layout>
+ </widget>
+ <resources><include location="../rc.qrc"/></resources>
+ <connections/>
+</ui>

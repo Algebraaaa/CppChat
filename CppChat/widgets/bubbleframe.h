@@ -4,16 +4,19 @@
 #include "common/global.h"
 #include <QFrame>
 #include <QHBoxLayout>
-class BubbleFrame : public QFrame {
+class BubbleFrame : public QFrame
+{
   Q_OBJECT
 public:
   BubbleFrame(ChatRole role, QWidget *parent = nullptr);
   void setMargin(int margin);
-  // inline int margin(){return margin;}
   void setWidget(QWidget *w);
 
+signals:
+  void messageContextMenuRequested(const QPoint &globalPosition);
+
 protected:
-  void paintEvent(QPaintEvent *e);
+  void paintEvent(QPaintEvent *e) override;
 
 private:
   QHBoxLayout *m_pHLayout;

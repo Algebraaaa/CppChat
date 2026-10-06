@@ -1,36 +1,53 @@
 #ifndef CHATVIEW_H
 #define CHATVIEW_H
+#include <QPointer>
 #include <QPropertyAnimation>
 #include <QScrollArea>
 #include <QVBoxLayout>
 
+class QGraphicsOpacityEffect;
+class QTimer;
 class QWheelEvent;
 
-class ChatView : public QWidget {
+class ChatView : public QWidget
+{
   Q_OBJECT
 public:
-  ChatView(QWidget *parent = Q_NULLPTR);
+  explicit ChatView(QWidget *parent = nullptr);
+  void beginUpdate(bool scrollToBottom = false);
+  void endUpdate();
+  void scrollToBottom();
   void removeAllItem();
-  void appendChatItem(QWidget *item);                  // 尾插
-  void prependChatItem(QWidget *item);                 // 头插
-  void insertChatItem(QWidget *before, QWidget *item); // 中间插
+  void appendChatItem(QWidget *item);
+  void prependChatItem(QWidget *item);
+  void insertChatItem(QWidget *before, QWidget *item);
+  void setChatItems(const QList<QWidget *> &items);
+
 protected:
-  bool eventFilter(QObject *o, QEvent *e) override;
+  bool eventFilter(QObject *object, QEvent *event) override;
   void paintEvent(QPaintEvent *) override;
   void enterEvent(QEnterEvent *event) override;
   void leaveEvent(QEvent *event) override;
-private slots:
-  void onVScrollBarMoved(int min, int max);
 
 private:
   bool handleWheelEvent(QWheelEvent *event);
   void updateBarVisibility();
+  void onVScrollBarMoved(int minimum, int maximum);
+  void captureAnchor();
+  void restoreAnchor();
 
   QScrollArea *m_pScrollArea;
-  QScrollBar *m_pVScrollBar = nullptr;
+  QScrollBar *m_pVScrollBar;
   QPropertyAnimation *m_pScrollAnimation;
-  int m_scrollTarget;
-  bool isAppended;
+  QGraphicsOpacityEffect *_barOpacity;
+  QTimer *_layoutTimer;
+  int m_scrollTarget = 0;
+  int _savedValue = 0;
+  QPointer<QWidget> _anchor;
+  QString _anchorKey;
+  int _anchorOffset = 0;
+  bool _followBottom = true;
+  bool _batchUpdating = false;
+  bool _restoringScroll = false;
 };
-
-#endif // CHATVIEW_H
+#endif

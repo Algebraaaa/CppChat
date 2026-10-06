@@ -1,26 +1,42 @@
 #ifndef SEARCHLIST_H
 #define SEARCHLIST_H
+
 #include "common/userdata.h"
 #include <QListWidget>
-#include <QPointer>
-class QDialog;
-class QLineEdit;
-class LoadingDlg;
-class SearchList : public QListWidget {
+
+// 顶部搜索框的本地搜索结果列表。
+// 这里只搜索已经加载到客户端的联系人、会话和聊天记录，不再负责向服务器查找陌生人。
+class SearchList : public QListWidget
+{
   Q_OBJECT
+
 public:
+  enum class Scope
+  {
+    All,
+    Contacts
+  };
   explicit SearchList(QWidget *parent = nullptr);
-  void CloseFindDlg();
-  void SetSearchEdit(QWidget *edit);
+
+  void Search(const QString &keyword, Scope scope = Scope::All);
+  void ClearResults();
+
 signals:
-  void sig_jump_chat_item(std::shared_ptr<SearchInfo> info);
+  void sig_open_friend(std::shared_ptr<UserInfo> user);
+  void sig_open_thread(int threadId);
+
 private:
-  void waitPending(bool pending);
-  void slot_item_clicked(QListWidgetItem *item);
-  void slot_user_search(std::shared_ptr<SearchInfo> info);
-  QPointer<QDialog> _findDialog;
-  QPointer<LoadingDlg> _loadingDialog;
-  QLineEdit *_searchEdit = nullptr;
-  bool _sendPending = false;
+  enum class ResultKind
+  {
+    Friend,
+    ChatRecord
+  };
+
+  void addSection(const QString &title);
+  void addResult(ResultKind kind, const std::shared_ptr<UserInfo> &user, const QString &preview,
+                 int threadId = 0);
+  void addEmptyTip(Scope scope);
+  void slotItemClicked(QListWidgetItem *item);
 };
-#endif
+
+#endif // SEARCHLIST_H

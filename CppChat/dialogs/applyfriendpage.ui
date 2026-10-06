@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
+    <width>319</width>
+    <height>264</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -78,7 +78,7 @@
          </size>
         </property>
         <property name="text">
-         <string>新的朋友</string>
+         <string>好友申请</string>
         </property>
        </widget>
       </item>
@@ -96,6 +96,22 @@
        </spacer>
       </item>
      </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="apply_hint">
+     <property name="text">
+      <string>从左侧“新的朋友”选择一条申请</string>
+     </property>
+     <property name="textFormat">
+      <enum>Qt::PlainText</enum>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
+     </property>
     </widget>
    </item>
    <item>

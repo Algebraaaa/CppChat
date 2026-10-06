@@ -1,0 +1,14 @@
+/* 中英文共用 theme.json 的思源黑体；Emoji 按字族清单回退到系统表情字体。 */
+
+QWidget {
+    font-family: ${font.family};
+    font-size: ${font.size.base};
+    font-weight: ${font.weight.normal};
+}
+
+QTextEdit#chat_message_text {
+    font-size: ${font.size.message};
+    font-weight: ${font.weight.normal};
+    background: transparent;
+    border: none;
+}

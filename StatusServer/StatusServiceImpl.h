@@ -1,6 +1,8 @@
 #pragma once
-#include <grpcpp/grpcpp.h>
+
+#include <cstddef>
 #include "message.grpc.pb.h"
+#include <grpcpp/grpcpp.h>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -16,24 +18,22 @@ using message::LoginRsp;
 using message::StatusService;
 
 struct ChatServer {
-	std::string host;
-	std::string port;
-	std::string name;
-	int con_count = 0;
+  std::string host;
+  std::string port;
+  std::string name;
+  int con_count = 0;
 };
-class StatusServiceImpl final : public StatusService::Service
-{
+class StatusServiceImpl final : public StatusService::Service {
 public:
-	StatusServiceImpl();
-	Status GetChatServer(ServerContext* context, const GetChatServerReq* request,
-		GetChatServerRsp* reply) override;
-	Status Login(ServerContext* context, const LoginReq* request,
-		LoginRsp* reply) override;
+  StatusServiceImpl();
+  Status GetChatServer(ServerContext *context, const GetChatServerReq *request,
+                       GetChatServerRsp *reply) override;
+  Status Login(ServerContext *context, const LoginReq *request,
+               LoginRsp *reply) override;
+
 private:
-	void insertToken(int uid, const std::string& token);
-	ChatServer getChatServer();
-	std::unordered_map<std::string, ChatServer> _servers;
-	std::mutex _server_mtx;
-	std::unordered_map<int, std::string> _tokens;
-	std::mutex _token_mtx;
+  ChatServer getChatServer(int &error);
+  std::unordered_map<std::string, ChatServer> _servers;
+  std::mutex _server_mtx;
+  std::size_t _next_choice = 0;
 };

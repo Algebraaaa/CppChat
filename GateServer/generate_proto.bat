@@ -2,18 +2,12 @@
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
+rem Set PROTOC/GRPC_CPP_PLUGIN explicitly, or point VCPKG_ROOT at your installation.
+if not defined PROTOC set "PROTOC=%VCPKG_ROOT%\installed\x64-windows\tools\protobuf\protoc.exe"
+if not defined GRPC_CPP_PLUGIN set "GRPC_CPP_PLUGIN=%VCPKG_ROOT%\installed\x64-windows\tools\grpc\grpc_cpp_plugin.exe"
 set "PAUSE_AT_END=1"
 
 if /I "%~1"=="--no-pause" set "PAUSE_AT_END="
-
-if not defined VCPKG_ROOT (
-    echo [ERROR] VCPKG_ROOT is not set.
-    echo         Set it to your vcpkg root directory and try again.
-    goto :failed
-)
-
-set "PROTOC=%VCPKG_ROOT%\installed\x64-windows\tools\protobuf\protoc.exe"
-set "GRPC_CPP_PLUGIN=%VCPKG_ROOT%\installed\x64-windows\tools\grpc\grpc_cpp_plugin.exe"
 
 if not exist "%PROTOC%" (
     echo [ERROR] protoc.exe was not found:

@@ -57,3 +57,17 @@ ui_*.h
 qrc_*.cpp
 .DS_Store
 Thumbs.db
+
+# Private runtime data and temporary validation artifacts.
+chat_data/
+resource_data/
+accounts/
+attachments/
+.validation/
+.migration-backup/
+__pycache__/
+*.pyc
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*

@@ -43,8 +43,8 @@ QString passwordError(const QString &password)
   if (password.size() < 8 || password.size() > 32) {
     return QStringLiteral("密码长度需为8到32位");
   }
-  if (password.contains(whitespaceRegex) || !password.contains(letterRegex)
-      || !password.contains(digitRegex)) {
+  if (password.contains(whitespaceRegex) || !password.contains(letterRegex) ||
+      !password.contains(digitRegex)) {
     return QStringLiteral("密码必须包含字母和数字，且不能包含空白字符");
   }
   return {};

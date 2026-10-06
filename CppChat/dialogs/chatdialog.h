@@ -3,14 +3,18 @@
 #include "common/global.h"
 #include "common/userdata.h"
 #include <QDialog>
-#include <QQueue>
+#include <QPointer>
 #include <QSet>
-class FriendInfoPage;
-class UserInfoPage;
-class QListWidgetItem;
-namespace Ui { class ChatDialog; }
+class AddFriendDialog;
+class ProfileDialog;
+class SideMenuPopup;
+class ChatSyncService;
+namespace Ui {
+class ChatDialog;
+}
 
-class ChatDialog : public QDialog {
+class ChatDialog : public QDialog
+{
   Q_OBJECT
 public:
   explicit ChatDialog(QWidget *parent = nullptr);
@@ -19,43 +23,48 @@ public:
   void ResetSession();
 signals:
   void sig_logout();
+
 protected:
   bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
-  void ShowSearch(bool search);
+  enum class Section
+  {
+    Chat,
+    Contacts,
+    Favorites,
+    Discover
+  };
+  void SwitchSection(Section section);
+  bool IsChatVisible() const;
+  void MarkCurrentRead();
+  void SetThreadUnread(int threadId, bool unread, bool manuallyMarked = false);
   void ShowChatPage();
   void ShowContactPage();
+  void ShowFavoritesPage();
+  void ShowDiscoverPage();
   void RefreshAvatar();
   void RefreshContacts();
-  void LoadThreads();
+  void RefreshConversationList(bool complete);
   void AddChatUserList(int limit = CHAT_COUNT_PER_PAGE);
   void UpdateChatItem(int threadId, bool addIfMissing = true);
   void OpenChat(std::shared_ptr<UserInfo> user);
   void SelectThread(int threadId);
-  std::shared_ptr<ChatThreadData> EnsureThread(int threadId, int otherUid);
-  void QueueHistory(int threadId);
-  void LoadNextHistory();
-  void SendHistoryRequest();
-  void ReceiveThreads(bool more, int lastId, std::vector<std::shared_ptr<ChatThreadInfo>> threads);
-  void ReceiveHistory(int threadId, int messageId, bool more, std::vector<std::shared_ptr<TextChatData>> messages);
-  void ReceiveMessages(const std::vector<std::shared_ptr<TextChatData>> &messages, bool reply);
-  void FriendAccepted(int uid, int threadId, const std::vector<std::shared_ptr<TextChatData>> &messages);
+  void FriendAccepted(int uid, int threadId,
+                      const std::vector<std::shared_ptr<TextChatData>> &messages);
+  void FriendDeleted(int uid);
   void RequestFailed(ReqId request, const QString &message);
   Ui::ChatDialog *ui;
-  FriendInfoPage *_friendInfoPage = nullptr;
-  UserInfoPage *_userInfoPage = nullptr;
-  ChatUIMode _state = ChatMode;
-  QMap<int, QListWidgetItem *> _threadItems;
+  ChatSyncService *_sync = nullptr;
+  ProfileDialog *_profileDialog = nullptr;
+  SideMenuPopup *_sideMenu = nullptr;
+  QPointer<AddFriendDialog> _addFriendDialog;
+  Section _currentSection = Section::Chat;
+  quint64 _navigationRevision = 0;
+  quint64 _createNavigationRevision = 0;
   QSet<int> _unreadThreads;
-  QQueue<int> _historyQueue;
-  QSet<int> _historyComplete;
+  QSet<int> _manuallyUnreadThreads;
   int _currentThread = 0;
-  int _threadCursor = 0;
-  int _historyThread = 0;
-  int _historyCursor = 0;
   int _creatingUser = 0;
-  bool _threadsLoading = false;
-  bool _threadsComplete = false;
-  bool _addingItems = false;
 };
 #endif

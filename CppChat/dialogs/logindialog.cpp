@@ -1,4 +1,5 @@
 #include "dialogs/logindialog.h"
+#include "common/formfeedback.h"
 #include "common/inputvalidator.h"
 #include "network/httpmgr.h"
 #include "network/tcpmgr.h"
@@ -11,6 +12,13 @@ LoginDialog::LoginDialog(QWidget *parent) : QDialog(parent), ui(new Ui::LoginDia
 {
   ui->setupUi(this);
   ui->pass_edit->setEchoMode(QLineEdit::Password);
+  _feedback = new FormFeedback(ui->err_tip, this);
+  _feedback->addField(ui->email_edit, [this]() {
+    return InputValidator::emailError(ui->email_edit->text());
+  });
+  _feedback->addField(ui->pass_edit, [this]() {
+    return InputValidator::passwordError(ui->pass_edit->text());
+  });
   ui->forget_label->SetState("normal", "hover", "hover", "normal", "hover", "hover");
   ui->forget_label->setCursor(Qt::PointingHandCursor);
   connect(ui->forget_label, &ClickedLabel::clicked, this, &LoginDialog::slot_forget_pwd);
@@ -94,8 +102,8 @@ void LoginDialog::initHead()
   QPixmap originalPixmap(":/res/head_1.jpg");
   // 设置图片自动缩放
   // qDebug() << originalPixmap.size() << ui->head_label->size();
-  originalPixmap
-    = originalPixmap.scaled(ui->head_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  originalPixmap =
+      originalPixmap.scaled(ui->head_label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
 
   // 创建一个和原始图片相同大小的QPixmap，用于绘制圆角图片
   QPixmap roundedPixmap(originalPixmap.size());
@@ -118,59 +126,9 @@ void LoginDialog::initHead()
   ui->head_label->setPixmap(roundedPixmap);
 }
 
-bool LoginDialog::checkEmailValid()
-{
-  const QString message = InputValidator::emailError(ui->email_edit->text());
-  if (!message.isEmpty()) {
-    AddTipErr(TipError::TIP_EMAIL_ERR, message);
-    return false;
-  }
-  DelTipErr(TipError::TIP_EMAIL_ERR);
-  return true;
-}
-
-void LoginDialog::AddTipErr(TipError te, QString tips)
-{
-  _tipErrors[te] = tips;
-  showTip(tips, false);
-}
-
-void LoginDialog::DelTipErr(TipError te)
-{
-  _tipErrors.remove(te);
-  if (_tipErrors.empty()) {
-    ui->err_tip->clear();
-    return;
-  }
-
-  showTip(_tipErrors.first(), false);
-}
-
 void LoginDialog::showTip(QString str, bool b_ok)
 {
-  if (b_ok) {
-    ui->err_tip->setProperty("state", "normal");
-  } else {
-    ui->err_tip->setProperty("state", "err");
-  }
-
-  ui->err_tip->setText(str);
-
-  repolish(ui->err_tip);
-}
-
-bool LoginDialog::checkPwdValid()
-{
-  // 复用注册、重置密码页面使用的统一密码规则。
-  // 返回空字符串表示校验成功；非空字符串就是需要展示的错误原因。
-  const QString error = InputValidator::passwordError(ui->pass_edit->text());
-  if (!error.isEmpty()) {
-    AddTipErr(TipError::TIP_PWD_ERR, error);
-    return false;
-  }
-
-  DelTipErr(TipError::TIP_PWD_ERR);
-  return true;
+  _feedback->showStatus(str, b_ok);
 }
 bool LoginDialog::enableBtn(bool enabled)
 {
@@ -192,14 +150,11 @@ void LoginDialog::slot_forget_pwd()
 void LoginDialog::on_login_btn_clicked()
 {
   qDebug() << "login btn clicked";
-  if (checkEmailValid() == false) {
+  if (!_feedback->validateAll()) {
     return;
   }
 
-  if (checkPwdValid() == false) {
-    return;
-  }
-
+  _feedback->clearStatus();
   enableBtn(false);
   const auto email = ui->email_edit->text().trimmed();
   auto pwd = ui->pass_edit->text();
@@ -244,8 +199,8 @@ void LoginDialog::ResetForLogin(const QString &message)
 {
   _uid = 0;
   _token.clear();
-  _tipErrors.clear();
   ui->pass_edit->clear();
+  _feedback->reset();
   enableBtn(true);
   showTip(message, false);
 }

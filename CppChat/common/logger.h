@@ -9,7 +9,8 @@
  *
  * 业务代码继续使用 qDebug/qInfo/qWarning/qCritical；新模块可以使用
  * QLoggingCategory 和 qCDebug/qCInfo/qCWarning/qCCritical 标记日志来源。
- * Logger 只负责统一格式、按日期保存和线程安全写入，不参与任何业务逻辑。
+ * 普通日志交给 spdlog 的有界异步队列；警告及严重错误即时写入并刷新。
+ * Logger 只负责统一格式、按日期保存和写入，不参与任何业务逻辑。
  */
 class Logger
 {

@@ -1,4 +1,5 @@
 #include "app/mainwindow.h"
+#include "app/thememanager.h"
 #include "common/global.h"
 #include "common/logger.h"
 #include <QApplication>
@@ -22,19 +23,12 @@ int main(int argc, char *argv[])
     qWarning() << "Failed to initialize file logger";
   }
 
-  // ":/" 表示访问编译进 Qt 资源系统中的文件，而不是磁盘上的普通文件。
-  QFile qss(":/style/stylesheet.qss");
-
-  if (qss.open(QFile::ReadOnly)) {
-    qInfo() << "Stylesheet loaded";
-
-    const QString style = QString::fromUtf8(qss.readAll());
-    // 给整个 QApplication 设置样式，所有窗口和子控件都可以使用这份 QSS。
-    a.setStyleSheet(style);
-    qss.close();
-  } else {
-    qWarning() << "Failed to open stylesheet:" << qss.errorString();
+  QString themeError;
+  if (!ThemeManager::apply(a, &themeError)) {
+    qCritical() << "Failed to load UI theme:" << themeError;
+    return EXIT_FAILURE;
   }
+  qInfo() << "UI theme loaded";
 
   // 返回当前可执行程序所在的文件夹，不包含 exe 文件名
   const QString configDir = QCoreApplication::applicationDirPath();

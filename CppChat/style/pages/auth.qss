@@ -1,0 +1,70 @@
+/* Login, registration and password reset page details. */
+
+QDialog#LoginDialog,
+QDialog#RegisterDialog,
+QDialog#ResetDialog {
+    background-color: rgb(255, 255, 255);
+}
+
+/* U+2022 小圆点，统一密码遮挡字符的外观。 */
+QDialog#LoginDialog QLineEdit#pass_edit,
+QDialog#RegisterDialog QLineEdit#pass_edit,
+QDialog#RegisterDialog QLineEdit#confirm_edit,
+QDialog#ResetDialog QLineEdit#newpsd_edit {
+    lineedit-password-character: 8226;
+}
+
+QDialog#LoginDialog #user_label,
+QDialog#LoginDialog #pass_label,
+QDialog#RegisterDialog #user_label,
+QDialog#RegisterDialog #pass_label {
+    color: ${color.text.body};
+}
+
+QDialog#LoginDialog #err_tip[state="normal"],
+QDialog#RegisterDialog #err_tip[state="normal"],
+QDialog#ResetDialog #error_label[state="normal"] {
+    color: ${color.status.success};
+}
+
+QDialog#LoginDialog #err_tip[state="err"],
+QDialog#RegisterDialog #err_tip[state="err"],
+QDialog#ResetDialog #error_label[state="err"] {
+    color: ${color.status.error};
+}
+
+QDialog#LoginDialog QLineEdit[validationError="true"],
+QDialog#RegisterDialog QLineEdit[validationError="true"],
+QDialog#ResetDialog QLineEdit[validationError="true"] {
+    border-color: ${color.status.error};
+}
+
+QDialog#LoginDialog #forget_label[state="normal"] {
+    color: #606266;
+    text-decoration: none;
+}
+
+QDialog#LoginDialog #forget_label[state="hover"] {
+    color: ${color.status.success};
+    text-decoration: underline;
+}
+
+QDialog#RegisterDialog #pass_visible[state="unvisible"],
+QDialog#RegisterDialog #confirm_visible[state="unvisible"] {
+    border-image: url(:/res/unvisible.png);
+}
+
+QDialog#RegisterDialog #pass_visible[state="unvisible_hover"],
+QDialog#RegisterDialog #confirm_visible[state="unvisible_hover"] {
+    border-image: url(:/res/unvisible_hover.png);
+}
+
+QDialog#RegisterDialog #pass_visible[state="visible"],
+QDialog#RegisterDialog #confirm_visible[state="visible"] {
+    border-image: url(:/res/visible.png);
+}
+
+QDialog#RegisterDialog #pass_visible[state="visible_hover"],
+QDialog#RegisterDialog #confirm_visible[state="visible_hover"] {
+    border-image: url(:/res/visible_hover.png);
+}

@@ -3,7 +3,7 @@
 #include "network/usermgr.h"
 
 ApplyFriendItem::ApplyFriendItem(QWidget *parent)
-  : ListItemBase(parent), ui(new Ui::ApplyFriendItem), _added(false)
+    : ListItemBase(parent), ui(new Ui::ApplyFriendItem), _added(false)
 {
   ui->setupUi(this);
   SetItemType(ListItemType::APPLY_FRIEND_ITEM);

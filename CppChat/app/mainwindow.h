@@ -2,7 +2,6 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-
 /********************************************************************************
  * @file      mainwindow.h
  * @brief     主窗口
@@ -34,6 +33,8 @@ class MainWindow : public QMainWindow
 public:
   explicit MainWindow(QWidget *parent = nullptr);
   ~MainWindow() override;
+  // 登录窗口的总尺寸，包含认证页面、标题栏和外边距。
+  QSize authenticationWindowSize() const;
 
 protected:
   // 窗口创建/显示、子控件鼠标事件和最大化状态变化。
@@ -41,8 +42,7 @@ protected:
   bool eventFilter(QObject *watched, QEvent *event) override;
   void changeEvent(QEvent *event) override;
 #ifdef Q_OS_WIN
-  bool nativeEvent(const QByteArray &eventType, void *message,
-                   qintptr *result) override;
+  bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
 #endif
 
 private:
@@ -54,6 +54,7 @@ private:
   void updatePageWindowSize();
 
   // 窗口按钮和原生窗口外观。
+  void setWindowPinned(bool pinned);
   void toggleMaximizeRestore();
   void updateMaximizeButton();
   void updateCloseButtonIcon(bool hovered);
@@ -64,7 +65,6 @@ private:
   void updateResizeCursor(Qt::Edges edges);
 
   Ui::MainWindow *ui;
-
   // 页面加入 QStackedWidget 后由 Qt 父子关系管理，不需要逐个 delete。
   QStackedWidget *_pages = nullptr;
   LoginDialog *_loginDialog = nullptr;

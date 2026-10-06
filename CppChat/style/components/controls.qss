@@ -1,0 +1,112 @@
+/* Shared form inputs and button roles: primary, secondary, verification. */
+
+QLineEdit[inputRole="form"] {
+    color: #262626;
+    background-color: #fbfbfb;
+    border: 1px solid ${color.border.input};
+    border-radius: ${radius.control};
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: ${font.size.label};
+    selection-color: ${color.surface};
+    selection-background-color: ${color.brand};
+}
+
+QLineEdit[inputRole="form"]:hover {
+    background-color: ${color.surface};
+    border-color: ${color.border.input.hover};
+}
+
+QLineEdit[inputRole="form"]:focus {
+    background-color: ${color.surface};
+    border-color: ${color.brand};
+}
+
+QLineEdit[inputRole="form"]:disabled {
+    color: #a8a8a8;
+    background-color: #f2f2f2;
+    border-color: #e5e5e5;
+}
+
+QPushButton[buttonRole] {
+    border-radius: ${radius.control};
+    padding-left: 14px;
+    padding-right: 14px;
+    font-size: ${font.size.label};
+    outline: none;
+}
+
+QPushButton[buttonRole="primary"] {
+    color: ${color.surface};
+    background-color: ${color.brand};
+    border: 1px solid ${color.brand};
+}
+
+QPushButton[buttonRole="primary"]:hover,
+QPushButton[buttonRole="primary"]:focus {
+    background-color: ${color.brand.hover};
+    border-color: ${color.brand.hover};
+}
+
+QPushButton[buttonRole="primary"]:pressed {
+    background-color: ${color.brand.pressed};
+    border-color: ${color.brand.pressed};
+}
+
+QPushButton[buttonRole="primary"]:disabled {
+    color: ${color.surface};
+    background-color: ${color.brand.disabled};
+    border-color: ${color.brand.disabled};
+}
+
+QPushButton[buttonRole="secondary"] {
+    color: #333333;
+    background-color: ${color.surface};
+    border: 1px solid #dcdfe6;
+}
+
+QPushButton[buttonRole="secondary"]:hover,
+QPushButton[buttonRole="secondary"]:focus {
+    color: #07a951;
+    background-color: #f5fbf8;
+    border-color: ${color.secondary.border.hover};
+}
+
+QPushButton[buttonRole="secondary"]:pressed {
+    color: ${color.secondary.text};
+    background-color: #e9f7f0;
+    border-color: ${color.secondary.border.pressed};
+}
+
+QPushButton[buttonRole="secondary"]:disabled {
+    color: ${color.text.disabled};
+    background-color: #f5f5f5;
+    border-color: #e5e5e5;
+}
+
+QPushButton[buttonRole="verification"] {
+    color: ${color.secondary.text};
+    background-color: #effaf4;
+    border: 1px solid #a9e5c4;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+QPushButton[buttonRole="verification"]:hover,
+QPushButton[buttonRole="verification"]:focus {
+    color: #067d3d;
+    background-color: #e2f7ec;
+    border-color: #70cf9c;
+}
+
+QPushButton[buttonRole="verification"]:pressed {
+    color: #056f36;
+    background-color: #d4f1e2;
+    border-color: #52bd84;
+}
+
+QPushButton[buttonRole="verification"]:disabled {
+    color: #9eaaa4;
+    background-color: #f1f4f2;
+    border-color: #dde3e0;
+}

@@ -10,8 +10,10 @@
 namespace Ui {
 class LoginDialog;
 }
+class FormFeedback;
 
-class LoginDialog : public QDialog {
+class LoginDialog : public QDialog
+{
   Q_OBJECT
 
 public:
@@ -23,13 +25,9 @@ private:
   void initHttpHandlers();
   void initHead();
   Ui::LoginDialog *ui;
-  bool checkEmailValid();
-  void AddTipErr(TipError te, QString tips);
-  void DelTipErr(TipError te);
-  QMap<TipError, QString> _tipErrors;
+  FormFeedback *_feedback = nullptr;
   QMap<ReqId, std::function<void(const QJsonObject &)>> _handlers;
   void showTip(QString str, bool b_ok);
-  bool checkPwdValid();
   bool enableBtn(bool enabled);
   void slot_tcp_con_finish(bool bsuccess);
   void slot_login_failed(int error);

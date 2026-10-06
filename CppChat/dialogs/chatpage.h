@@ -3,29 +3,63 @@
 #include "common/userdata.h"
 #include <QWidget>
 #include <QHash>
+#include <QSet>
+#include <QPointer>
 class ChatItemBase;
-class QLabel;
-namespace Ui { class ChatPage; }
-class ChatPage : public QWidget {
+class QTimer;
+class ScreenCapture;
+class ChatHistoryDialog;
+class MessageSender;
+namespace Ui {
+class ChatPage;
+}
+class ChatPage : public QWidget
+{
   Q_OBJECT
 public:
   explicit ChatPage(QWidget *parent = nullptr);
   ~ChatPage() override;
   void SetChatData(std::shared_ptr<ChatThreadData> data);
-  void AppendChatMsg(std::shared_ptr<ChatDataBase> message);
   void UpdateChatStatus(const QString &uniqueId, int status);
   void ShowStatus(const QString &message);
   void Reset();
+  void RemoveChatThread(int threadId);
+  void SaveCurrentDraft();
+  void SetThreadPinned(int threadId, bool pinned);
 signals:
+  void sig_reload_local(int threadId);
   void sig_messages_changed(int threadId);
+  void sig_open_favorites();
+  void sig_thread_pin_changed(int threadId, bool pinned);
+
 protected:
   void paintEvent(QPaintEvent *) override;
+  void resizeEvent(QResizeEvent *event) override;
+  void showEvent(QShowEvent *event) override;
+  void hideEvent(QHideEvent *event) override;
+
 private:
+  void RenderMessages(bool changed);
+  ChatItemBase *CreateChatItem(const std::shared_ptr<ChatDataBase> &message);
+  void UpdateSettingsRect();
+  void OpenHistory();
+  void StartScreenCapture();
   void on_send_btn_clicked();
+  void UpdateSendButton();
+  void PersistDraft(int threadId);
+  MessageSender *_sender = nullptr;
   Ui::ChatPage *ui;
-  QLabel *_statusLabel = nullptr;
+  QTimer *_draftTimer = nullptr;
+  bool _restoringDraft = false;
+  QSet<int> _loadingDrafts;
+  QPointer<ScreenCapture> _screenCapture;
+  ChatHistoryDialog *_historyDialog = nullptr;
   std::shared_ptr<ChatThreadData> _chat_data;
   QHash<QString, ChatItemBase *> _pendingItems;
-  QHash<int, QString> _drafts;
+  QHash<QString, ChatItemBase *> _renderedItems;
+  QHash<QString, std::shared_ptr<ChatDataBase>> _renderedMessages;
+  QHash<QString, QWidget *> _auxiliaryRows;
+  QHash<int, QVector<MsgInfo>> _drafts;
+  QSet<int> _dirtyDrafts;
 };
 #endif

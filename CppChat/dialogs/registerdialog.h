@@ -12,8 +12,10 @@
 namespace Ui {
 class RegisterDialog;
 }
+class FormFeedback;
 
-class RegisterDialog : public QDialog {
+class RegisterDialog : public QDialog
+{
   Q_OBJECT
 
 public:
@@ -30,19 +32,12 @@ private slots:
 
 private:
   void initHttpHandlers();
-  void showTip(QString str, bool b_ok);
-  void addTipError(TipError error, const QString &message);
-  void removeTipError(TipError error);
-  bool checkUserValid(bool focusOnError = false);
-  bool checkEmailValid(bool focusOnError = false);
-  bool checkPasswordValid(bool focusOnError = false);
-  bool checkConfirmPasswordValid(bool focusOnError = false);
-  bool checkVerifyCodeValid(bool focusOnError = false);
+  void showTip(const QString &message, bool ok, ReqId id = ReqId::ID_REG_USER);
   void resetRegistrationPage();
   void returnToLogin();
   Ui::RegisterDialog *ui;
   QMap<ReqId, std::function<void(const QJsonObject &)>> _handlers;
-  QMap<TipError, QString> _tipErrors;
+  FormFeedback *_feedback = nullptr;
 
   QTimer *_countdown_timer = nullptr;
   int _countdown = 5;

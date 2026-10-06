@@ -1,5 +1,6 @@
 ﻿#include "LogicSystem.h"
 #include <ostream>
+#include <stdexcept>
 #include <utility>
 
 #include <boost/beast/core/buffers_to_string.hpp>
@@ -15,12 +16,30 @@
 #include "RedisMgr.h"
 #include "Logger.h"
 #include "MysqlMgr.h"
+#include "ConfigMgr.h"
 
 namespace beast = boost::beast;
 namespace http = boost::beast::http;
+namespace {
+std::size_t BusinessSetting(const char* key, std::size_t fallback, std::size_t maximum) {
+	try {
+		const auto text = ConfigMgr::GetInstance()["Business"].GetValue(key, std::to_string(fallback));
+		std::size_t consumed = 0;
+		const auto value = std::stoul(text, &consumed);
+		if (consumed != text.size() || value < 1 || value > maximum)
+			throw std::out_of_range(key);
+		return value;
+	} catch (const std::exception&) {
+		LOG_WARNING("Invalid Business.", key, "; using ", fallback, '.');
+		return fallback;
+	}
+}
+}
 // LogicSystem 在当前项目里的真实角色是：
 // 保存“URL路径 → 处理函数”的对应关系，然后根据客户端访问的URL，找到并执行对应的处理函数。
-LogicSystem::LogicSystem() {
+LogicSystem::LogicSystem()
+	: business_(std::make_unique<BusinessExecutor>(BusinessSetting("Workers", 4, 16),
+		BusinessSetting("QueueLimit", 256, 65536))) {
 	// 注册get请求
 	RegGet("/get_test", [](std::shared_ptr<HttpConnection> connection) {
 		beast::ostream(connection->_response.body()) << "receive get_test req " << std::endl;
@@ -403,7 +422,20 @@ void LogicSystem::RegGet(std::string url, HttpHandler handler) {
 void LogicSystem::RegPost(std::string url, HttpHandler handler) {
 	_post_handlers.insert(std::make_pair(url, handler));
 }
-LogicSystem::~LogicSystem() {}
+LogicSystem::~LogicSystem() { Stop(); }
+
+bool LogicSystem::SubmitRequest(std::shared_ptr<HttpConnection> connection) {
+	const auto key = connection->connection_key_;
+	return business_->Submit(key, [connection = std::move(connection)] {
+		connection->HandleReq();
+	});
+}
+
+void LogicSystem::Stop() {
+	business_->Stop();
+}
+
+void LogicSystem::BeginStop() { business_->BeginStop(); }
 
 bool LogicSystem::HandleGet(std::string path, std::shared_ptr<HttpConnection> con)
 {

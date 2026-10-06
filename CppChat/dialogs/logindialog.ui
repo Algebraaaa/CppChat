@@ -139,6 +139,7 @@
        </item>
        <item>
         <widget class="QLineEdit" name="email_edit">
+         <property name="inputRole" stdset="0"><string notr="true">form</string></property>
          <property name="minimumSize">
           <size>
            <width>0</width>
@@ -181,6 +182,7 @@
        </item>
        <item>
         <widget class="QLineEdit" name="pass_edit">
+         <property name="inputRole" stdset="0"><string notr="true">form</string></property>
          <property name="minimumSize">
           <size>
            <width>0</width>
@@ -269,6 +271,7 @@
        </item>
        <item>
         <widget class="QPushButton" name="login_btn">
+         <property name="buttonRole" stdset="0"><string notr="true">primary</string></property>
          <property name="minimumSize">
           <size>
            <width>100</width>
@@ -315,6 +318,7 @@
        </item>
        <item>
         <widget class="QPushButton" name="reg_btn">
+         <property name="buttonRole" stdset="0"><string notr="true">secondary</string></property>
          <property name="minimumSize">
           <size>
            <width>100</width>

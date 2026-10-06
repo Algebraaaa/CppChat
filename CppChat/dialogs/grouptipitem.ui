@@ -2,23 +2,29 @@
 <ui version="4.0">
  <class>GroupTipItem</class>
  <widget class="QWidget" name="GroupTipItem">
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>250</width>
+    <width>286</width>
     <height>25</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>250</width>
+    <width>0</width>
     <height>25</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>250</width>
+    <width>16777215</width>
     <height>25</height>
    </size>
   </property>

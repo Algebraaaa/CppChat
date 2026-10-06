@@ -2,58 +2,44 @@
 #define MESSAGETEXTEDIT_H
 
 #include "common/global.h"
-#include <QApplication>
-#include <QDrag>
-#include <QFileIconProvider>
-#include <QFileInfo>
-#include <QKeyEvent>
-#include <QMimeData>
-#include <QMimeType>
-#include <QMouseEvent>
-#include <QObject>
-#include <QPainter>
 #include <QTextEdit>
 #include <QVector>
+#include <QHash>
 
 class MessageTextEdit : public QTextEdit
 {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    explicit MessageTextEdit(QWidget *parent = nullptr);
+  explicit MessageTextEdit(QWidget *parent = nullptr);
 
-    ~MessageTextEdit();
+  ~MessageTextEdit();
 
-    QVector<MsgInfo> getMsgList();
+  QVector<MsgInfo> messages() const;
+  void setMessages(const QVector<MsgInfo> &messages);
 
-    void insertFileFromUrl(const QStringList &urls);
+  void insertFileFromUrl(const QStringList &urls);
+  void insertImage(const QImage &image);
+  void insertEmoji(const QString &id);
+  bool attachmentsReady() const;
+public slots:
+  void clear();
 signals:
-    void send();
+  void send();
+  void attachmentError(const QString &message);
+  void attachmentsChanged();
 
 protected:
-    void dragEnterEvent(QDragEnterEvent *event);
-    void dropEvent(QDropEvent *event);
-    void keyPressEvent(QKeyEvent *e) override;
+  void dragEnterEvent(QDragEnterEvent *event) override;
+  void dropEvent(QDropEvent *event) override;
+  void keyPressEvent(QKeyEvent *e) override;
+  bool canInsertFromMimeData(const QMimeData *source) const override;
+  void insertFromMimeData(const QMimeData *source) override;
 
 private:
-    void insertImages(const QString &url);
-    void insertTextFile(const QString &url);
-    bool canInsertFromMimeData(const QMimeData *source) const;
-    void insertFromMimeData(const QMimeData *source);
-
-private:
-    bool isImage(QString url);//判断文件是否为图片
-    void insertMsgList(QVector<MsgInfo> &list,QString flag, QString text, QPixmap pix);
-
-    QStringList getUrl(QString text);
-    QPixmap getFileIconPixmap(const QString &url);//获取文件图标及大小信息，并转化成图片
-    QString getFileSize(qint64 size);//获取文件大小
-
-private slots:
-    void textEditChanged();
-
-private:
-    QVector<MsgInfo> mMsgList;
-    QVector<MsgInfo> mGetMsgList;
+  void insertImageData(const QByteArray &bytes);
+  void insertPrepared(const std::shared_ptr<PreparedAttachment> &attachment);
+  void updatePreview(const std::shared_ptr<PreparedAttachment> &attachment);
+  QHash<QString, std::shared_ptr<PreparedAttachment>> _attachments;
 };
 
 #endif // MESSAGETEXTEDIT_H

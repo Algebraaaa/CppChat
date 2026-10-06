@@ -2,154 +2,318 @@
 #include <QCursor>
 #include <QEasingCurve>
 #include <QEvent>
+#include <QGraphicsOpacityEffect>
 #include <QPainter>
 #include <QScrollBar>
+#include <QSet>
 #include <QStyleOption>
 #include <QTimer>
 #include <QWheelEvent>
 #include <QtMath>
 
 namespace {
-// 与 ChatUserList 保持相同的鼠标滚轮距离和缓动时间。
 constexpr int kWheelScrollDistance = 60;
-constexpr int kScrollAnimationDuration = 400;
-}
+constexpr int kScrollAnimationDuration = 140;
+constexpr int kBottomTolerance = 2;
+} // namespace
 
-ChatView::ChatView(QWidget *parent)
-  : QWidget(parent), m_pScrollArea(nullptr), m_pScrollAnimation(nullptr),
-    m_scrollTarget(0), isAppended(false)
+ChatView::ChatView(QWidget *parent) : QWidget(parent)
 {
-  QVBoxLayout *pMainLayout = new QVBoxLayout();
-  this->setLayout(pMainLayout);
-  pMainLayout->setContentsMargins(0, 0, 0, 0);
-
-  m_pScrollArea = new QScrollArea();
+  auto *mainLayout = new QVBoxLayout(this);
+  mainLayout->setContentsMargins(0, 0, 0, 0);
+  m_pScrollArea = new QScrollArea(this);
   m_pScrollArea->setObjectName("chat_area");
-  pMainLayout->addWidget(m_pScrollArea);
+  mainLayout->addWidget(m_pScrollArea);
 
-  QWidget *w = new QWidget(this);
-  w->setObjectName("chat_bg");
-  w->setAutoFillBackground(true);
-
-  QVBoxLayout *pVLayout_1 = new QVBoxLayout();
-  pVLayout_1->addWidget(new QWidget(), 100000);
-  w->setLayout(pVLayout_1);
-  m_pScrollArea->setWidget(w);
-
+  auto *content = new QWidget;
+  content->setObjectName("chat_bg");
+  content->setAutoFillBackground(true);
+  auto *rows = new QVBoxLayout(content);
+  rows->addStretch(100000);
+  m_pScrollArea->setWidget(content);
   m_pScrollArea->setWidgetResizable(true);
   m_pScrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  // 直接使用 QScrollArea 的原生滚动条。它会占用右侧布局宽度，
-  // 因此不会像覆盖式滚动条那样压在头像上。
-  // m_pScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+
+  // 始终预留原生滚动条宽度，只改变透明度。hide/show 会改变 viewport 宽度，
+  // 让长消息重新换行、改变滚动范围，造成鼠标进入/离开时的位置回跳。
+  m_pScrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
   m_pVScrollBar = m_pScrollArea->verticalScrollBar();
   m_pVScrollBar->setObjectName("chat_view_scrollbar");
   m_pVScrollBar->setSingleStep(12);
-  m_pVScrollBar->hide();
+  _barOpacity = new QGraphicsOpacityEffect(m_pVScrollBar);
+  m_pVScrollBar->setGraphicsEffect(_barOpacity);
+  _barOpacity->setOpacity(0);
+  m_pVScrollBar->setAttribute(Qt::WA_TransparentForMouseEvents);
 
-  // 原生滚动条仍然保存 QScrollArea 的真实范围和值；动画只修改它的 value。
   m_pScrollAnimation = new QPropertyAnimation(m_pVScrollBar, "value", this);
   m_pScrollAnimation->setDuration(kScrollAnimationDuration);
   m_pScrollAnimation->setEasingCurve(QEasingCurve::OutCubic);
-  m_scrollTarget = m_pVScrollBar->value();
-
+  _layoutTimer = new QTimer(this);
+  _layoutTimer->setSingleShot(true);
+  connect(_layoutTimer, &QTimer::timeout, this, &ChatView::restoreAnchor);
   connect(m_pVScrollBar, &QScrollBar::rangeChanged, this, &ChatView::onVScrollBarMoved);
-  connect(m_pVScrollBar, &QScrollBar::rangeChanged, this, [this](int minimum, int maximum) {
-    m_scrollTarget = qBound(minimum, m_scrollTarget, maximum);
-
-    // 联系人增加或窗口大小改变后，重新判断是否需要显示。
-    updateBarVisibility();
-  });
-
-  connect(m_pVScrollBar, &QScrollBar::sliderReleased, this, &ChatView::updateBarVisibility);
-
   connect(m_pVScrollBar, &QScrollBar::valueChanged, this, [this](int value) {
+    // 布局变化时 Qt 可能临时夹紧 value；不要把这种变化当成用户滚动，
+    // 否则会覆盖之前记录的消息锚点。
+    if (_restoringScroll || _batchUpdating || _layoutTimer->isActive())
+      return;
     if (m_pScrollAnimation->state() != QAbstractAnimation::Running) {
       m_scrollTarget = value;
+      _followBottom = value >= m_pVScrollBar->maximum() - kBottomTolerance;
     }
+    captureAnchor();
   });
-
-  // 用户拖动的就是原生滚动条，按下滑块时停止滚轮动画，避免争抢 value。
-  connect(m_pVScrollBar, &QScrollBar::sliderPressed, this, [this]() {
+  connect(m_pScrollAnimation, &QPropertyAnimation::finished, this, [this] {
+    _followBottom = m_pVScrollBar->value() >= m_pVScrollBar->maximum() - kBottomTolerance;
+    captureAnchor();
+  });
+  connect(m_pVScrollBar, &QScrollBar::sliderPressed, this, [this] {
+    _layoutTimer->stop();
     m_pScrollAnimation->stop();
+    _followBottom = false;
     m_scrollTarget = m_pVScrollBar->value();
+    captureAnchor();
   });
-
-  // 滚轮事件实际发送给 viewport，因此在 viewport 上拦截并添加缓动。
+  connect(m_pVScrollBar, &QScrollBar::sliderReleased, this, [this] {
+    _followBottom = m_pVScrollBar->value() >= m_pVScrollBar->maximum() - kBottomTolerance;
+    captureAnchor();
+    updateBarVisibility();
+  });
   m_pScrollArea->viewport()->installEventFilter(this);
+  m_pVScrollBar->installEventFilter(this);
 }
-void ChatView::appendChatItem(QWidget *item)
+
+void ChatView::captureAnchor()
 {
-  QVBoxLayout *vl = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
-  vl->insertWidget(vl->count() - 1, item);
-  isAppended = true;
-}
-bool ChatView::eventFilter(QObject *o, QEvent *e)
-{
-  if (o == m_pScrollArea->viewport() && e->type() == QEvent::Wheel) {
-    if (handleWheelEvent(static_cast<QWheelEvent *>(e))) {
-      return true;
+  if (_restoringScroll || _batchUpdating || _layoutTimer->isActive())
+    return;
+  _savedValue = m_pVScrollBar->value();
+  _anchor.clear();
+  _anchorKey.clear();
+  auto *rows = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
+  auto *viewport = m_pScrollArea->viewport();
+  // 保存最上方可见消息和它距 viewport 顶部的像素距离，而不是只保存 value。
+  for (int index = 0; index < rows->count() - 1; ++index) {
+    auto *item = rows->itemAt(index)->widget();
+    if (!item)
+      continue;
+    const int top = item->mapTo(viewport, QPoint(0, 0)).y();
+    if (top + item->height() > 0 && top < viewport->height()) {
+      _anchor = item;
+      _anchorKey = item->property("chat_scroll_key").toString();
+      _anchorOffset = top;
+      break;
     }
   }
+}
 
-  return QWidget::eventFilter(o, e);
+void ChatView::restoreAnchor()
+{
+  if (_batchUpdating)
+    return;
+  _restoringScroll = true;
+  auto *rows = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
+  rows->activate();
+  // 整页刷新时原控件可能已经销毁，用消息标识找回同一条消息。
+  if (!_anchor && !_anchorKey.isEmpty()) {
+    for (int index = 0; index < rows->count() - 1; ++index) {
+      auto *item = rows->itemAt(index)->widget();
+      if (item && item->property("chat_scroll_key").toString() == _anchorKey) {
+        _anchor = item;
+        break;
+      }
+    }
+  }
+  const int current = m_pVScrollBar->value();
+  int target = _savedValue;
+  if (_followBottom)
+    target = m_pVScrollBar->maximum();
+  else if (_anchor)
+    target = current + _anchor->mapTo(m_pScrollArea->viewport(), QPoint(0, 0)).y() - _anchorOffset;
+  target = qBound(m_pVScrollBar->minimum(), target, m_pVScrollBar->maximum());
+  const int correction = target - current;
+  const bool running = m_pScrollAnimation->state() == QAbstractAnimation::Running;
+  const int animationTarget = m_scrollTarget + correction;
+  if (correction != 0 || _followBottom) {
+    m_pScrollAnimation->stop();
+    m_pVScrollBar->setValue(target);
+    m_scrollTarget = target;
+    if (running && !_followBottom) {
+      m_scrollTarget = qBound(m_pVScrollBar->minimum(), animationTarget, m_pVScrollBar->maximum());
+      m_pScrollAnimation->setStartValue(target);
+      m_pScrollAnimation->setEndValue(m_scrollTarget);
+      m_pScrollAnimation->start();
+    }
+  }
+  _restoringScroll = false;
+  captureAnchor();
+  updateBarVisibility();
+}
+
+void ChatView::beginUpdate(bool scrollToBottom)
+{
+  if (_layoutTimer->isActive()) {
+    _layoutTimer->stop();
+    restoreAnchor();
+  }
+  captureAnchor();
+  m_pScrollAnimation->stop();
+  _batchUpdating = true;
+  if (scrollToBottom)
+    _followBottom = true;
+  setUpdatesEnabled(false);
+}
+
+void ChatView::endUpdate()
+{
+  _batchUpdating = false;
+  _layoutTimer->start(0);
+  restoreAnchor(); // 先修正一次位置，再允许绘制，避免刷新后闪现旧的滚动位置。
+  setUpdatesEnabled(true);
+}
+
+void ChatView::scrollToBottom()
+{
+  _followBottom = true;
+  m_pScrollAnimation->stop();
+  _layoutTimer->start(0);
+}
+
+void ChatView::appendChatItem(QWidget *item)
+{
+  captureAnchor();
+  auto *rows = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
+  rows->insertWidget(rows->count() - 1, item);
+  if (!_batchUpdating)
+    _layoutTimer->start(0);
+}
+
+void ChatView::prependChatItem(QWidget *item)
+{
+  captureAnchor();
+  auto *rows = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
+  rows->insertWidget(0, item);
+  if (!_batchUpdating)
+    _layoutTimer->start(0);
+}
+
+void ChatView::insertChatItem(QWidget *before, QWidget *item)
+{
+  captureAnchor();
+  auto *rows = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
+  const int index = rows->indexOf(before);
+  rows->insertWidget(index < 0 ? rows->count() - 1 : index, item);
+  if (!_batchUpdating)
+    _layoutTimer->start(0);
+}
+
+void ChatView::setChatItems(const QList<QWidget *> &items)
+{
+  auto *rows = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
+  const QSet<QWidget *> wanted(items.cbegin(), items.cend());
+  // 保留已有消息控件和滚动锚点，只删除退出当前窗口的行。
+  for (int index = rows->count() - 2; index >= 0; --index) {
+    auto *widget = rows->itemAt(index)->widget();
+    if (!wanted.contains(widget)) {
+      auto *entry = rows->takeAt(index);
+      delete widget;
+      delete entry;
+    }
+  }
+  for (int index = 0; index < items.size(); ++index) {
+    auto *widget = items[index];
+    if (rows->indexOf(widget) != index)
+      rows->insertWidget(index, widget);
+    widget->show();
+  }
+}
+
+void ChatView::removeAllItem()
+{
+  m_pScrollAnimation->stop();
+  if (!_batchUpdating) {
+    _layoutTimer->stop();
+    _followBottom = true;
+    _savedValue = m_scrollTarget = 0;
+    _anchor.clear();
+    _anchorKey.clear();
+  }
+  auto *rows = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
+  while (rows->count() > 1) {
+    auto *item = rows->takeAt(0);
+    delete item->widget();
+    delete item;
+  }
+}
+
+bool ChatView::eventFilter(QObject *object, QEvent *event)
+{
+  if (object == m_pVScrollBar &&
+      (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::KeyPress)) {
+    m_pScrollAnimation->stop();
+    _followBottom = false;
+    m_scrollTarget = m_pVScrollBar->value();
+  }
+  if ((object == m_pScrollArea->viewport() || object == m_pVScrollBar) &&
+      event->type() == QEvent::Wheel && handleWheelEvent(static_cast<QWheelEvent *>(event)))
+    return true;
+  return QWidget::eventFilter(object, event);
 }
 
 bool ChatView::handleWheelEvent(QWheelEvent *event)
 {
-  // 触控板本身提供连续的 pixelDelta，交还给 QScrollArea 原生处理。
+  if (_layoutTimer->isActive()) {
+    _layoutTimer->stop();
+    restoreAnchor();
+  }
   if (!event->pixelDelta().isNull()) {
     m_pScrollAnimation->stop();
+    _followBottom = false;
+    captureAnchor();
+    return false; // 触控板连续像素事件交给 QScrollArea。
+  }
+  const int delta = event->angleDelta().y();
+  if (delta == 0 || m_pVScrollBar->maximum() <= m_pVScrollBar->minimum())
     return false;
-  }
-
-  const int angleDeltaY = event->angleDelta().y();
-  if (angleDeltaY == 0 || m_pVScrollBar->maximum() <= m_pVScrollBar->minimum()) {
-    return false;
-  }
-
-  // 快速连续滚轮时，从上一次尚未到达的目标继续累加，形成连续缓动。
-  if (m_pScrollAnimation->state() != QAbstractAnimation::Running) {
-    m_scrollTarget = m_pVScrollBar->value();
-  }
-
-  const qreal wheelSteps = static_cast<qreal>(angleDeltaY) / 120.0;
-  const int scrollDistance = qRound(wheelSteps * kWheelScrollDistance);
-  m_scrollTarget
-    = qBound(m_pVScrollBar->minimum(), m_scrollTarget - scrollDistance, m_pVScrollBar->maximum());
-
+  const int distance = qRound(qreal(delta) / 120 * kWheelScrollDistance);
+  const int current = m_pVScrollBar->value();
+  // 反向滚动立即以当前位置为起点，不再先完成上一个方向积攒的动画距离。
+  if (m_pScrollAnimation->state() != QAbstractAnimation::Running ||
+      (distance > 0 && m_scrollTarget > current) || (distance < 0 && m_scrollTarget < current))
+    m_scrollTarget = current;
+  m_scrollTarget = qBound(m_pVScrollBar->minimum(), m_scrollTarget - distance,
+                          m_pVScrollBar->maximum());
+  _followBottom = false;
+  captureAnchor();
   m_pScrollAnimation->stop();
-  m_pScrollAnimation->setStartValue(m_pVScrollBar->value());
+  m_pScrollAnimation->setStartValue(current);
   m_pScrollAnimation->setEndValue(m_scrollTarget);
   m_pScrollAnimation->start();
   event->accept();
   return true;
 }
 
-void ChatView::paintEvent(QPaintEvent *)
+void ChatView::onVScrollBarMoved(int minimum, int maximum)
 {
-  QStyleOption opt;
-  opt.initFrom(this);
-  QPainter p(this);
-  style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
+  m_scrollTarget = qBound(minimum, m_scrollTarget, maximum);
+  // 删除旧的“插入后 500ms 内每次 rangeChanged 都强制到底部”规则。
+  // 只有原本就在底部才跟随；阅读历史时通过消息锚点修正高度变化。
+  if (!_batchUpdating)
+    _layoutTimer->start(0);
+  updateBarVisibility();
 }
-void ChatView::onVScrollBarMoved(int min, int max)
-{
-  Q_UNUSED(min);
-  Q_UNUSED(max);
 
-  if (isAppended) // 添加item可能调用多次
-  {
-    QScrollBar *m_pVScrollBar = m_pScrollArea->verticalScrollBar();
-    m_pScrollAnimation->stop();
-    m_scrollTarget = m_pVScrollBar->maximum();
-    m_pVScrollBar->setSliderPosition(m_pVScrollBar->maximum());
-    // 500毫秒内可能调用多次
-    QTimer::singleShot(500, this, [this]() { isAppended = false; });
-  }
+void ChatView::updateBarVisibility()
+{
+  const bool hasContent = m_pVScrollBar->maximum() > m_pVScrollBar->minimum();
+  const bool inside = rect().contains(mapFromGlobal(QCursor::pos()));
+  const bool visible = hasContent && (inside || m_pVScrollBar->isSliderDown());
+  _barOpacity->setOpacity(visible ? 1 : 0);
+  m_pVScrollBar->setAttribute(Qt::WA_TransparentForMouseEvents, !visible);
 }
+
 void ChatView::enterEvent(QEnterEvent *event)
 {
-  // 先让 QListWidget 执行原本的鼠标进入处理
   QWidget::enterEvent(event);
   updateBarVisibility();
 }
@@ -159,48 +323,11 @@ void ChatView::leaveEvent(QEvent *event)
   QWidget::leaveEvent(event);
   updateBarVisibility();
 }
-void ChatView::updateBarVisibility()
+
+void ChatView::paintEvent(QPaintEvent *)
 {
-  // chat_view_scrollbar 只是 QSS 对象名，不是C++变量。
-  QScrollBar *scrollBar = m_pScrollArea->verticalScrollBar();
-
-  // maximum > minimum 表示聊天内容已经超过可视区域。
-  const bool hasScrollableContent = scrollBar->maximum() > scrollBar->minimum();
-
-  // 判断鼠标当前是否还在整个 ChatView 区域内。
-  const QPoint cursorPosition = mapFromGlobal(QCursor::pos());
-  const bool cursorInsideChatView = rect().contains(cursorPosition);
-
-  /*
-   * 鼠标在聊天区域内：显示
-   * 鼠标已经拖到区域外，但仍按着滑块：继续显示
-   * 鼠标离开且没有拖动：隐藏
-   */
-  const bool shouldRemainVisible = cursorInsideChatView || scrollBar->isSliderDown();
-
-  scrollBar->setVisible(hasScrollableContent && shouldRemainVisible);
-}
-
-void ChatView::removeAllItem()
-{
-  m_pScrollAnimation->stop();
-  isAppended = false;
-  m_scrollTarget = 0;
-  auto *layout = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
-  while (layout->count() > 1) {
-    auto *item = layout->takeAt(0);
-    delete item->widget();
-    delete item;
-  }
-}
-void ChatView::prependChatItem(QWidget *item)
-{
-  auto *layout = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
-  layout->insertWidget(0, item);
-}
-void ChatView::insertChatItem(QWidget *before, QWidget *item)
-{
-  auto *layout = qobject_cast<QVBoxLayout *>(m_pScrollArea->widget()->layout());
-  const int index = layout->indexOf(before);
-  layout->insertWidget(index < 0 ? layout->count() - 1 : index, item);
+  QStyleOption option;
+  option.initFrom(this);
+  QPainter painter(this);
+  style()->drawPrimitive(QStyle::PE_Widget, &option, &painter, this);
 }

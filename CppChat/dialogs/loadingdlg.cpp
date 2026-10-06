@@ -5,8 +5,8 @@
 LoadingDlg::LoadingDlg(QWidget *parent) : QDialog(parent), ui(new Ui::LoadingDlg)
 {
   ui->setupUi(this);
-  setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::WindowSystemMenuHint
-                 | Qt::WindowStaysOnTopHint);
+  setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::WindowSystemMenuHint |
+                 Qt::WindowStaysOnTopHint);
   setAttribute(Qt::WA_TranslucentBackground);
 
   // parent 可能为空；只有存在父窗口时，加载层才跟随父窗口尺寸。

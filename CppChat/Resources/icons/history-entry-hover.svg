@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="54" height="34" viewBox="0 0 54 34"
+     fill="none" stroke="#30353a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Lucide message-circle-more and chevron-down, pinned to f12b0de. -->
+  <g transform="translate(5 5)">
+    <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+    <path d="M8 12h.01" /><path d="M12 12h.01" /><path d="M16 12h.01" />
+  </g>
+  <g transform="translate(33 11) scale(.5)"><path d="m6 9 6 6 6-6" /></g>
+</svg>

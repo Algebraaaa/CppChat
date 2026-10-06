@@ -20,4 +20,5 @@ enum ErrorCodes {
 	DatabaseError = 1014,
 	RedisError = 1015,
 	InternalError = 1016,
+	FriendNotFound = 1017,
 };

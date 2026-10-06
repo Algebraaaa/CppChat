@@ -10,8 +10,10 @@
 namespace Ui {
 class ResetDialog;
 }
+class FormFeedback;
 
-class ResetDialog : public QDialog {
+class ResetDialog : public QDialog
+{
   Q_OBJECT
 
 public:
@@ -20,17 +22,11 @@ public:
 
 private:
   void initHttpHandlers();
-  void showTip(const QString &message, bool ok);
-  void addTipError(TipError error, const QString &message);
-  void removeTipError(TipError error);
-  bool checkUserValid(bool focusOnError = false);
-  bool checkEmailValid(bool focusOnError = false);
-  bool checkPasswordValid(bool focusOnError = false);
-  bool checkVerifyCodeValid(bool focusOnError = false);
+  void showTip(const QString &message, bool ok, ReqId id = ReqId::ID_RESET_PWD);
   void resetPage();
 
   Ui::ResetDialog *ui;
-  QMap<TipError, QString> _tipErrors;
+  FormFeedback *_feedback = nullptr;
   QMap<ReqId, std::function<void(const QJsonObject &)>> _handlers;
 signals:
   void switchLogin();

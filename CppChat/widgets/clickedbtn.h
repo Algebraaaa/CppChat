@@ -4,7 +4,8 @@
 #include <QEnterEvent>
 #include <QPushButton>
 
-class ClickedBtn : public QPushButton {
+class ClickedBtn : public QPushButton
+{
   Q_OBJECT
 public:
   // explicit 防止 QWidget* 被意外隐式转换成 ClickedBtn

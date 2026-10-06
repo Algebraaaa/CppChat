@@ -5,6 +5,7 @@
 #include "dialogs/resetdialog.h"
 #include "network/tcpmgr.h"
 #include "network/usermgr.h"
+#include "common/chatstore.h"
 #include "ui_mainwindow.h"
 
 #include <QApplication>
@@ -12,6 +13,7 @@
 #include <QEvent>
 #include <QIcon>
 #include <QMouseEvent>
+#include <QSignalBlocker>
 #include <QStackedWidget>
 #include <QWindow>
 
@@ -26,7 +28,7 @@ constexpr int kResizeBorderWidth = 6; // 鼠标距窗口边缘多少逻辑像素
 #ifdef Q_OS_WIN
 // Windows 11 圆角属性；使用数值以兼容尚未声明这些枚举的旧版 MinGW。
 constexpr DWORD kWindowCornerPreference = 33; // DWMWA_WINDOW_CORNER_PREFERENCE
-constexpr DWORD kRoundCorner = 2;            // DWMWCP_ROUND
+constexpr DWORD kRoundCorner = 2;             // DWMWCP_ROUND
 #endif
 } // namespace
 
@@ -50,11 +52,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
           [this]() { _pages->setCurrentWidget(_loginDialog); });
 
   // TCP 登录成功后，网络模块通知主窗口进入聊天页
-  connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_swich_chatdlg, this,
-          [this]() {
-            _chatDialog->StartSession();
-            _pages->setCurrentWidget(_chatDialog);
-          });
+  connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_swich_chatdlg, this, [this]() {
+    _chatDialog->StartSession();
+    _pages->setCurrentWidget(_chatDialog);
+  });
   connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_notify_offline, this,
           [this]() { returnToLogin(tr("该账号已在其他设备登录，请重新登录")); });
   connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_connection_closed, this,
@@ -72,11 +73,19 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 MainWindow::~MainWindow()
 {
   qApp->removeEventFilter(this);
+  _chatDialog->ResetSession(); // 先保存草稿，随后在 Qt SQL 模块析构前关闭连接。
+  ChatStore::instance()->Shutdown();
   delete ui;
 }
 
 void MainWindow::setupTitleBar()
 {
+  QIcon pinIcon;
+  pinIcon.addFile(QStringLiteral(":/icons/pin-normal.svg"), QSize(), QIcon::Normal, QIcon::Off);
+  pinIcon.addFile(QStringLiteral(":/icons/pin-selected.svg"), QSize(), QIcon::Normal, QIcon::On);
+  ui->pin_btn->setIcon(pinIcon);
+  ui->pin_btn->setIconSize(QSize(16, 16));
+  ui->pin_btn->setAccessibleName(ui->pin_btn->toolTip());
   ui->minimize_btn->setIcon(QIcon(QStringLiteral(":/res/window/minimize.svg")));
   updateCloseButtonIcon(false);
   updateMaximizeButton();
@@ -94,10 +103,9 @@ void MainWindow::setupTitleBar()
   ui->app_icon->setAttribute(Qt::WA_TransparentForMouseEvents);
   ui->title_label->setAttribute(Qt::WA_TransparentForMouseEvents);
 
-  connect(ui->minimize_btn, &QPushButton::clicked, this,
-          &MainWindow::showMinimized);
-  connect(ui->maximize_btn, &QPushButton::clicked, this,
-          &MainWindow::toggleMaximizeRestore);
+  connect(ui->pin_btn, &QPushButton::toggled, this, &MainWindow::setWindowPinned);
+  connect(ui->minimize_btn, &QPushButton::clicked, this, &MainWindow::showMinimized);
+  connect(ui->maximize_btn, &QPushButton::clicked, this, &MainWindow::toggleMaximizeRestore);
   connect(ui->close_btn, &QPushButton::clicked, this, &MainWindow::close);
 }
 
@@ -117,10 +125,17 @@ void MainWindow::setupPages()
   ui->content_layout->addWidget(_pages);
 
   // 页面切换同步窗口尺寸
-  connect(_pages, &QStackedWidget::currentChanged, this,
-          &MainWindow::updatePageWindowSize);
+  connect(_pages, &QStackedWidget::currentChanged, this, &MainWindow::updatePageWindowSize);
   _pages->setCurrentWidget(_loginDialog);
   updatePageWindowSize();
+}
+
+QSize MainWindow::authenticationWindowSize() const
+{
+  const QMargins margins = ui->window_layout->contentsMargins();
+  return _loginDialog->minimumSize() +
+         QSize(margins.left() + margins.right(),
+               margins.top() + margins.bottom() + ui->title_bar->height());
 }
 
 void MainWindow::updatePageWindowSize()
@@ -131,6 +146,8 @@ void MainWindow::updatePageWindowSize()
   }
 
   const bool isChatPage = page == _chatDialog;
+  const bool enteringChatPage = isChatPage && !_chatWindowActive;
+  const QPoint previousCenter = frameGeometry().center();
 
   // 清除上一个页面留下的固定尺寸限制。
   setMinimumSize(0, 0);
@@ -151,10 +168,10 @@ void MainWindow::updatePageWindowSize()
                         margins.top() + margins.bottom() + ui->title_bar->height());
 
   if (isChatPage) {
-    const QSize minimum = (_chatMinimumSize + frameSize)
-        .expandedTo(ui->window_layout->minimumSize());
+    const QSize minimum =
+        (_chatMinimumSize + frameSize).expandedTo(ui->window_layout->minimumSize());
     setMinimumSize(minimum);
-    resize(QSize(1000, 700).expandedTo(minimum));
+    resize(QSize(1180, 800).expandedTo(minimum));
   } else {
     // 三个认证页面的 .ui 已经定义固定尺寸。
     setFixedSize(page->minimumSize() + frameSize);
@@ -162,6 +179,11 @@ void MainWindow::updatePageWindowSize()
 
   updateMaximizeButton();
   updateNativeWindowFrame();
+
+  // 登录成功进入聊天页时，让放大后的窗口仍以登录窗口的中心显示。
+  if (enteringChatPage) {
+    move(pos() + previousCenter - frameGeometry().center());
+  }
 }
 
 void MainWindow::setupMouseTracking()
@@ -212,18 +234,16 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
   if (event->type() == QEvent::MouseButtonPress) {
     auto *mouseEvent = static_cast<QMouseEvent *>(event);
     if (mouseEvent->button() == Qt::LeftButton && !isMaximized()) {
-      const Qt::Edges edges =
-          resizeEdgesAt(mouseEvent->globalPosition().toPoint());
-      if (edges != Qt::Edges() && windowHandle() != nullptr
-          && windowHandle()->startSystemResize(edges)) {
+      const Qt::Edges edges = resizeEdgesAt(mouseEvent->globalPosition().toPoint());
+      if (edges != Qt::Edges() && windowHandle() != nullptr &&
+          windowHandle()->startSystemResize(edges)) {
         return true;
       }
     }
   }
 
   // 双击标题栏切换最大化；按住标题栏启动系统拖动。
-  if (watched == ui->title_bar
-      && event->type() == QEvent::MouseButtonDblClick) {
+  if (watched == ui->title_bar && event->type() == QEvent::MouseButtonDblClick) {
     auto *mouseEvent = static_cast<QMouseEvent *>(event);
     if (mouseEvent->button() == Qt::LeftButton) {
       toggleMaximizeRestore();
@@ -231,11 +251,10 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     }
   }
 
-  if (watched == ui->title_bar
-      && event->type() == QEvent::MouseButtonPress) {
+  if (watched == ui->title_bar && event->type() == QEvent::MouseButtonPress) {
     auto *mouseEvent = static_cast<QMouseEvent *>(event);
-    if (mouseEvent->button() == Qt::LeftButton && windowHandle() != nullptr
-        && windowHandle()->startSystemMove()) {
+    if (mouseEvent->button() == Qt::LeftButton && windowHandle() != nullptr &&
+        windowHandle()->startSystemMove()) {
       return true;
     }
   }
@@ -251,6 +270,34 @@ void MainWindow::changeEvent(QEvent *event)
     updateMaximizeButton();
     unsetCursor();
   }
+}
+
+void MainWindow::setWindowPinned(bool pinned)
+{
+#ifdef Q_OS_WIN
+  // 只改变窗口层级，保留当前位置、尺寸和最大化状态。
+  const HWND hwnd = reinterpret_cast<HWND>(winId());
+  if (!SetWindowPos(hwnd, pinned ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE)) {
+    qWarning() << "Failed to change window pin state:" << GetLastError();
+    pinned = (GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+    const QSignalBlocker blocker(ui->pin_btn);
+    ui->pin_btn->setChecked(pinned);
+  }
+#else
+  // Qt 修改窗口标志后会隐藏窗口，需要恢复原有显示状态。
+  const QRect previousGeometry = geometry();
+  const Qt::WindowStates previousState = windowState();
+  const bool wasVisible = isVisible();
+  setWindowFlag(Qt::WindowStaysOnTopHint, pinned);
+  setGeometry(previousGeometry);
+  setWindowState(previousState);
+  if (wasVisible) {
+    show();
+  }
+#endif
+  ui->pin_btn->setToolTip(pinned ? tr("取消置顶") : tr("窗口置顶"));
+  ui->pin_btn->setAccessibleName(ui->pin_btn->toolTip());
 }
 
 void MainWindow::toggleMaximizeRestore()
@@ -291,9 +338,8 @@ void MainWindow::updateMaximizeButton()
 void MainWindow::updateCloseButtonIcon(bool hovered)
 {
   // QSS 的 color 只改变文字；红色悬停背景需要单独配白色 SVG。
-  const QString iconPath = hovered
-      ? QStringLiteral(":/res/window/close-white.svg")
-      : QStringLiteral(":/res/window/close.svg");
+  const QString iconPath = hovered ? QStringLiteral(":/res/window/close-white.svg")
+                                   : QStringLiteral(":/res/window/close.svg");
   ui->close_btn->setIcon(QIcon(iconPath));
 }
 
@@ -318,14 +364,19 @@ void MainWindow::updateNativeWindowFrame()
   if (style != nativeStyle) {
     SetWindowLongPtrW(hwnd, GWL_STYLE, nativeStyle);
     SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
-                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
-                     | SWP_FRAMECHANGED);
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+  }
+
+  // 窗口句柄重建后，按按钮状态恢复置顶设置。
+  const bool isPinned = (GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+  if (isPinned != ui->pin_btn->isChecked()) {
+    setWindowPinned(ui->pin_btn->isChecked());
   }
 
   // 即使窗口样式没有变化，也要设置圆角。最大化时系统会自动使用直角。
   // Windows 10 不支持此属性；调用失败时保留原有窗口外观。
-  const HRESULT result = DwmSetWindowAttribute(
-      hwnd, kWindowCornerPreference, &kRoundCorner, sizeof(kRoundCorner));
+  const HRESULT result =
+      DwmSetWindowAttribute(hwnd, kWindowCornerPreference, &kRoundCorner, sizeof(kRoundCorner));
   if (FAILED(result)) {
     qWarning() << "Failed to set window corner preference:" << result;
   }
@@ -333,8 +384,7 @@ void MainWindow::updateNativeWindowFrame()
 }
 
 #ifdef Q_OS_WIN
-bool MainWindow::nativeEvent(const QByteArray &eventType, void *message,
-                            qintptr *result)
+bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result)
 {
   auto *msg = static_cast<MSG *>(message);
   if (!msg || !result) {
@@ -343,9 +393,8 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message,
   if (msg->message == WM_NCCALCSIZE) {
     // 客户区覆盖原生标题栏，画面仍使用 Designer 中的 title_bar。
     // 两种 wParam 对应不同的结构，不能一律当作 NCCALCSIZE_PARAMS。
-    RECT *clientRect = msg->wParam
-        ? &reinterpret_cast<NCCALCSIZE_PARAMS *>(msg->lParam)->rgrc[0]
-        : reinterpret_cast<RECT *>(msg->lParam);
+    RECT *clientRect = msg->wParam ? &reinterpret_cast<NCCALCSIZE_PARAMS *>(msg->lParam)->rgrc[0]
+                                   : reinterpret_cast<RECT *>(msg->lParam);
     if (IsZoomed(msg->hwnd) && !isFullScreen()) {
       // 最大化时 Windows 会把不可见边框放到屏幕外；裁到工作区，避免
       // 顶部按钮被切掉，也避免覆盖任务栏。这里全部使用原生像素坐标。

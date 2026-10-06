@@ -22,6 +22,7 @@ enum ErrorCodes {
 	DatabaseError = 1014,
 	RedisError = 1015,
 	InternalError = 1016,
+	FriendNotFound = 1017,
 };
 // Defer：作用域退出时自动执行一次清理操作。
 // 2026-09-12 对比：

@@ -8,7 +8,8 @@ namespace Ui {
 class ApplyFriendItem;
 }
 
-class ApplyFriendItem : public ListItemBase {
+class ApplyFriendItem : public ListItemBase
+{
   Q_OBJECT
 
 public:
@@ -28,6 +29,8 @@ private:
   bool _added;
 signals:
   void sig_auth_friend(std::shared_ptr<ApplyInfo> apply_info);
+private slots:
+  void on_addBtn_clicked();
 };
 
 #endif // APPLYFRIENDITEM_H

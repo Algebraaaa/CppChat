@@ -1,0 +1,44 @@
+/* Shared scrollbars for chat and contact lists. */
+
+QDialog#ChatDialog #smooth_scrollbar:vertical,
+QDialog#ChatDialog #chat_page #chat_view_scrollbar:vertical {
+    background-color: transparent;
+    border: none;
+    width: 8px;
+    margin: 0;
+}
+
+QDialog#ChatDialog #smooth_scrollbar::handle:vertical,
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::handle:vertical {
+    background-color: rgba(101, 110, 105, 94);
+    min-height: 30px;
+    border: none;
+    border-radius: ${radius.dot};
+}
+
+QDialog#ChatDialog #smooth_scrollbar::handle:vertical:hover,
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::handle:vertical:hover {
+    background-color: rgba(90, 101, 94, 160);
+}
+
+QDialog#ChatDialog #smooth_scrollbar::handle:vertical:pressed,
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::handle:vertical:pressed {
+    background-color: rgba(72, 84, 76, 205);
+}
+
+QDialog#ChatDialog #smooth_scrollbar::add-line:vertical,
+QDialog#ChatDialog #smooth_scrollbar::sub-line:vertical,
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::add-line:vertical,
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::sub-line:vertical {
+    height: 0;
+    border: none;
+    background-color: transparent;
+}
+
+QDialog#ChatDialog #smooth_scrollbar::add-page:vertical,
+QDialog#ChatDialog #smooth_scrollbar::sub-page:vertical,
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::add-page:vertical,
+QDialog#ChatDialog #chat_page #chat_view_scrollbar::sub-page:vertical {
+    background-color: transparent;
+    border: none;
+}

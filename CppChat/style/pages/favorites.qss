@@ -1,0 +1,206 @@
+/* Favorites placeholder page. Geometry and content stay in favoritespage.ui. */
+
+FavoritesPage {
+    background: #f5f5f5;
+    color: ${color.text.primary};
+}
+
+FavoritesPage #favorites_filter_panel {
+    background: #ededee;
+    border-right: 1px solid #dedfe1;
+}
+
+FavoritesPage #favorites_search_box {
+    background: #ffffff;
+    border: 1px solid transparent;
+    border-radius: ${radius.avatar};
+}
+
+FavoritesPage #favorites_search_icon {
+    border-image: url(:/icons/action-search.svg);
+}
+
+FavoritesPage #favorites_search_edit {
+    background: transparent;
+    border: none;
+    color: ${color.text.body};
+    font-size: ${font.size.label};
+    selection-background-color: ${color.selection};
+}
+
+FavoritesPage #write_note_btn,
+FavoritesPage #favorite_all_btn,
+FavoritesPage #favorite_recent_btn,
+FavoritesPage #favorite_link_btn,
+FavoritesPage #favorite_media_btn,
+FavoritesPage #favorite_message_btn,
+FavoritesPage #favorite_audio_btn {
+    background: transparent;
+    border: none;
+    border-radius: ${radius.avatar};
+    color: #25282c;
+    font-size: ${font.size.message};
+    text-align: left;
+    padding-left: 16px;
+}
+
+FavoritesPage #write_note_btn {
+    background: #ffffff;
+    qproperty-icon: url(:/icons/action-note.svg);
+    text-align: center;
+    padding-left: 0;
+}
+
+FavoritesPage #favorite_all_btn {
+    qproperty-icon: url(:/icons/favorites-grid.svg);
+}
+
+FavoritesPage #favorite_all_btn:checked {
+    background: ${color.brand};
+    color: #ffffff;
+    qproperty-icon: url(:/icons/favorites-grid-selected.svg);
+}
+
+FavoritesPage #favorite_recent_btn {
+    qproperty-icon: url(:/icons/favorites-clock.svg);
+}
+
+FavoritesPage #favorite_link_btn {
+    qproperty-icon: url(:/icons/favorites-link.svg);
+}
+
+FavoritesPage #favorite_media_btn {
+    qproperty-icon: url(:/icons/favorites-image.svg);
+}
+
+FavoritesPage #favorite_message_btn {
+    qproperty-icon: url(:/icons/favorites-message.svg);
+}
+
+FavoritesPage #favorite_audio_btn {
+    qproperty-icon: url(:/icons/favorites-audio.svg);
+}
+
+FavoritesPage #write_note_btn:hover,
+FavoritesPage #favorite_recent_btn:hover,
+FavoritesPage #favorite_link_btn:hover,
+FavoritesPage #favorite_media_btn:hover,
+FavoritesPage #favorite_message_btn:hover,
+FavoritesPage #favorite_audio_btn:hover {
+    background: #e3e3e4;
+}
+
+FavoritesPage #write_note_btn:pressed,
+FavoritesPage #favorite_recent_btn:pressed,
+FavoritesPage #favorite_link_btn:pressed,
+FavoritesPage #favorite_media_btn:pressed,
+FavoritesPage #favorite_message_btn:pressed,
+FavoritesPage #favorite_audio_btn:pressed {
+    background: #d8d8da;
+}
+
+FavoritesPage #favorites_divider {
+    color: #d9dadc;
+    background: #d9dadc;
+    border: none;
+    max-height: 1px;
+    margin: 7px 4px;
+}
+
+FavoritesPage #favorites_storage_lb {
+    color: #9a9ea4;
+    font-size: ${font.size.caption};
+}
+
+FavoritesPage #favorites_content_panel,
+FavoritesPage #favorites_scroll_area,
+FavoritesPage #favorites_scroll_content {
+    background: #f8f8f8;
+    border: none;
+}
+
+FavoritesPage #favorites_header {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+FavoritesPage #favorites_title_lb {
+    color: #25282c;
+    font-size: ${font.size.section};
+    font-weight: ${font.weight.medium};
+}
+
+FavoritesPage #favorite_card_1,
+FavoritesPage #favorite_card_2,
+FavoritesPage #favorite_card_3,
+FavoritesPage #favorite_card_4 {
+    background: #f0f0f2;
+    border: 1px solid #ededee;
+    border-radius: ${radius.card};
+}
+
+FavoritesPage #favorite_card_1:hover,
+FavoritesPage #favorite_card_2:hover,
+FavoritesPage #favorite_card_3:hover,
+FavoritesPage #favorite_card_4:hover {
+    background: #ebebed;
+    border-color: #dedfe1;
+}
+
+FavoritesPage #favorite_thumb_1,
+FavoritesPage #favorite_thumb_3 {
+    background: #e4e5e7;
+    border: none;
+    border-radius: ${radius.compact};
+}
+
+FavoritesPage #favorite_card_title_1,
+FavoritesPage #favorite_card_title_2,
+FavoritesPage #favorite_card_title_3,
+FavoritesPage #favorite_card_title_4 {
+    color: #25282c;
+    font-size: ${font.size.message};
+}
+
+FavoritesPage #favorite_card_source_1,
+FavoritesPage #favorite_card_source_2,
+FavoritesPage #favorite_card_source_3,
+FavoritesPage #favorite_card_source_4,
+FavoritesPage #favorite_card_date_1,
+FavoritesPage #favorite_card_date_2,
+FavoritesPage #favorite_card_date_3,
+FavoritesPage #favorite_card_date_4 {
+    color: #969ba2;
+    font-size: ${font.size.label};
+}
+
+FavoritesPage #favorites_scroll_area QScrollBar:vertical {
+    background: transparent;
+    border: none;
+    width: 8px;
+    margin: 4px 2px 4px 0;
+}
+
+FavoritesPage #favorites_scroll_area QScrollBar::handle:vertical {
+    background: rgba(101, 110, 105, 94);
+    min-height: 30px;
+    border: none;
+    border-radius: ${radius.dot};
+}
+
+FavoritesPage #favorites_scroll_area QScrollBar::handle:vertical:hover {
+    background: rgba(90, 101, 94, 160);
+}
+
+FavoritesPage #favorites_scroll_area QScrollBar::add-line:vertical,
+FavoritesPage #favorites_scroll_area QScrollBar::sub-line:vertical {
+    height: 0;
+    background: transparent;
+    border: none;
+}
+
+FavoritesPage #favorites_scroll_area QScrollBar::add-page:vertical,
+FavoritesPage #favorites_scroll_area QScrollBar::sub-page:vertical {
+    background: transparent;
+    border: none;
+}

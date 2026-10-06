@@ -2,7 +2,7 @@
 #include "ui_grouptipitem.h"
 
 GroupTipItem::GroupTipItem(QWidget *parent)
-  : ListItemBase(parent), _tip(""), ui(new Ui::GroupTipItem)
+    : ListItemBase(parent), _tip(""), ui(new Ui::GroupTipItem)
 {
   ui->setupUi(this);
   SetItemType(ListItemType::GROUP_TIP_ITEM);
@@ -15,7 +15,7 @@ GroupTipItem::~GroupTipItem()
 
 QSize GroupTipItem::sizeHint() const
 {
-  return QSize(250, 25); // 返回自定义的尺寸
+  return QSize(0, 25);
 }
 
 void GroupTipItem::SetGroupTip(QString str)

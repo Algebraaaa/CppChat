@@ -7,7 +7,8 @@ namespace Ui {
 class FindFailDlg;
 }
 
-class FindFailDlg : public QDialog {
+class FindFailDlg : public QDialog
+{
   Q_OBJECT
 
 public:

@@ -7,7 +7,8 @@
 #include <QWidget>
 class BubbleFrame;
 
-class ChatItemBase : public QWidget {
+class ChatItemBase : public QWidget
+{
   Q_OBJECT
 public:
   explicit ChatItemBase(ChatRole role, QWidget *parent = nullptr);
@@ -15,6 +16,9 @@ public:
   void setUserIcon(const QPixmap &icon);
   void setWidget(QWidget *w);
   void setStatus(int status);
+
+signals:
+  void messageContextMenuRequested(const QPoint &globalPosition);
 
 private:
   ChatRole m_role;

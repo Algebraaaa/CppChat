@@ -1,0 +1,114 @@
+#include "MysqlMgr.h"
+
+MysqlMgr::~MysqlMgr() {}
+
+int MysqlMgr::RegUser(const std::string &name, const std::string &email,
+                      const std::string &password) {
+  return _dao.RegUser(name, email, password);
+}
+
+MysqlMgr::MysqlMgr() {}
+bool MysqlMgr::CheckEmail(const std::string &name, const std::string &email) {
+  return _dao.CheckEmail(name, email);
+}
+
+bool MysqlMgr::UpdatePwd(const std::string &name,
+                         const std::string &new_password) {
+  return _dao.UpdatePwd(name, new_password);
+}
+bool MysqlMgr::CheckPwdByEmail(const std::string &email,
+                               const std::string &password,
+                               UserInfo &user_info) {
+  return _dao.CheckPwdByEmail(email, password, user_info);
+}
+
+bool MysqlMgr::AddFriendApply(int from_uid, int to_uid,
+                              const std::string &description,
+                              const std::string &remark,
+                              const std::string &tags_json) {
+  return _dao.AddFriendApply(from_uid, to_uid, description, remark, tags_json);
+}
+
+bool MysqlMgr::AuthFriendApply(int from_uid, int to_uid) {
+  return _dao.AuthFriendApply(from_uid, to_uid);
+}
+
+bool MysqlMgr::AddFriend(
+    int from_uid, int to_uid, const std::string &remark,
+    const std::string &tags_json,
+    std::vector<std::shared_ptr<ChatMessage>> &initial_messages) {
+  return _dao.AddFriend(from_uid, to_uid, remark, tags_json, initial_messages);
+}
+
+std::shared_ptr<UserInfo> MysqlMgr::GetUser(int uid) {
+  return _dao.GetUser(uid);
+}
+
+std::shared_ptr<UserInfo> MysqlMgr::GetUser(const std::string &name) {
+  return _dao.GetUser(name);
+}
+
+int MysqlMgr::UpdateProfile(int uid, const std::string &name,
+                            const std::string &nick,
+                            const std::string &description,
+                            const std::string &avatar, bool has_avatar) {
+  return _dao.UpdateProfile(uid, name, nick, description, avatar, has_avatar);
+}
+
+bool MysqlMgr::GetAvatar(int uid, std::string &avatar) {
+  return _dao.GetAvatar(uid, avatar);
+}
+
+bool MysqlMgr::GetApplyList(
+    int to_uid, std::vector<std::shared_ptr<ApplyInfo>> &applications,
+    int begin_id, int limit) {
+  return _dao.GetApplyList(to_uid, applications, begin_id, limit);
+}
+
+bool MysqlMgr::GetFriendList(int self_uid,
+                             std::vector<std::shared_ptr<UserInfo>> &friends) {
+  return _dao.GetFriendList(self_uid, friends);
+}
+
+bool MysqlMgr::DeleteFriend(int self_uid, int friend_uid) {
+  return _dao.DeleteFriend(self_uid, friend_uid);
+}
+
+int MysqlMgr::CheckFriendship(int self_uid, int friend_uid) {
+  return _dao.CheckFriendship(self_uid, friend_uid);
+}
+
+int MysqlMgr::CheckPrivateChatAccess(int self_uid, int thread_id) {
+  return _dao.CheckPrivateChatAccess(self_uid, thread_id);
+}
+
+bool MysqlMgr::GetUserThreads(
+    std::int64_t user_id, std::int64_t last_id, int page_size,
+    std::vector<std::shared_ptr<ChatThreadInfo>> &threads, bool &load_more,
+    int &next_last_id) {
+  return _dao.GetUserThreads(user_id, last_id, page_size, threads, load_more,
+                             next_last_id);
+}
+
+bool MysqlMgr::CreatePrivateChat(int user1_uid, int user2_uid, int &thread_id) {
+  return _dao.CreatePrivateChat(user1_uid, user2_uid, thread_id);
+}
+
+std::shared_ptr<PageResult>
+MysqlMgr::LoadChatMsg(int thread_id, int last_message_id, int page_size) {
+  return _dao.LoadChatMsg(thread_id, last_message_id, page_size);
+}
+
+bool MysqlMgr::AddChatMsg(std::vector<std::shared_ptr<ChatMessage>> &messages) {
+  return _dao.AddChatMsg(messages);
+}
+
+int MysqlMgr::GetFriendMetadata(int self_uid, int friend_uid, std::string &back,
+                                std::string &tags_json) {
+  return _dao.GetFriendMetadata(self_uid, friend_uid, back, tags_json);
+}
+
+int MysqlMgr::SetContactTags(int self_uid, int friend_uid,
+                             const std::string &tags_json) {
+  return _dao.SetContactTags(self_uid, friend_uid, tags_json);
+}

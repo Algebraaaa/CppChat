@@ -1,273 +1,240 @@
-﻿#include "MessageTextEdit.h"
-#include <QDebug>
-#include <QMessageBox>
+#include "messagetextedit.h"
+#include "common/emojicatalog.h"
+#include "common/attachmentpreparer.h"
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QKeyEvent>
+#include <QMimeData>
+#include <QPainter>
+#include <QTextBlock>
+#include <QTextDocument>
+#include <QTextFragment>
+#include <QTextImageFormat>
+#include <QUrl>
 
+namespace {
+constexpr int kImageDataProperty = QTextFormat::UserProperty + 1;
+} // namespace
 
-MessageTextEdit::MessageTextEdit(QWidget *parent)
-    : QTextEdit(parent)
+MessageTextEdit::MessageTextEdit(QWidget *parent) : QTextEdit(parent)
 {
+  setAcceptRichText(false);
+  connect(AttachmentPreparer::instance(), &AttachmentPreparer::prepared, this,
+          [this](const QString &id) {
+            if (const auto attachment = _attachments.value(id)) {
+              updatePreview(attachment);
+              if (!attachment->error.isEmpty())
+                emit attachmentError(attachment->error);
+              emit attachmentsChanged();
+            }
+          });
+}
+MessageTextEdit::~MessageTextEdit() = default;
 
-    //this->setStyleSheet("border: none;");
-    this->setMaximumHeight(60);
-
-//    connect(this,SIGNAL(textChanged()),this,SLOT(textEditChanged()));
-
+QVector<MsgInfo> MessageTextEdit::messages() const
+{
+  QVector<MsgInfo> result;
+  QString text;
+  const auto appendText = [&] {
+    if (text.isEmpty())
+      return;
+    MsgInfo message;
+    message.msgFlag = "text";
+    message.content = text;
+    result.append(message);
+    text.clear();
+  };
+  // 按文档顺序读取图片，删除、撤销和移动后也不会错配附件。
+  for (auto block = document()->begin(); block.isValid(); block = block.next()) {
+    if (block != document()->begin())
+      text += QLatin1Char('\n');
+    for (auto it = block.begin(); !it.atEnd(); ++it) {
+      const auto fragment = it.fragment();
+      if (!fragment.isValid())
+        continue;
+      if (!fragment.charFormat().isImageFormat()) {
+        text += fragment.text();
+        continue;
+      }
+      const auto token = fragment.charFormat().property(EmojiCatalog::TokenProperty).toString();
+      if (!token.isEmpty()) {
+        text += token.repeated(fragment.length());
+        continue;
+      }
+      appendText();
+      MsgInfo message;
+      message.msgFlag = "image";
+      message.content = fragment.charFormat().toImageFormat().name();
+      message.preparation = _attachments.value(message.content);
+      message.imageData = message.preparation
+                              ? message.preparation->bytes
+                              : fragment.charFormat().property(kImageDataProperty).toByteArray();
+      for (int index = 0; index < fragment.length(); ++index)
+        result.append(message);
+    }
+  }
+  appendText();
+  return result;
 }
 
-MessageTextEdit::~MessageTextEdit()
+bool MessageTextEdit::attachmentsReady() const
 {
-
+  // 只检查仍在文档中的图片，已删除但留在撤销历史中的任务不阻止发送。
+  for (auto block = document()->begin(); block.isValid(); block = block.next())
+    for (auto it = block.begin(); !it.atEnd(); ++it) {
+      const auto format = it.fragment().charFormat();
+      if (!format.isImageFormat() ||
+          !format.property(EmojiCatalog::TokenProperty).toString().isEmpty())
+        continue;
+      const auto attachment = _attachments.value(format.toImageFormat().name());
+      if (attachment && (!attachment->ready || !attachment->error.isEmpty()))
+        return false;
+    }
+  return true;
 }
 
-QVector<MsgInfo> MessageTextEdit::getMsgList()
+void MessageTextEdit::clear()
 {
-    mGetMsgList.clear();
+  _attachments.clear();
+  QTextEdit::clear();
+}
 
-    QString doc = this->document()->toPlainText();
-    QString text="";//存储文本信息
-    int indexUrl = 0;
-    //这个是存储的富文本信息，包括图片的url以及文件的url
-    int count = mMsgList.size();
-
-    for(int index=0; index<doc.size(); index++)
-    {
-        //如果遇到替换符，说明后面的是图片或者文件的url
-        if(doc[index]==QChar::ObjectReplacementCharacter)
-        {
-            if(!text.isEmpty())
-            {
-                QPixmap pix;
-                insertMsgList(mGetMsgList,"text",text,pix);
-                text.clear();
-            }
-            while(indexUrl<count)
-            {
-                MsgInfo msg =  mMsgList[indexUrl];
-                if(this->document()->toHtml().contains(msg.content,Qt::CaseSensitive))
-                {
-                    indexUrl++;
-                    mGetMsgList.append(msg);
-                    break;
-                }
-                indexUrl++;
-            }
-        }
-        else
-        {
-            //追加字符到文本消息中
-            text.append(doc[index]);
-        }
+void MessageTextEdit::setMessages(const QVector<MsgInfo> &messages)
+{
+  clear();
+  for (const auto &message : messages) {
+    if (message.msgFlag == "image") {
+      if (message.preparation)
+        insertPrepared(message.preparation);
+      else
+        insertImageData(message.imageData);
+    } else if (message.msgFlag == "text") {
+      auto cursor = textCursor();
+      EmojiCatalog::InsertText(cursor, message.content);
+      setTextCursor(cursor);
     }
-    if(!text.isEmpty())
-    {
-        QPixmap pix;
-        insertMsgList(mGetMsgList,"text",text,pix);
-        text.clear();
-    }
-    mMsgList.clear();
-    this->clear();
-    return mGetMsgList;
+  }
 }
 
 void MessageTextEdit::dragEnterEvent(QDragEnterEvent *event)
 {
-    if(event->source()==this)
-        event->ignore();
-    else
-        event->accept();
+  if (event->source() != this && canInsertFromMimeData(event->mimeData()))
+    event->acceptProposedAction();
+  else
+    event->ignore();
 }
-
 void MessageTextEdit::dropEvent(QDropEvent *event)
 {
-    insertFromMimeData(event->mimeData());
-    event->accept();
+  if (!canInsertFromMimeData(event->mimeData())) {
+    event->ignore();
+    return;
+  }
+  setTextCursor(cursorForPosition(event->position().toPoint()));
+  insertFromMimeData(event->mimeData());
+  event->acceptProposedAction();
 }
-
-void MessageTextEdit::keyPressEvent(QKeyEvent *e)
+void MessageTextEdit::keyPressEvent(QKeyEvent *event)
 {
-    if((e->key()==Qt::Key_Enter||e->key()==Qt::Key_Return)&& !(e->modifiers() & Qt::ShiftModifier))
-    {
-        // 当前按键已经转换成发送操作，不再交给 QTextEdit 插入换行符。
-        e->accept();
-        emit send();
-        return;
-    }
-    QTextEdit::keyPressEvent(e);
+  if ((event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return) &&
+      !(event->modifiers() & Qt::ShiftModifier)) {
+    event->accept();
+    emit send();
+    return;
+  }
+  QTextEdit::keyPressEvent(event);
 }
 
 void MessageTextEdit::insertFileFromUrl(const QStringList &urls)
 {
-    if(urls.isEmpty())
-        return;
-
-    foreach (QString url, urls){
-         if(isImage(url))
-             insertImages(url);
-         else
-             insertTextFile(url);
-    }
+  for (const auto &path : urls)
+    insertPrepared(AttachmentPreparer::instance()->FromFile(path));
 }
 
-void MessageTextEdit::insertImages(const QString &url)
+void MessageTextEdit::insertImage(const QImage &image)
 {
-    QImage image(url);
-    //按比例缩放图片
-    if(image.width()>120||image.height()>80)
-    {
-        if(image.width()>image.height())
-        {
-          image =  image.scaledToWidth(120,Qt::SmoothTransformation);
-        }
-        else
-            image = image.scaledToHeight(80,Qt::SmoothTransformation);
-    }
-    QTextCursor cursor = this->textCursor();
-    // QTextDocument *document = this->document();
-    // document->addResource(QTextDocument::ImageResource, QUrl(url), QVariant(image));
-    cursor.insertImage(image,url);
-
-    insertMsgList(mMsgList,"image",url,QPixmap::fromImage(image));
+  insertPrepared(AttachmentPreparer::instance()->FromImage(image));
 }
 
-void MessageTextEdit::insertTextFile(const QString &url)
+void MessageTextEdit::insertEmoji(const QString &id)
 {
-    QFileInfo fileInfo(url);
-    if(fileInfo.isDir())
-    {
-        QMessageBox::information(this,"提示","只允许拖拽单个文件!");
-        return;
-    }
+  if (const auto *emoji = EmojiCatalog::FindById(id)) {
+    auto cursor = textCursor();
+    EmojiCatalog::InsertEmoji(cursor, *emoji);
+    setTextCursor(cursor);
+  }
+}
 
-    if(fileInfo.size()>100*1024*1024)
-    {
-        QMessageBox::information(this,"提示","发送的文件大小不能大于100M");
-        return;
-    }
+void MessageTextEdit::insertImageData(const QByteArray &bytes)
+{
+  insertPrepared(AttachmentPreparer::instance()->FromBytes(bytes));
+}
 
-    QPixmap pix = getFileIconPixmap(url);
-    QTextCursor cursor = this->textCursor();
-    cursor.insertImage(pix.toImage(),url);
-    insertMsgList(mMsgList,"file",url,pix);
+void MessageTextEdit::updatePreview(const std::shared_ptr<PreparedAttachment> &attachment)
+{
+  QImage canvas(QSize(120, 80), QImage::Format_ARGB32_Premultiplied);
+  canvas.fill(Qt::transparent);
+  QPainter painter(&canvas);
+  if (!attachment->preview.isNull()) {
+    painter.drawImage(
+        QPoint((120 - attachment->preview.width()) / 2, (80 - attachment->preview.height()) / 2),
+        attachment->preview);
+  } else {
+    painter.fillRect(canvas.rect(), QColor("#edf0f2"));
+    painter.setPen(attachment->error.isEmpty() ? QColor("#7b8791") : QColor("#c44747"));
+    painter.drawText(canvas.rect(), Qt::AlignCenter,
+                     attachment->error.isEmpty() ? tr("图片处理中") : tr("图片处理失败"));
+  }
+  painter.end();
+  document()->addResource(QTextDocument::ImageResource, QUrl(attachment->id), canvas);
+  document()->markContentsDirty(0, document()->characterCount());
+  viewport()->update();
+}
+
+void MessageTextEdit::insertPrepared(const std::shared_ptr<PreparedAttachment> &attachment)
+{
+  if (attachment->ready && !attachment->error.isEmpty()) {
+    emit attachmentError(attachment->error);
+    return;
+  }
+  _attachments.insert(attachment->id, attachment);
+  updatePreview(attachment);
+  QTextImageFormat format;
+  format.setName(attachment->id);
+  format.setWidth(120);
+  format.setHeight(80);
+  auto cursor = textCursor();
+  cursor.insertImage(format);
+  cursor.setCharFormat(QTextCharFormat());
+  setTextCursor(cursor);
 }
 
 bool MessageTextEdit::canInsertFromMimeData(const QMimeData *source) const
 {
-    return QTextEdit::canInsertFromMimeData(source);
+  return source && (source->hasImage() || source->hasUrls() || source->hasText());
 }
-
 void MessageTextEdit::insertFromMimeData(const QMimeData *source)
 {
-    QStringList urls = getUrl(source->text());
-
-    if(urls.isEmpty())
-        return;
-
-    foreach (QString url, urls)
-    {
-         if(isImage(url))
-             insertImages(url);
-         else
-             insertTextFile(url);
-    }
-}
-
-bool MessageTextEdit::isImage(QString url)
-{
-    QString imageFormat = "bmp,jpg,png,tif,gif,pcx,tga,exif,fpx,svg,psd,cdr,pcd,dxf,ufo,eps,ai,raw,wmf,webp";
-    QStringList imageFormatList = imageFormat.split(",");
-    QFileInfo fileInfo(url);
-    QString suffix = fileInfo.suffix();
-    if(imageFormatList.contains(suffix,Qt::CaseInsensitive)){
-        return true;
-    }
-    return false;
-}
-
-void MessageTextEdit::insertMsgList(QVector<MsgInfo> &list, QString flag, QString text, QPixmap pix)
-{
-    MsgInfo msg;
-    msg.msgFlag=flag;
-    msg.content = text;
-    msg.pixmap = pix;
-    list.append(msg);
-}
-
-QStringList MessageTextEdit::getUrl(QString text)
-{
-    QStringList urls;
-    if(text.isEmpty()) return urls;
-
-    QStringList list = text.split("\n");
-    foreach (QString url, list) {
-        if(!url.isEmpty()){
-            QStringList str = url.split("///");
-            if(str.size()>=2)
-                urls.append(str.at(1));
-        }
-    }
-    return urls;
-}
-
-QPixmap MessageTextEdit::getFileIconPixmap(const QString &url)
-{
-    QFileIconProvider provder;
-    QFileInfo fileinfo(url);
-    QIcon icon = provder.icon(fileinfo);
-
-    QString strFileSize = getFileSize(fileinfo.size());
-    //qDebug() << "FileSize=" << fileinfo.size();
-
-    QFont font(QString("宋体"),10,QFont::Normal,false);
-    QFontMetrics fontMetrics(font);
-    QSize textSize = fontMetrics.size(Qt::TextSingleLine, fileinfo.fileName());
-
-    QSize FileSize = fontMetrics.size(Qt::TextSingleLine, strFileSize);
-    int maxWidth = textSize.width() > FileSize.width() ? textSize.width() :FileSize.width();
-    QPixmap pix(50 + maxWidth + 10, 50);
-    pix.fill();
-
-    QPainter painter;
-   // painter.setRenderHint(QPainter::Antialiasing, true);
-    //painter.setFont(font);
-    painter.begin(&pix);
-    // 文件图标
-    QRect rect(0, 0, 50, 50);
-    painter.drawPixmap(rect, icon.pixmap(40,40));
-    painter.setPen(Qt::black);
-    // 文件名称
-    QRect rectText(50+10, 3, textSize.width(), textSize.height());
-    painter.drawText(rectText, fileinfo.fileName());
-    // 文件大小
-    QRect rectFile(50+10, textSize.height()+5, FileSize.width(), FileSize.height());
-    painter.drawText(rectFile, strFileSize);
-    painter.end();
-    return pix;
-}
-
-QString MessageTextEdit::getFileSize(qint64 size)
-{
-    QString Unit;
-    double num;
-    if(size < 1024){
-        num = size;
-        Unit = "B";
-    }
-    else if(size < 1024 * 1224){
-        num = size / 1024.0;
-        Unit = "KB";
-    }
-    else if(size <  1024 * 1024 * 1024){
-        num = size / 1024.0 / 1024.0;
-        Unit = "MB";
-    }
-    else{
-        num = size / 1024.0 / 1024.0/ 1024.0;
-        Unit = "GB";
-    }
-    return QString::number(num,'f',2) + " " + Unit;
-}
-
-void MessageTextEdit::textEditChanged()
-{
-    //qDebug() << "text changed!" << endl;
+  if (!source)
+    return;
+  QStringList localFiles;
+  for (const auto &url : source->urls())
+    if (url.isLocalFile())
+      localFiles.append(url.toLocalFile());
+  if (!localFiles.isEmpty()) {
+    insertFileFromUrl(localFiles);
+    return;
+  }
+  if (source->hasImage()) {
+    QImage image = qvariant_cast<QImage>(source->imageData());
+    if (image.isNull())
+      image = qvariant_cast<QPixmap>(source->imageData()).toImage();
+    insertImage(image);
+    return;
+  }
+  // 外部富文本转成普通文字，避免插入无法上传的远程图片占位符。
+  if (source->hasText()) {
+    auto cursor = textCursor();
+    EmojiCatalog::InsertText(cursor, source->text());
+    setTextCursor(cursor);
+  }
 }

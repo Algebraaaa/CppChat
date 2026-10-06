@@ -16,10 +16,8 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
 {
   // 测试阶段记录请求去向和字段名称，不输出密码、验证码等字段值。
   qDebug() << "HTTP POST"
-           << "url:" << url
-           << "reqId:" << static_cast<int>(req_id)
-           << "module:" << static_cast<int>(mod)
-           << "payloadKeys:" << json.keys();
+           << "url:" << url << "reqId:" << static_cast<int>(req_id)
+           << "module:" << static_cast<int>(mod) << "payloadKeys:" << json.keys();
 
   QByteArray data = QJsonDocument(json).toJson(); // ① 把 JSON 对象转成能发送的字节
   QNetworkRequest request(url);                   // ② 创建一个"请求",指定发到哪个网址
@@ -37,10 +35,8 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
   QObject::connect(reply, &QNetworkReply::finished, [self, reply, req_id, mod]() {
     if (reply->error() != QNetworkReply::NoError) { // 出错了
       qWarning() << "HTTP request failed:"
-                 << "reqId:" << static_cast<int>(req_id)
-                 << "module:" << static_cast<int>(mod)
-                 << "error:" << reply->errorString()
-                 << "url:" << reply->url();
+                 << "reqId:" << static_cast<int>(req_id) << "module:" << static_cast<int>(mod)
+                 << "error:" << reply->errorString() << "url:" << reply->url();
       // 发送信号通知完成
       emit self->sig_http_finish(req_id, QByteArray{}, ErrorCodes::NetworkError, mod);
       reply->deleteLater();
@@ -49,10 +45,8 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
     // 无错误
     const QByteArray responseData = reply->readAll(); // 直接保留服务器返回的原始字节
     qDebug() << "HTTP response received"
-             << "reqId:" << static_cast<int>(req_id)
-             << "module:" << static_cast<int>(mod)
-             << "bytes:" << responseData.size()
-             << "url:" << reply->url();
+             << "reqId:" << static_cast<int>(req_id) << "module:" << static_cast<int>(mod)
+             << "bytes:" << responseData.size() << "url:" << reply->url();
     // 发送信号通知完成
     emit self->sig_http_finish(req_id, responseData, ErrorCodes::Success, mod);
     reply->deleteLater();

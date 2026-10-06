@@ -1,100 +1,180 @@
 #include "chatdialog.h"
-#include "chatuserwid.h"
-#include "friendinfopage.h"
-#include "userinfopage.h"
+#include "services/chatsyncservice.h"
+#include "addfrienddialog.h"
+#include "chatpage.h"
+#include "profiledialog.h"
+#include "sidemenupopup.h"
+#include "quickactionmenu.h"
+#include "common/avatarimage.h"
+#include "common/chatstore.h"
+#include "common/conversationpreferences.h"
 #include "network/tcpmgr.h"
+#include "network/resourcemgr.h"
 #include "network/usermgr.h"
 #include "ui_chatdialog.h"
-#include <QAction>
 #include <QApplication>
+#include <QButtonGroup>
 #include <QJsonDocument>
-#include <QMouseEvent>
+#include <QLabel>
+#include <QMessageBox>
+#include <QEvent>
 #include <QPushButton>
 #include <QTimer>
+#include <QToolTip>
+#include <utility>
 
 ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog)
 {
   ui->setupUi(this);
-  _friendInfoPage = new FriendInfoPage(this);
-  _friendInfoPage->setObjectName("friend_info_page");
-  _userInfoPage = new UserInfoPage(this);
-  _userInfoPage->setObjectName("user_info_page");
-  ui->stackedWidget->addWidget(_friendInfoPage);
-  ui->stackedWidget->addWidget(_userInfoPage);
-  ui->add_btn->SetState("normal", "hover", "press");
-  ui->search_edit->SetMaxLength(27);
-  ui->search_edit->setPlaceholderText(tr("搜索 uid / 用户名"));
-  ui->search_edit->addAction(QIcon(":/res/search.png"), QLineEdit::LeadingPosition);
-  auto *clear = ui->search_edit->addAction(QIcon(":/res/close_search.png"), QLineEdit::TrailingPosition);
-  clear->setVisible(false);
-  connect(clear, &QAction::triggered, ui->search_edit, &QLineEdit::clear);
-  connect(ui->search_edit, &QLineEdit::textChanged, this, [this, clear](const QString &text) {
-    clear->setVisible(!text.isEmpty());
-    ShowSearch(!text.trimmed().isEmpty());
-  });
-  ui->search_list->SetSearchEdit(ui->search_edit);
-  connect(ui->add_btn, &QPushButton::clicked, this, [this] { ui->search_edit->setFocus(); ShowSearch(true); });
-  for (auto *button : {ui->side_chat_lb, ui->side_contact_lb}) {
-    button->SetState("normal", "hover", "pressed", "selected_normal", "selected_hover", "selected_pressed");
-    button->ShowRedPoint(false);
-  }
-  connect(ui->side_chat_lb, &StateWidget::clicked, this, [this] {
-    ShowChatPage();
-    if (!_threadsComplete) LoadThreads();
-  });
-  connect(ui->side_contact_lb, &StateWidget::clicked, this, &ChatDialog::ShowContactPage);
-  ui->side_head_lb->setCursor(Qt::PointingHandCursor);
-  ui->side_head_lb->setToolTip(tr("个人资料"));
-  connect(_userInfoPage, &UserInfoPage::sig_profile_changed, this, &ChatDialog::RefreshAvatar);
-  connect(UserMgr::GetInstance().get(), &UserMgr::sig_avatar_ready, this, [this](int uid) {
-    if (uid == UserMgr::GetInstance()->GetUid()) RefreshAvatar();
-  });
-  connect(_userInfoPage, &UserInfoPage::sig_logout, this, &ChatDialog::sig_logout);
-  connect(ui->chat_user_list, &ChatUserList::sig_loading_chat_user, this, [this] {
+  _sync = new ChatSyncService(this);
+  _profileDialog = new ProfileDialog(this);
+  connect(_profileDialog, &ProfileDialog::sig_profile_changed, this, &ChatDialog::RefreshAvatar);
+  connect(_profileDialog, &ProfileDialog::sig_logout, this, &ChatDialog::sig_logout);
+  connect(ui->conversation_section, &ConversationSection::sig_open_friend, this,
+          &ChatDialog::OpenChat);
+  connect(ui->conversation_section, &ConversationSection::sig_open_thread, this,
+          &ChatDialog::SelectThread);
+  connect(ui->conversation_section, &ConversationSection::sig_thread_unread_changed, this,
+          [this](int threadId, bool unread) { SetThreadUnread(threadId, unread, true); });
+  connect(ui->conversation_section, &ConversationSection::sig_load_more, this, [this] {
     AddChatUserList();
-    if (!_threadsComplete) LoadThreads();
+    if (!_sync->ThreadsComplete())
+      _sync->LoadThreads();
   });
-  connect(ui->con_user_list, &ContactUserList::sig_loading_contact_user,
-          ui->con_user_list, &ContactUserList::LoadMore);
-  connect(ui->con_user_list, &ContactUserList::sig_switch_apply_friend_page, this, &ChatDialog::ShowContactPage);
-  connect(ui->con_user_list, &ContactUserList::sig_switch_friend_info_page, this, [this](std::shared_ptr<UserInfo> user) {
-    if (!user) return;
-    _friendInfoPage->SetInfo(user);
-    ui->stackedWidget->setCurrentWidget(_friendInfoPage);
-    ui->search_edit->clear();
+  connect(ui->conversation_section, &ConversationSection::sig_search_history_requested, this,
+          [this] {
+            // 复用现有分页协议补齐搜索历史；搜索本身由聊天模块负责。
+            _sync->RefreshAllHistory();
+          });
+  connect(ui->contacts_section, &ContactsSection::sig_open_chat, this, &ChatDialog::OpenChat);
+  connect(ui->contacts_section, &ContactsSection::sig_unread_changed, ui->contact_unread_dot,
+          &QWidget::setVisible);
+
+  auto *quickMenu = new QuickActionMenu(this);
+  connect(quickMenu, &QuickActionMenu::placeholderRequested, this, [this](const QString &title) {
+    QMessageBox::information(this, tr("功能建设中"), tr("%1功能暂未实现。").arg(title));
   });
-  connect(_friendInfoPage, &FriendInfoPage::sig_jump_chat_item, this, &ChatDialog::OpenChat);
-  connect(ui->search_list, &SearchList::sig_jump_chat_item, this, [this](std::shared_ptr<SearchInfo> user) {
-    OpenChat(UserMgr::GetInstance()->GetFriendById(user->_uid));
+  connect(quickMenu, &QuickActionMenu::addFriendRequested, this, [this] {
+    if (_addFriendDialog) {
+      _addFriendDialog->show();
+      _addFriendDialog->raise();
+      _addFriendDialog->activateWindow();
+      return;
+    }
+
+    auto *dialog = new AddFriendDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    _addFriendDialog = dialog;
+    connect(dialog, &AddFriendDialog::sig_jump_chat_item, this,
+            [this](const std::shared_ptr<SearchInfo> &user) {
+              if (user)
+                OpenChat(UserMgr::GetInstance()->GetFriendById(user->_uid));
+            });
+    dialog->open();
   });
-  connect(ui->friend_apply_page, &ApplyFriendPage::sig_show_search, this, [this](bool show) {
-    if (!show) ui->search_edit->clear();
+  connect(ui->conversation_section, &ConversationSection::sig_quick_actions_requested, this,
+          [this, quickMenu] {
+            quickMenu->ensurePolished();
+            quickMenu->Popup(ui->conversation_section->QuickMenuPosition(quickMenu->sizeHint()));
+          });
+  // 导航按钮互斥选中；普通按钮状态交给 Qt 和 QSS 管理。
+  auto *navigationButtons = new QButtonGroup(this);
+  navigationButtons->setExclusive(true);
+  navigationButtons->addButton(ui->side_chat_btn);
+  navigationButtons->addButton(ui->side_contact_btn);
+  navigationButtons->addButton(ui->side_favorites_btn);
+  navigationButtons->addButton(ui->side_discover_btn);
+  for (auto *dot : {ui->chat_unread_dot, ui->contact_unread_dot}) {
+    dot->setAttribute(Qt::WA_TransparentForMouseEvents);
+    dot->hide();
+  }
+  auto *phoneButton = ui->side_phone_btn;
+  phoneButton->setAccessibleName(phoneButton->toolTip());
+  connect(phoneButton, &QPushButton::clicked, this, [phoneButton] {
+    QToolTip::showText(phoneButton->mapToGlobal(QPoint(phoneButton->width() + 8, 0)),
+                       phoneButton->toolTip(), phoneButton);
   });
-  connect(ui->chat_user_list, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
-    SelectThread(item->data(Qt::UserRole).toInt());
+  _sideMenu = new SideMenuPopup(this);
+  ui->side_menu_btn->setAccessibleName(tr("更多菜单"));
+  connect(ui->side_menu_btn, &QPushButton::clicked, this, [this] {
+    ++_navigationRevision;
+    _sideMenu->PopupAt(ui->side_menu_btn);
   });
-  connect(ui->chat_page, &ChatPage::sig_messages_changed, this, [this](int id) { UpdateChatItem(id); });
+  connect(_sideMenu, &SideMenuPopup::sig_action_requested, this, [this](const QString &title) {
+    QMessageBox::information(this, title, tr("%1功能暂未实现，当前仅提供界面占位。").arg(title));
+  });
+  connect(ui->side_chat_btn, &QPushButton::clicked, this, [this] {
+    ShowChatPage();
+    if (!_sync->ThreadsComplete())
+      _sync->LoadThreads();
+    else if (_currentThread == 0 && _creatingUser == 0 &&
+             ui->conversation_section->ThreadCount() > 0)
+      SelectThread(ui->conversation_section->FirstThreadId());
+  });
+  connect(ui->side_contact_btn, &QPushButton::clicked, this, &ChatDialog::ShowContactPage);
+  connect(ui->side_favorites_btn, &QPushButton::clicked, this, &ChatDialog::ShowFavoritesPage);
+  connect(ui->conversation_section->Chat(), &ChatPage::sig_open_favorites, this,
+          &ChatDialog::ShowFavoritesPage);
+  connect(ui->side_discover_btn, &QPushButton::clicked, this, &ChatDialog::ShowDiscoverPage);
+  ui->side_head_btn->setCursor(Qt::PointingHandCursor);
+  ui->side_head_btn->setToolTip(tr("个人资料"));
+  ui->side_head_btn->setAccessibleName(tr("个人资料"));
+  connect(ui->side_head_btn, &QPushButton::clicked, this, [this] {
+    ++_navigationRevision; // 打开全局窗口也是新的用户意图，旧请求不能随后抢走页面。
+    if (!_profileDialog->isVisible())
+      _profileDialog->Refresh();
+    _profileDialog->show();
+    _profileDialog->raise();
+    _profileDialog->activateWindow();
+  });
+  connect(UserMgr::GetInstance().get(), &UserMgr::sig_avatar_ready, this, [this](int uid) {
+    if (uid == UserMgr::GetInstance()->GetUid())
+      RefreshAvatar();
+  });
+  connect(ui->conversation_section->Chat(), &ChatPage::sig_messages_changed, this,
+          [this](int id) { UpdateChatItem(id); });
+  connect(ChatStore::instance(), &ChatStore::storageError, this, [this](const QString &error) {
+    ui->conversation_section->Chat()->ShowStatus(tr("本地聊天记录保存失败：%1").arg(error));
+  });
+  connect(ui->conversation_section->Chat(), &ChatPage::sig_reload_local, _sync,
+          &ChatSyncService::LoadLocalMessages);
   const auto tcp = TcpMgr::GetInstance();
-  connect(tcp.get(), &TcpMgr::sig_load_chat_thread, this, &ChatDialog::ReceiveThreads);
-  connect(tcp.get(), &TcpMgr::sig_load_chat_msg, this, &ChatDialog::ReceiveHistory);
   connect(tcp.get(), &TcpMgr::sig_request_failed, this, &ChatDialog::RequestFailed);
-  connect(tcp.get(), &TcpMgr::sig_create_private_chat, this, [this](int uid, int other, int thread) {
-    if (uid != UserMgr::GetInstance()->GetUid() || other != _creatingUser) return;
-    _creatingUser = 0;
-    if (!EnsureThread(thread, other)) { ui->chat_page->ShowStatus(tr("服务器返回了无效会话")); return; }
-    SelectThread(thread);
+  connect(_sync, &ChatSyncService::conversationsChanged, this,
+          &ChatDialog::RefreshConversationList);
+  connect(_sync, &ChatSyncService::messagesChanged, this, [this](int threadId) {
+    UpdateChatItem(threadId);
+    if (_currentThread == threadId)
+      ui->conversation_section->Chat()->SetChatData(
+          UserMgr::GetInstance()->GetChatThreadByThreadId(threadId));
   });
-  connect(tcp.get(), &TcpMgr::sig_text_chat_msg, this, [this](const std::vector<std::shared_ptr<TextChatData>> &messages) {
-    ReceiveMessages(messages, false);
+  connect(_sync, &ChatSyncService::incomingMessage, this, [this](int threadId) {
+    SetThreadUnread(threadId, !(_currentThread == threadId && IsChatVisible()));
   });
-  connect(tcp.get(), &TcpMgr::sig_chat_msg_rsp, this, [this](int, const std::vector<std::shared_ptr<TextChatData>> &messages) {
-    ReceiveMessages(messages, true);
+  connect(_sync, &ChatSyncService::status, ui->conversation_section->Chat(), &ChatPage::ShowStatus);
+  connect(_sync, &ChatSyncService::initializationFailed, this, [this](const QString &error) {
+    QMessageBox::warning(this, tr("本地聊天记录初始化失败"),
+                         tr("聊天记录尚未加载：%1\n请检查上述问题并重新登录。").arg(error));
   });
-  connect(tcp.get(), &TcpMgr::sig_friend_apply, this, [this](std::shared_ptr<AddFriendApply> apply) {
-    ui->friend_apply_page->AddNewApply(apply);
-    ui->con_user_list->ShowRedPoint(true);
-    ui->side_contact_lb->ShowRedPoint(true);
-  });
+  connect(tcp.get(), &TcpMgr::sig_friend_deleted, this, &ChatDialog::FriendDeleted);
+  connect(tcp.get(), &TcpMgr::sig_create_private_chat, this,
+          [this](int uid, int other, int thread) {
+            if (uid != UserMgr::GetInstance()->GetUid() || other != _creatingUser)
+              return;
+            const bool shouldOpen = _createNavigationRevision == _navigationRevision &&
+                                    _currentSection == Section::Chat;
+            _creatingUser = 0;
+            if (!_sync->EnsureThread(thread, other)) {
+              ui->conversation_section->Chat()->ShowStatus(tr("服务器返回了无效会话"));
+              return;
+            }
+            UpdateChatItem(thread);
+            _sync->QueueHistory(thread);
+            if (shouldOpen)
+              SelectThread(thread);
+          });
+  connect(tcp.get(), &TcpMgr::sig_friend_apply, this,
+          [this](std::shared_ptr<AddFriendApply> apply) { ui->contacts_section->AddApply(apply); });
   connect(tcp.get(), &TcpMgr::sig_auth_rsp, this, [this](std::shared_ptr<AuthRsp> auth) {
     FriendAccepted(auth->_uid, auth->_thread_id, auth->_chat_datas);
   });
@@ -104,302 +184,260 @@ ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog
   qApp->installEventFilter(this);
   ShowChatPage();
 }
-ChatDialog::~ChatDialog() { qApp->removeEventFilter(this); delete ui; }
+ChatDialog::~ChatDialog()
+{
+  qApp->removeEventFilter(this);
+  delete ui;
+}
 
 void ChatDialog::StartSession()
 {
   ResetSession();
+  const auto preferences = ConversationPreferences::Load(UserMgr::GetInstance()->GetUid());
+  _unreadThreads = preferences.unread;
+  ui->conversation_section->SetPinnedThreads(preferences.pinned);
+  ui->chat_unread_dot->setVisible(!_unreadThreads.isEmpty());
   RefreshAvatar();
   RefreshContacts();
-  _userInfoPage->Refresh();
+  _profileDialog->Refresh();
   ShowChatPage();
-  LoadThreads();
+  _sync->StartSession(UserMgr::GetInstance()->GetUid(), gate_url_prefix);
 }
 void ChatDialog::ResetSession()
 {
-  ui->search_list->CloseFindDlg();
+  ConversationPreferences::Flush();
+  ++_navigationRevision;
   const auto dialogs = findChildren<QDialog *>();
-  for (auto *dialog : dialogs) dialog->reject();
-  ui->search_edit->clear();
-  _threadItems.clear();
-  ui->chat_user_list->clear();
-  ui->con_user_list->Reload();
-  ui->friend_apply_page->Reload();
-  _friendInfoPage->SetInfo(nullptr);
-  _userInfoPage->Refresh();
+  for (auto *dialog : dialogs)
+    dialog->reject();
+  _profileDialog->Reset();
+  ui->conversation_section->Reset();
+  _sync->ResetSession();
+  ResourceMgr::instance()->ResetSession();
+  ui->contacts_section->Reset();
+  ui->favorites_page->Reset();
+  ui->discover_page->Reset();
   _unreadThreads.clear();
-  _historyQueue.clear();
-  _historyComplete.clear();
-  _currentThread = _threadCursor = _historyThread = _historyCursor = _creatingUser = 0;
-  _threadsLoading = _threadsComplete = _addingItems = false;
-  ui->chat_page->Reset();
-  ui->side_chat_lb->ShowRedPoint(false);
-  ui->side_contact_lb->ShowRedPoint(false);
+  _manuallyUnreadThreads.clear();
+  _currentThread = _creatingUser = 0;
+  ui->chat_unread_dot->hide();
+  ui->contact_unread_dot->hide();
+  SwitchSection(Section::Chat);
 }
 void ChatDialog::RefreshAvatar()
 {
-  QPixmap icon = UserMgr::GetInstance()->AvatarPixmap(
-      UserMgr::GetInstance()->GetUid(), UserMgr::GetInstance()->GetIcon());
-  ui->side_head_lb->setPixmap(icon.scaled(ui->side_head_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-  if (_currentThread > 0) ui->chat_page->SetChatData(UserMgr::GetInstance()->GetChatThreadByThreadId(_currentThread));
+  QPixmap icon = UserMgr::GetInstance()->AvatarPixmap(UserMgr::GetInstance()->GetUid(),
+                                                      UserMgr::GetInstance()->GetIcon());
+  ui->side_head_btn->setIcon(QIcon(roundedAvatarPixmap(icon, ui->side_head_btn->size())));
+  ui->side_head_btn->setIconSize(ui->side_head_btn->size());
+  if (_currentThread > 0)
+    ui->conversation_section->Chat()->SetChatData(
+        UserMgr::GetInstance()->GetChatThreadByThreadId(_currentThread));
 }
 void ChatDialog::RefreshContacts()
 {
-  ui->con_user_list->Reload();
-  ui->friend_apply_page->Reload();
-  bool pending = false;
-  for (const auto &apply : UserMgr::GetInstance()->GetApplyList()) pending |= apply->_status == 0;
-  ui->con_user_list->ShowRedPoint(pending);
-  ui->side_contact_lb->ShowRedPoint(pending);
+  ui->contacts_section->Refresh();
+  ui->conversation_section->RefreshSearch();
 }
 
-void ChatDialog::ShowSearch(bool show)
+void ChatDialog::SwitchSection(Section section)
 {
-  ui->search_list->setVisible(show);
-  ui->chat_user_list->setVisible(!show && _state == ChatMode);
-  ui->con_user_list->setVisible(!show && _state == ContactMode);
+  ++_navigationRevision;
+  _currentSection = section;
+  // 一个入口统一更新页面与按钮。各模块实例常驻，切换不清空搜索、草稿和详情。
+  switch (section) {
+  case Section::Chat:
+    ui->section_stack->setCurrentWidget(ui->conversation_section);
+    ui->side_chat_btn->setChecked(true);
+    break;
+  case Section::Contacts:
+    ui->section_stack->setCurrentWidget(ui->contacts_section);
+    ui->side_contact_btn->setChecked(true);
+    break;
+  case Section::Favorites:
+    ui->section_stack->setCurrentWidget(ui->favorites_page);
+    ui->side_favorites_btn->setChecked(true);
+    break;
+  case Section::Discover:
+    ui->section_stack->setCurrentWidget(ui->discover_page);
+    ui->side_discover_btn->setChecked(true);
+    break;
+  }
 }
+
+bool ChatDialog::IsChatVisible() const
+{
+  return _currentSection == Section::Chat && ui->conversation_section->isVisible() &&
+         window()->isActiveWindow() && !window()->isMinimized();
+}
+
+void ChatDialog::MarkCurrentRead()
+{
+  // 菜单收起也会产生 WindowActivate，不能抹掉刚设置的手动未读。
+  if (_currentThread > 0 && IsChatVisible() && !_manuallyUnreadThreads.contains(_currentThread))
+    SetThreadUnread(_currentThread, false);
+}
+
+void ChatDialog::SetThreadUnread(int threadId, bool unread, bool manuallyMarked)
+{
+  if (!UserMgr::GetInstance()->GetChatThreadByThreadId(threadId))
+    return;
+  const bool wasUnread = _unreadThreads.contains(threadId);
+  if (unread) {
+    _unreadThreads.insert(threadId);
+    if (manuallyMarked)
+      _manuallyUnreadThreads.insert(threadId);
+  } else {
+    _unreadThreads.remove(threadId);
+    _manuallyUnreadThreads.remove(threadId);
+  }
+  if (wasUnread != unread)
+    ConversationPreferences::SaveUnread(UserMgr::GetInstance()->GetUid(), _unreadThreads);
+  if (manuallyMarked)
+    ConversationPreferences::Flush();
+  UpdateChatItem(threadId);
+}
+
 void ChatDialog::ShowChatPage()
 {
-  _state = ChatMode;
-  ui->side_contact_lb->ClearState();
-  ui->side_chat_lb->SetSelected(true);
-  ui->stackedWidget->setCurrentWidget(ui->chat_page);
-  ui->search_edit->clear();
-  ShowSearch(false);
-  if (_currentThread > 0) {
-    _unreadThreads.remove(_currentThread);
-    UpdateChatItem(_currentThread);
-  }
+  SwitchSection(Section::Chat);
+  MarkCurrentRead();
 }
 void ChatDialog::ShowContactPage()
 {
-  _state = ContactMode;
-  ui->side_chat_lb->ClearState();
-  ui->side_contact_lb->SetSelected(true);
-  ui->stackedWidget->setCurrentWidget(ui->friend_apply_page);
-  ui->side_contact_lb->ShowRedPoint(false);
-  ui->con_user_list->ShowRedPoint(false);
-  ui->search_edit->clear();
-  ShowSearch(false);
+  SwitchSection(Section::Contacts);
+}
+void ChatDialog::ShowFavoritesPage()
+{
+  SwitchSection(Section::Favorites);
+}
+void ChatDialog::ShowDiscoverPage()
+{
+  SwitchSection(Section::Discover);
 }
 
 bool ChatDialog::eventFilter(QObject *watched, QEvent *event)
 {
-  if (event->type() != QEvent::MouseButtonPress || !isVisible()) return QDialog::eventFilter(watched, event);
-  if (watched == ui->side_head_lb) {
-    _userInfoPage->Refresh();
-    ui->stackedWidget->setCurrentWidget(_userInfoPage);
-    ui->search_edit->clear();
-    return true;
-  }
-  const auto *widget = qobject_cast<QWidget *>(watched);
-  if (widget && isAncestorOf(widget) && widget->window() == window() && ui->search_list->isVisible()) {
-    const auto pos = static_cast<QMouseEvent *>(event)->globalPosition().toPoint();
-    if (!ui->search_edit->rect().contains(ui->search_edit->mapFromGlobal(pos))
-        && !ui->search_list->rect().contains(ui->search_list->mapFromGlobal(pos))
-        && !ui->add_btn->rect().contains(ui->add_btn->mapFromGlobal(pos))) {
-      ui->search_edit->clear();
-      ShowSearch(false);
-    }
-  }
+  // 恢复窗口焦点后再判断可见性；搜索事件分别由两个业务模块处理。
+  if (watched == window() && event->type() == QEvent::WindowActivate)
+    QTimer::singleShot(0, this, &ChatDialog::MarkCurrentRead);
   return QDialog::eventFilter(watched, event);
 }
 
-std::shared_ptr<ChatThreadData> ChatDialog::EnsureThread(int threadId, int otherUid)
+void ChatDialog::RefreshConversationList(bool complete)
 {
-  if (threadId <= 0 || otherUid <= 0 || otherUid == UserMgr::GetInstance()->GetUid()) return nullptr;
-  const auto mgr = UserMgr::GetInstance();
-  auto data = mgr->GetChatThreadByThreadId(threadId);
-  if (!data) {
-    data = std::make_shared<ChatThreadData>(otherUid, threadId, 0);
-    mgr->AddChatThreadData(data, otherUid);
-  }
-  return data;
-}
-void ChatDialog::LoadThreads()
-{
-  if (_threadsLoading || _threadsComplete || !TcpMgr::GetInstance()->IsConnected()) return;
-  _threadsLoading = true;
-  const QJsonObject request{{"uid", UserMgr::GetInstance()->GetUid()}, {"thread_id", _threadCursor}};
-  emit TcpMgr::GetInstance()->sig_send_data(ID_LOAD_CHAT_THREAD_REQ, QJsonDocument(request).toJson(QJsonDocument::Compact));
-}
-void ChatDialog::ReceiveThreads(bool more, int lastId, std::vector<std::shared_ptr<ChatThreadInfo>> threads)
-{
-  if (!_threadsLoading) return;
-  _threadsLoading = false;
-  for (const auto &thread : threads) {
-    if (thread->_type != "private") continue; // 参考项目群聊仅有占位，尚无完整实现。
-    const int self = UserMgr::GetInstance()->GetUid();
-    if (thread->_user1_id != self && thread->_user2_id != self) continue;
-    const int other = thread->_user1_id == self ? thread->_user2_id : thread->_user1_id;
-    EnsureThread(thread->_thread_id, other);
-  }
-  if (_threadItems.size() < CHAT_COUNT_PER_PAGE) {
-    AddChatUserList(CHAT_COUNT_PER_PAGE - _threadItems.size());
-  }
-  if (_currentThread == 0 && !_threadItems.isEmpty()) SelectThread(_threadItems.firstKey());
-  if (more && lastId <= _threadCursor) {
-    ui->chat_page->ShowStatus(tr("会话分页游标未前进，请重新登录后重试"));
+  if (!complete) {
+    AddChatUserList();
     return;
   }
-  _threadCursor = lastId;
-  _threadsComplete = !more;
-  if (more) QTimer::singleShot(0, this, &ChatDialog::LoadThreads);
+  // 会话全集到齐后清理本机残留标记，避免已删除好友留下侧栏红点。
+  QSet<int> availableThreads;
+  for (const auto &data : UserMgr::GetInstance()->GetChatThreads())
+    if (data)
+      availableThreads.insert(data->GetThreadId());
+  const auto oldUnread = _unreadThreads;
+  _unreadThreads.intersect(availableThreads);
+  _manuallyUnreadThreads.intersect(availableThreads);
+  const int uid = UserMgr::GetInstance()->GetUid();
+  if (oldUnread != _unreadThreads)
+    ConversationPreferences::SaveUnread(uid, _unreadThreads);
+  auto preferences = ConversationPreferences::Load(uid);
+  const auto oldPinned = preferences.pinned;
+  preferences.pinned.intersect(availableThreads);
+  if (oldPinned != preferences.pinned)
+    ConversationPreferences::SavePinned(uid, preferences.pinned);
+  ui->conversation_section->SetPinnedThreads(preferences.pinned);
+  ui->chat_unread_dot->setVisible(!_unreadThreads.isEmpty());
+  AddChatUserList();
+  if (_currentThread == 0 && _creatingUser == 0 && ui->conversation_section->ThreadCount() > 0 &&
+      _currentSection == Section::Chat)
+    SelectThread(ui->conversation_section->FirstThreadId());
 }
+
 void ChatDialog::AddChatUserList(int limit)
 {
-  if (_addingItems) return;
-  _addingItems = true;
-  int count = 0;
-  for (auto it = UserMgr::GetInstance()->GetChatThreads().cbegin();
-       it != UserMgr::GetInstance()->GetChatThreads().cend(); ++it) {
-    if (_threadItems.contains(it.key())) continue;
-    UpdateChatItem(it.key());
-    if (++count == limit) break;
-  }
-  _addingItems = false;
+  ui->conversation_section->AddThreads(_unreadThreads, limit);
 }
+
 void ChatDialog::UpdateChatItem(int threadId, bool addIfMissing)
 {
-  const auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(threadId);
-  if (!data) return;
-  auto *item = _threadItems.value(threadId, nullptr);
-  if (!item && !addIfMissing) return;
-  if (!item) {
-    const bool wasAdding = _addingItems;
-    _addingItems = true;
-    auto *widget = new ChatUserWid;
-    item = new QListWidgetItem;
-    item->setData(Qt::UserRole, threadId);
-    item->setSizeHint(widget->sizeHint());
-    _threadItems.insert(threadId, item);
-    ui->chat_user_list->addItem(item);
-    ui->chat_user_list->setItemWidget(item, widget);
-    _addingItems = wasAdding;
-  }
-  auto *widget = qobject_cast<ChatUserWid *>(ui->chat_user_list->itemWidget(item));
-  widget->SetChatData(data);
-  widget->ShowRedPoint(_unreadThreads.contains(threadId));
-  ui->side_chat_lb->ShowRedPoint(!_unreadThreads.isEmpty());
+  ui->conversation_section->UpdateThread(UserMgr::GetInstance()->GetChatThreadByThreadId(threadId),
+                                         _unreadThreads.contains(threadId), addIfMissing);
+  ui->chat_unread_dot->setVisible(!_unreadThreads.isEmpty());
 }
+
 void ChatDialog::OpenChat(std::shared_ptr<UserInfo> user)
 {
-  if (!user || user->_uid == UserMgr::GetInstance()->GetUid()) return;
+  if (!user || user->_uid == UserMgr::GetInstance()->GetUid())
+    return;
   if (auto data = UserMgr::GetInstance()->GetChatThreadByUid(user->_uid)) {
     SelectThread(data->GetThreadId());
     return;
   }
   ShowChatPage();
-  if (_creatingUser != 0) { ui->chat_page->ShowStatus(tr("正在创建会话，请稍候")); return; }
+  if (_creatingUser != 0) {
+    ui->conversation_section->Chat()->ShowStatus(tr("正在创建会话，请稍候"));
+    return;
+  }
   _creatingUser = user->_uid;
+  _createNavigationRevision = _navigationRevision;
   const QJsonObject request{{"uid", UserMgr::GetInstance()->GetUid()}, {"other_id", user->_uid}};
-  emit TcpMgr::GetInstance()->sig_send_data(ID_CREATE_PRIVATE_CHAT_REQ, QJsonDocument(request).toJson(QJsonDocument::Compact));
+  emit TcpMgr::GetInstance() -> sig_send_data(
+      ID_CREATE_PRIVATE_CHAT_REQ, QJsonDocument(request).toJson(QJsonDocument::Compact));
 }
 void ChatDialog::SelectThread(int threadId)
 {
   const auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(threadId);
-  if (!data) return;
+  if (!data)
+    return;
+  _manuallyUnreadThreads.remove(threadId);
   _currentThread = threadId;
-  _unreadThreads.remove(threadId);
   UpdateChatItem(threadId);
-  ui->chat_user_list->setCurrentItem(_threadItems.value(threadId));
-  ui->chat_page->SetChatData(data);
-  ui->chat_page->ShowStatus({});
+  ui->conversation_section->SelectThread(data);
   ShowChatPage();
-  QueueHistory(threadId);
+  _sync->LoadLocalMessages(threadId);
+  _sync->QueueHistory(threadId, true);
 }
 
-void ChatDialog::QueueHistory(int threadId)
-{
-  if (_historyComplete.contains(threadId) || _historyThread == threadId || _historyQueue.contains(threadId)) return;
-  _historyQueue.enqueue(threadId);
-  LoadNextHistory();
-}
-void ChatDialog::LoadNextHistory()
-{
-  if (_historyThread != 0 || _historyQueue.isEmpty() || !TcpMgr::GetInstance()->IsConnected()) return;
-  _historyThread = _historyQueue.dequeue();
-  _historyCursor = 0;
-  SendHistoryRequest();
-}
-void ChatDialog::SendHistoryRequest()
-{
-  const QJsonObject request{{"thread_id", _historyThread}, {"message_id", _historyCursor}};
-  emit TcpMgr::GetInstance()->sig_send_data(ID_LOAD_CHAT_MSG_REQ, QJsonDocument(request).toJson(QJsonDocument::Compact));
-}
-void ChatDialog::ReceiveHistory(int threadId, int messageId, bool more, std::vector<std::shared_ptr<TextChatData>> messages)
-{
-  if (threadId != _historyThread) return;
-  auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(threadId);
-  if (!data) {
-    _historyThread = 0;
-    LoadNextHistory();
-    return;
-  }
-  for (const auto &message : messages) {
-    if (message->GetThreadId() == threadId) data->MoveMsg(message);
-  }
-  UpdateChatItem(threadId, false);
-  if (_currentThread == threadId) ui->chat_page->SetChatData(data);
-  if (more && messageId <= _historyCursor) {
-    RequestFailed(ID_LOAD_CHAT_MSG_REQ, tr("聊天记录分页游标未前进，请重新打开会话重试"));
-    return;
-  }
-  _historyCursor = messageId;
-  if (more) { SendHistoryRequest(); return; }
-  _historyComplete.insert(threadId);
-  _historyThread = 0;
-  LoadNextHistory();
-}
-
-void ChatDialog::ReceiveMessages(const std::vector<std::shared_ptr<TextChatData>> &messages, bool reply)
-{
-  for (const auto &message : messages) {
-    const int thread = message->GetThreadId();
-    auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(thread);
-    if (!data && !reply) data = EnsureThread(thread, message->GetSendUid());
-    if (!data) continue;
-    const bool known = data->GetMsgMapRef().contains(message->GetMsgId());
-    const bool pending = data->GetMsgUnRspRef().contains(message->GetUniqueId());
-    data->MoveMsg(message);
-    if (_currentThread == thread) {
-      if (pending) ui->chat_page->UpdateChatStatus(message->GetUniqueId(), message->GetStatus());
-      else if (!known) ui->chat_page->AppendChatMsg(message);
-    }
-    const bool visible = _currentThread == thread && ui->stackedWidget->currentWidget() == ui->chat_page;
-    if (!reply && !visible && !known) _unreadThreads.insert(thread);
-    UpdateChatItem(thread);
-  }
-}
-void ChatDialog::FriendAccepted(int uid, int threadId, const std::vector<std::shared_ptr<TextChatData>> &messages)
+void ChatDialog::FriendAccepted(int uid, int threadId,
+                                const std::vector<std::shared_ptr<TextChatData>> &messages)
 {
   // 等认证对话框保存本地备注后，再刷新列表中的显示文本。
   QTimer::singleShot(0, this, &ChatDialog::RefreshContacts);
-  if (auto data = EnsureThread(threadId, uid)) {
-    ReceiveMessages(messages, false);
+  if (auto data = _sync->EnsureThread(threadId, uid)) {
+    _sync->ReceiveMessages(messages, false);
     UpdateChatItem(threadId);
-    QueueHistory(threadId);
+    _sync->QueueHistory(threadId);
   } else {
     // 没有初始消息时，不从空数组取会话 ID；由会话接口重新获取。
-    _threadsComplete = false;
-    LoadThreads();
+    _sync->ReloadThreads();
   }
+}
+void ChatDialog::FriendDeleted(int uid)
+{
+  const int threadId = UserMgr::GetInstance()->RemoveFriend(uid);
+  ui->contacts_section->FriendRemoved(uid);
+  RefreshContacts();
+  if (_creatingUser == uid) {
+    TcpMgr::GetInstance()->CancelRequest(ID_CREATE_PRIVATE_CHAT_REQ);
+    _creatingUser = 0;
+  }
+  if (threadId <= 0)
+    return;
+  _sync->RemoveThread(threadId);
+  _unreadThreads.remove(threadId);
+  _manuallyUnreadThreads.remove(threadId);
+  ui->conversation_section->RemoveThread(threadId);
+  if (_currentThread == threadId) {
+    _currentThread = 0;
+    ui->conversation_section->Chat()->ShowStatus(tr("好友关系已解除，重新添加好友后可继续聊天"));
+  }
+  ui->chat_unread_dot->setVisible(!_unreadThreads.isEmpty());
 }
 void ChatDialog::RequestFailed(ReqId request, const QString &message)
 {
-  if (request == ID_LOAD_CHAT_THREAD_REQ) _threadsLoading = false;
-  else if (request == ID_LOAD_CHAT_MSG_REQ) {
-    _historyThread = 0;
-    QTimer::singleShot(0, this, &ChatDialog::LoadNextHistory);
-  } else if (request == ID_CREATE_PRIVATE_CHAT_REQ) _creatingUser = 0;
-  else if (request == ID_TEXT_CHAT_MSG_REQ) {
-    for (const auto &thread : UserMgr::GetInstance()->GetChatThreads()) {
-      for (const auto &pending : thread->GetMsgUnRspRef()) {
-        pending->SetStatus(SEND_FAILED);
-        if (thread->GetThreadId() == _currentThread) ui->chat_page->UpdateChatStatus(pending->GetUniqueId(), SEND_FAILED);
-      }
-    }
-  } else return;
-  ui->chat_page->ShowStatus(message);
+  if (request != ID_CREATE_PRIVATE_CHAT_REQ)
+    return;
+  _creatingUser = 0;
+  ui->conversation_section->Chat()->ShowStatus(message);
 }

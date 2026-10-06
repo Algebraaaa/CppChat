@@ -1,0 +1,280 @@
+/* Friend profile: centered details with section dividers; personal form rules follow. */
+QDialog#ChatDialog #friend_info_page,
+QDialog#ChatDialog #friend_info_page #profile_scroll,
+QDialog#ChatDialog #friend_info_page #profile_scroll_body {
+    background: #fafafa;
+    border: none;
+}
+
+QDialog#ChatDialog #friend_info_page QWidget#contact_card {
+    background: transparent;
+    border: none;
+}
+
+QDialog#ChatDialog #friend_info_page QLabel {
+    background: transparent;
+    color: ${color.text.primary};
+    font-size: ${font.size.message};
+}
+
+QDialog#ChatDialog #friend_info_page QLabel[profileRole="muted"] {
+    color: #777981;
+}
+
+QDialog#ChatDialog #friend_info_page #name_lb {
+    font-size: ${font.size.section};
+    font-weight: ${font.weight.medium};
+}
+
+QDialog#ChatDialog #friend_info_page #nick_lb,
+QDialog#ChatDialog #friend_info_page #account_lb,
+QDialog#ChatDialog #friend_info_page #region_lb {
+    font-size: ${font.size.base};
+}
+
+QDialog#ChatDialog #friend_info_page #sex_lb {
+    color: #12a9e6;
+    font-size: ${font.size.small};
+}
+
+QDialog#ChatDialog #friend_info_page #icon_lb {
+    border: none;
+    border-radius: ${radius.avatar};
+    background: transparent;
+}
+
+QDialog#ChatDialog #friend_info_page QFrame[profileRole="divider"] {
+    background: #ebebee;
+    border: none;
+}
+
+QDialog#ChatDialog #friend_info_page QPushButton[profileRole="placeholder"] {
+    background: transparent;
+    border: none;
+    color: #90929a;
+    font-size: ${font.size.base};
+    text-align: left;
+    padding: 4px 0;
+}
+
+QDialog#ChatDialog #friend_info_page QPushButton[profileRole="placeholder"]:hover {
+    color: #63666f;
+}
+
+QDialog#ChatDialog #friend_info_page #more_btn {
+    background: transparent;
+    border: none;
+    border-radius: ${radius.control};
+    padding: 0;
+}
+
+QDialog#ChatDialog #friend_info_page #more_btn:hover {
+    background: #ededf0;
+}
+
+QDialog#ChatDialog #friend_info_page QToolButton {
+    background: transparent;
+    border: none;
+    border-radius: ${radius.control};
+    color: #30518f;
+    font-size: ${font.size.label};
+    padding: 4px;
+}
+
+QDialog#ChatDialog #friend_info_page QToolButton:hover {
+    background: #eceff4;
+}
+
+QDialog#ChatDialog #friend_info_page QToolButton:pressed {
+    background: #e0e5ee;
+}
+
+QDialog#ChatDialog #friend_info_page QToolButton:disabled {
+    color: ${color.text.disabled};
+}
+
+QDialog#ChatDialog #friend_info_page #delete_status {
+    color: ${color.status.error};
+    padding-top: 10px;
+}
+
+QMenu#contact_more_menu {
+    background: ${color.surface};
+    color: ${color.text.primary};
+    border: 1px solid ${color.border.card};
+    border-radius: ${radius.panel};
+    padding: 6px;
+    margin: 0;
+    font-size: ${font.size.base};
+}
+
+QMenu#contact_more_menu::item {
+    border: none;
+    border-radius: ${radius.compact};
+    padding: 9px 18px;
+}
+
+QMenu#contact_more_menu::item:selected {
+    background: ${color.surface.hover};
+}
+
+QMenu#contact_more_menu::item:disabled {
+    color: ${color.text.disabled};
+}
+
+QMenu#contact_more_menu::separator {
+    height: 1px;
+    background: ${color.border.card};
+    margin: 5px 12px;
+}
+
+QDialog#ProfileDialog QWidget#user_info_page {
+    background: ${color.surface.page};
+    color: ${color.text.primary};
+}
+
+QDialog#ProfileDialog #user_info_page QLabel {
+    background: transparent;
+    color: ${color.text.body};
+}
+
+QDialog#ProfileDialog #user_info_page #title_lb {
+    color: ${color.text.primary};
+    font-size: ${font.size.title};
+    font-weight: ${font.weight.medium};
+}
+
+QDialog#ProfileDialog #user_info_page #subtitle_lb {
+    color: ${color.text.muted};
+    font-size: ${font.size.label};
+    padding-top: 4px;
+}
+
+QDialog#ProfileDialog #user_info_page QWidget#profile_card {
+    background: ${color.surface};
+    border: 1px solid ${color.border.card};
+    border-radius: ${radius.card};
+}
+
+QDialog#ProfileDialog #user_info_page #head_lb {
+    background: #f0f2f3;
+    border: 1px solid #e1e4e7;
+    border-radius: ${radius.panel};
+}
+
+QDialog#ProfileDialog #user_info_page #profile_divider {
+    background: transparent;
+    border: none;
+    border-top: 1px solid #eceeef;
+}
+
+QDialog#ProfileDialog #user_info_page #avatar_title_lb {
+    color: #24272b;
+    font-size: ${font.size.subheading};
+    font-weight: ${font.weight.medium};
+}
+
+QDialog#ProfileDialog #user_info_page #avatar_hint_lb,
+QDialog#ProfileDialog #user_info_page #name_hint_lb {
+    color: ${color.text.preview};
+    font-size: ${font.size.small};
+}
+
+QDialog#ProfileDialog #user_info_page #name_title_lb,
+QDialog#ProfileDialog #user_info_page #nick_title_lb,
+QDialog#ProfileDialog #user_info_page #desc_title_lb {
+    color: #4a4e54;
+    font-size: ${font.size.label};
+    font-weight: ${font.weight.medium};
+}
+
+QDialog#ProfileDialog #user_info_page QLineEdit {
+    color: #24272b;
+    background: ${color.surface.subtle};
+    border: 1px solid #dde1e4;
+    border-radius: ${radius.action};
+    padding-left: 12px;
+    padding-right: 12px;
+    font-size: ${font.size.base};
+    selection-color: ${color.surface};
+    selection-background-color: ${color.brand};
+    outline: none;
+}
+
+QDialog#ProfileDialog #user_info_page QLineEdit:hover {
+    background: ${color.surface};
+    border-color: #bdc4c9;
+}
+
+QDialog#ProfileDialog #user_info_page QLineEdit:focus {
+    background: ${color.surface};
+    border-color: ${color.brand};
+}
+
+QDialog#ProfileDialog #user_info_page QLineEdit:disabled {
+    color: #9ca1a7;
+    background: #f1f2f3;
+    border-color: #e3e5e7;
+}
+
+QDialog#ProfileDialog #user_info_page QPushButton {
+    border-radius: ${radius.action};
+    padding-left: 15px;
+    padding-right: 15px;
+    font-size: ${font.size.label};
+    outline: none;
+}
+
+QDialog#ProfileDialog #user_info_page #up_btn {
+    color: #079a4d;
+    background: ${color.surface};
+    border: 1px solid #87d9ad;
+}
+
+QDialog#ProfileDialog #user_info_page #up_btn:hover {
+    color: #067c40;
+    background: #f0fbf5;
+    border-color: #45bf7d;
+}
+
+QDialog#ProfileDialog #user_info_page #up_btn:pressed {
+    background: #e2f6eb;
+}
+
+QDialog#ProfileDialog #user_info_page #submit_btn {
+    color: ${color.surface};
+    background: ${color.brand};
+    border: 1px solid ${color.brand};
+}
+
+QDialog#ProfileDialog #user_info_page #submit_btn:hover {
+    background: ${color.brand.pressed};
+    border-color: ${color.brand.pressed};
+}
+
+QDialog#ProfileDialog #user_info_page #submit_btn:pressed {
+    background: #05984b;
+    border-color: #05984b;
+}
+
+QDialog#ProfileDialog #user_info_page #logout_btn {
+    color: #b94a4a;
+    background: ${color.surface};
+    border: 1px solid #eccaca;
+}
+
+QDialog#ProfileDialog #user_info_page #logout_btn:hover {
+    color: #a43c3c;
+    background: #fff6f6;
+    border-color: #dfaaaa;
+}
+
+QDialog#ProfileDialog #user_info_page #logout_btn:pressed {
+    background: #fdeaea;
+}
+
+QDialog#ProfileDialog #user_info_page QPushButton:disabled {
+    color: #a5a9ae;
+    background: #eef0f1;
+    border-color: #e0e3e5;
+}

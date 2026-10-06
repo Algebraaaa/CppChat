@@ -5,7 +5,8 @@
 #include <memory>
 #include <mutex>
 
-template <typename T> class Singleton {
+template <typename T> class Singleton
+{
   // 构造函数是 protected：外面不能直接 new Singleton<T>()，只有子类 T（继承它的类）能调用。
 protected:
   Singleton() = default;
@@ -43,7 +44,10 @@ public:
   //     static T instance; // 函数内的静态局部变量
   //     return instance;           // 返回引用
   // }
-  void PrintAddress() { std::cout << _instance.get() << std::endl; }
+  void PrintAddress()
+  {
+    std::cout << _instance.get() << std::endl;
+  }
   ~Singleton()
   {
     std::cout << T::staticMetaObject.className() << " singleton destruct" << std::endl;

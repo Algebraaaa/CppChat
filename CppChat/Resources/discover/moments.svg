@@ -1,0 +1,10 @@
+<!-- Source: https://github.com/lucide-icons/lucide/blob/main/icons/aperture.svg; adapted colors; license: LUCIDE-LICENSE.txt. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#13b9a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="12" r="10" stroke="#ffbe25" />
+  <path d="m14.31 8 5.74 9.94" stroke="#ff7f33" />
+  <path d="M9.69 8h11.48" stroke="#fb5f86" />
+  <path d="m7.38 12 5.74-9.94" stroke="#a86bff" />
+  <path d="M9.69 16 3.95 6.06" stroke="#1ccbec" />
+  <path d="M14.31 16H2.83" stroke="#14c28e" />
+  <path d="m16.62 12-5.74 9.94" stroke="#5dcf77" />
+</svg>

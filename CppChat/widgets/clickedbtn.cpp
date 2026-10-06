@@ -6,6 +6,7 @@ ClickedBtn::ClickedBtn(QWidget *parent) : QPushButton(parent)
 {
   // 鼠标移到按钮上时显示手形光标
   setCursor(Qt::PointingHandCursor);
+  // 不能获得键盘焦点
   setFocusPolicy(Qt::NoFocus);
 }
 
@@ -44,7 +45,7 @@ void ClickedBtn::mouseReleaseEvent(QMouseEvent *event)
 {
   // 只处理鼠标左键释放
   if (event->button() == Qt::LeftButton) {
-    // 三元运算符：鼠标仍在按钮上用 _hover，否则用 _normal
+
     applyState(underMouse() ? _hover : _normal);
   }
   QPushButton::mouseReleaseEvent(event);

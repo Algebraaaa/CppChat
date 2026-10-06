@@ -6,103 +6,310 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>280</width>
-    <height>190</height>
+    <width>340</width>
+    <height>300</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>280</width>
-    <height>190</height>
+    <width>340</width>
+    <height>300</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>280</width>
-    <height>190</height>
+    <width>340</width>
+    <height>16777215</height>
    </size>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>朋友资料</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <layout class="QVBoxLayout" name="window_layout">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
    <item>
-    <widget class="QWidget" name="widget" native="true">
-     <layout class="QHBoxLayout" name="horizontalLayout">
+    <widget class="QFrame" name="dialog_frame">
+     <property name="frameShape">
+      <enum>QFrame::NoFrame</enum>
+     </property>
+     <layout class="QVBoxLayout" name="frame_layout">
+      <property name="spacing">
+       <number>0</number>
+      </property>
+      <property name="leftMargin">
+       <number>1</number>
+      </property>
+      <property name="topMargin">
+       <number>1</number>
+      </property>
+      <property name="rightMargin">
+       <number>1</number>
+      </property>
+      <property name="bottomMargin">
+       <number>1</number>
+      </property>
       <item>
-       <widget class="QLabel" name="head_lb">
+       <widget class="DialogTitleBar" name="dialog_title_bar">
         <property name="minimumSize">
          <size>
-          <width>50</width>
-          <height>50</height>
+          <width>0</width>
+          <height>38</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
-          <width>50</width>
-          <height>50</height>
+          <width>16777215</width>
+          <height>38</height>
          </size>
         </property>
-        <property name="text">
-         <string/>
-        </property>
+        <layout class="QHBoxLayout" name="header_layout">
+         <property name="leftMargin">
+          <number>8</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>8</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <spacer name="title_spacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeType">
+            <enum>QSizePolicy::Fixed</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>30</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="dialog_title">
+           <property name="text">
+            <string>朋友资料</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="close_btn">
+           <property name="minimumSize">
+            <size>
+             <width>30</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>30</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="toolTip">
+            <string>关闭</string>
+           </property>
+           <property name="accessibleName">
+            <string>关闭</string>
+           </property>
+           <property name="text">
+            <string />
+           </property>
+           <property name="icon">
+            <iconset resource="../rc.qrc">
+             <normaloff>:/icons/action-close.svg</normaloff>:/icons/action-close.svg</iconset>
+           </property>
+           <property name="iconSize">
+            <size>
+             <width>18</width>
+             <height>18</height>
+            </size>
+           </property>
+           <property name="autoDefault">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="name_lb">
-        <property name="minimumSize">
-         <size>
-          <width>50</width>
-          <height>50</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>50</width>
-          <height>50</height>
-         </size>
-        </property>
-        <property name="text">
-         <string>TextLabel</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="horizontalSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>145</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QWidget" name="widget_2" native="true">
-     <layout class="QHBoxLayout" name="horizontalLayout_2">
-      <item>
-       <widget class="ClickedBtn" name="add_friend_btn">
-        <property name="minimumSize">
-         <size>
-          <width>120</width>
-          <height>35</height>
-         </size>
-        </property>
-        <property name="maximumSize">
-         <size>
-          <width>120</width>
-          <height>35</height>
-         </size>
-        </property>
-        <property name="text">
-         <string>添加到通讯录</string>
-        </property>
+       <widget class="QWidget" name="dialog_content">
+        <layout class="QVBoxLayout" name="content_layout">
+         <property name="spacing">
+          <number>12</number>
+         </property>
+         <property name="leftMargin">
+          <number>18</number>
+         </property>
+         <property name="topMargin">
+          <number>12</number>
+         </property>
+         <property name="rightMargin">
+          <number>18</number>
+         </property>
+         <property name="bottomMargin">
+          <number>18</number>
+         </property>
+         <item>
+          <layout class="QHBoxLayout" name="profile_layout">
+           <property name="spacing">
+            <number>12</number>
+           </property>
+           <item alignment="Qt::AlignTop">
+            <widget class="QLabel" name="head_lb">
+             <property name="minimumSize">
+              <size>
+               <width>50</width>
+               <height>50</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>50</width>
+               <height>50</height>
+              </size>
+             </property>
+             <property name="text">
+              <string />
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QVBoxLayout" name="identity_layout">
+             <property name="spacing">
+              <number>6</number>
+             </property>
+             <item>
+              <widget class="QLabel" name="name_lb">
+               <property name="text"><string>用户名：未设置</string></property>
+               <property name="textFormat"><enum>Qt::PlainText</enum></property>
+               <property name="wordWrap"><bool>true</bool></property>
+               <property name="textInteractionFlags"><set>Qt::TextSelectableByMouse</set></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="nick_lb">
+               <property name="text"><string>昵称：未设置</string></property>
+               <property name="textFormat"><enum>Qt::PlainText</enum></property>
+               <property name="wordWrap"><bool>true</bool></property>
+               <property name="textInteractionFlags"><set>Qt::TextSelectableByMouse</set></property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="description_layout">
+           <property name="spacing"><number>6</number></property>
+           <item>
+            <widget class="QLabel" name="description_title">
+             <property name="text"><string>个人描述</string></property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPlainTextEdit" name="description_text">
+             <property name="minimumSize"><size><width>0</width><height>72</height></size></property>
+             <property name="maximumSize"><size><width>16777215</width><height>110</height></size></property>
+             <property name="frameShape"><enum>QFrame::NoFrame</enum></property>
+             <property name="horizontalScrollBarPolicy"><enum>Qt::ScrollBarAlwaysOff</enum></property>
+             <property name="readOnly"><bool>true</bool></property>
+             <property name="plainText"><string>暂无个人描述</string></property>
+             <property name="accessibleName"><string>个人描述</string></property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <spacer name="content_spacer">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>10</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="button_layout">
+           <item>
+            <spacer name="button_left_spacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="ClickedBtn" name="add_friend_btn">
+             <property name="minimumSize">
+              <size>
+               <width>120</width>
+               <height>35</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>120</width>
+               <height>35</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>添加到通讯录</string>
+             </property>
+             <property name="autoDefault">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="button_right_spacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </item>
+        </layout>
        </widget>
       </item>
      </layout>
@@ -116,7 +323,15 @@
    <extends>QPushButton</extends>
    <header location="global">widgets/clickedbtn.h</header>
   </customwidget>
+  <customwidget>
+   <class>DialogTitleBar</class>
+   <extends>QWidget</extends>
+   <header location="global">widgets/dialogtitlebar.h</header>
+   <container>1</container>
+  </customwidget>
  </customwidgets>
- <resources/>
- <connections/>
+ <resources>
+  <include location="../rc.qrc" />
+ </resources>
+ <connections />
 </ui>

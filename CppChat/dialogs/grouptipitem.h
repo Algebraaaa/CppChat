@@ -8,7 +8,8 @@ namespace Ui {
 class GroupTipItem;
 }
 
-class GroupTipItem : public ListItemBase {
+class GroupTipItem : public ListItemBase
+{
   Q_OBJECT
 
 public:

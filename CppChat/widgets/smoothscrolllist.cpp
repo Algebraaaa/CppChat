@@ -3,18 +3,22 @@
 #include <QCursor>
 #include <QEasingCurve>
 #include <QEnterEvent>
+#include <QMouseEvent>
 #include <QPropertyAnimation>
 #include <QResizeEvent>
 #include <QScrollBar>
+#include <QSignalBlocker>
 #include <QWheelEvent>
 #include <QtMath>
 
 namespace {
 constexpr int kOverlayScrollBarWidth = 8;
-constexpr int kOverlayScrollBarRightMargin = 2;
+// 分隔条附近先保留拉伸热区；滚动条向列表内侧退让。
+constexpr int kOverlayScrollBarRightMargin = 5;
+constexpr int kResizeEdgeRevealMargin = 4;
 constexpr int kOverlayScrollBarVerticalMargin = 3;
 constexpr int kWheelScrollDistance = 60;
-constexpr int kScrollAnimationDuration = 400;
+constexpr int kScrollAnimationDuration = 140;
 } // namespace
 
 SmoothScrollList::SmoothScrollList(QWidget *parent) : QListWidget(parent)
@@ -22,6 +26,8 @@ SmoothScrollList::SmoothScrollList(QWidget *parent) : QListWidget(parent)
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+  setMouseTracking(true);
+  viewport()->setMouseTracking(true);
 
   QScrollBar *nativeScrollBar = verticalScrollBar();
   nativeScrollBar->setSingleStep(12);
@@ -48,28 +54,29 @@ SmoothScrollList::SmoothScrollList(QWidget *parent) : QListWidget(parent)
             updateScrollBarVisibility();
           });
 
-  connect(nativeScrollBar, &QScrollBar::valueChanged, this,
-          [this, nativeScrollBar](int value) {
-            _overlayScrollBar->setValue(value);
+  connect(nativeScrollBar, &QScrollBar::valueChanged, this, [this, nativeScrollBar](int value) {
+    {
+      // 同步显示位置时不再反向写回原生滚动条；拖动时的信号仍正常工作。
+      const QSignalBlocker blocker(_overlayScrollBar);
+      _overlayScrollBar->setValue(value);
+    }
 
-            if (_scrollAnimation->state() != QAbstractAnimation::Running) {
-              _scrollTarget = value;
-            }
+    if (_scrollAnimation->state() != QAbstractAnimation::Running) {
+      _scrollTarget = value;
+    }
 
-            if (nativeScrollBar->maximum() > nativeScrollBar->minimum()
-                && value >= nativeScrollBar->maximum()) {
-              onReachedBottom();
-            }
-          });
+    if (nativeScrollBar->maximum() > nativeScrollBar->minimum() &&
+        value >= nativeScrollBar->maximum()) {
+      onReachedBottom();
+    }
+  });
 
-  connect(_overlayScrollBar, &QScrollBar::valueChanged, nativeScrollBar,
-          &QScrollBar::setValue);
+  connect(_overlayScrollBar, &QScrollBar::valueChanged, nativeScrollBar, &QScrollBar::setValue);
 
-  connect(_overlayScrollBar, &QScrollBar::sliderPressed, this,
-          [this, nativeScrollBar]() {
-            _scrollAnimation->stop();
-            _scrollTarget = nativeScrollBar->value();
-          });
+  connect(_overlayScrollBar, &QScrollBar::sliderPressed, this, [this, nativeScrollBar]() {
+    _scrollAnimation->stop();
+    _scrollTarget = nativeScrollBar->value();
+  });
 
   connect(_overlayScrollBar, &QScrollBar::sliderReleased, this,
           &SmoothScrollList::updateScrollBarVisibility);
@@ -86,6 +93,12 @@ void SmoothScrollList::enterEvent(QEnterEvent *event)
 void SmoothScrollList::leaveEvent(QEvent *event)
 {
   QListWidget::leaveEvent(event);
+  updateScrollBarVisibility();
+}
+
+void SmoothScrollList::mouseMoveEvent(QMouseEvent *event)
+{
+  QListWidget::mouseMoveEvent(event);
   updateScrollBarVisibility();
 }
 
@@ -123,14 +136,15 @@ void SmoothScrollList::wheelEvent(QWheelEvent *event)
     return;
   }
 
-  if (_scrollAnimation->state() != QAbstractAnimation::Running) {
-    _scrollTarget = nativeScrollBar->value();
-  }
-
   const qreal wheelSteps = static_cast<qreal>(angleDeltaY) / 120.0;
   const int scrollDistance = qRound(wheelSteps * kWheelScrollDistance);
-  _scrollTarget = qBound(nativeScrollBar->minimum(),
-                         _scrollTarget - scrollDistance,
+  const int current = nativeScrollBar->value();
+  // 反向滚动从当前位置起步，避免先把上一方向积攒的距离滚完。
+  if (_scrollAnimation->state() != QAbstractAnimation::Running ||
+      (scrollDistance > 0 && _scrollTarget > current) ||
+      (scrollDistance < 0 && _scrollTarget < current))
+    _scrollTarget = current;
+  _scrollTarget = qBound(nativeScrollBar->minimum(), _scrollTarget - scrollDistance,
                          nativeScrollBar->maximum());
 
   _scrollAnimation->stop();
@@ -140,39 +154,36 @@ void SmoothScrollList::wheelEvent(QWheelEvent *event)
   event->accept();
 }
 
-void SmoothScrollList::onReachedBottom()
-{
-}
+void SmoothScrollList::onReachedBottom() {}
 
 void SmoothScrollList::updateScrollBarGeometry()
 {
   const QPoint viewportTopLeft = viewport()->mapTo(this, QPoint(0, 0));
   const QRect viewportRect(viewportTopLeft, viewport()->size());
-  const int scrollBarHeight = qMax(
-      0, viewportRect.height() - kOverlayScrollBarVerticalMargin * 2);
-  const int scrollBarX = qMax(
-      viewportRect.left(),
-      viewportRect.right() - kOverlayScrollBarWidth
-          - kOverlayScrollBarRightMargin + 1);
+  const int scrollBarHeight = qMax(0, viewportRect.height() - kOverlayScrollBarVerticalMargin * 2);
+  const int scrollBarX = qMax(viewportRect.left(), viewportRect.right() - kOverlayScrollBarWidth -
+                                                       kOverlayScrollBarRightMargin + 1);
   const int scrollBarY = viewportRect.top() + kOverlayScrollBarVerticalMargin;
 
-  _overlayScrollBar->setGeometry(scrollBarX, scrollBarY,
-                                 kOverlayScrollBarWidth, scrollBarHeight);
+  _overlayScrollBar->setGeometry(scrollBarX, scrollBarY, kOverlayScrollBarWidth, scrollBarHeight);
   _overlayScrollBar->raise();
 }
 
 void SmoothScrollList::updateScrollBarVisibility()
 {
   const QScrollBar *nativeScrollBar = verticalScrollBar();
-  const bool hasScrollableContent =
-      nativeScrollBar->maximum() > nativeScrollBar->minimum();
+  const bool hasScrollableContent = nativeScrollBar->maximum() > nativeScrollBar->minimum();
   const QPoint cursorPosition = mapFromGlobal(QCursor::pos());
   const bool cursorInsideList = rect().contains(cursorPosition);
+  const bool cursorPastResizeEdge = cursorPosition.x() <= rect().right() - kResizeEdgeRevealMargin;
   const bool shouldBeVisible =
-      cursorInsideList || _overlayScrollBar->isSliderDown();
+      (cursorInsideList && cursorPastResizeEdge) || _overlayScrollBar->isSliderDown();
 
-  _overlayScrollBar->setVisible(hasScrollableContent && shouldBeVisible);
-  if (_overlayScrollBar->isVisible()) {
+  const bool visible = hasScrollableContent && shouldBeVisible;
+  if (visible == !_overlayScrollBar->isHidden())
+    return;
+  _overlayScrollBar->setVisible(visible);
+  if (visible) {
     _overlayScrollBar->raise();
   }
 }

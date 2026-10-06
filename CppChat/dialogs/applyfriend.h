@@ -8,36 +8,41 @@
 namespace Ui {
 class ApplyFriend;
 }
-class ApplyFriend : public QDialog {
+class ApplyFriend : public QDialog
+{
   Q_OBJECT
 
 public:
   explicit ApplyFriend(QWidget *parent = nullptr);
   ~ApplyFriend();
   void InitTipLbs();
-  void AddTipLbs(ClickedLabel *, QPoint cur_point, QPoint &next_point, int text_width);
   bool eventFilter(QObject *obj, QEvent *event) override;
   void SetSearchInfo(std::shared_ptr<SearchInfo> si);
   void SetApplyInfo(std::shared_ptr<ApplyInfo> info);
+  void SetContactInfo(std::shared_ptr<UserInfo> info);
   void reject() override;
 
 private:
   Ui::ApplyFriend *ui;
   void resetLabels();
+  ClickedLabel *createTipLabel(const QString &text);
+  void layoutTipLabels();
+  void selectLabel(const QString &text);
 
   // 已经创建好的标签
   QMap<QString, ClickedLabel *> _add_labels;
   std::vector<QString> _add_label_keys;
-  QPoint _label_point;
   // 用来在输入框显示添加新好友的标签
   QMap<QString, FriendLabel *> _friend_labels;
   std::vector<QString> _friend_label_keys;
   void addLabel(QString name);
   std::vector<QString> _tip_data;
-  QPoint _tip_cur_point;
+  bool _tipsExpanded = false;
   std::shared_ptr<SearchInfo> _si;
   std::shared_ptr<ApplyInfo> _applyInfo;
   bool _pending = false;
+  std::shared_ptr<UserInfo> _contactInfo;
+  ReqId requestId() const;
 public slots:
   // 显示更多label标签
   void ShowMoreLabel();
@@ -55,6 +60,5 @@ public slots:
   void SlotAddFirendLabelByClickTip(QString text);
 private slots:
   void on_sure_btn_clicked();
-  void on_cancel_btn_clicked();
 };
 #endif // APPLYFRIEND_H

@@ -12,7 +12,8 @@ namespace Ui {
 class ApplyFriendPage;
 }
 
-class ApplyFriendPage : public QWidget {
+class ApplyFriendPage : public QWidget
+{
   Q_OBJECT
 
 public:
@@ -20,14 +21,17 @@ public:
   ~ApplyFriendPage();
   void AddNewApply(std::shared_ptr<AddFriendApply> apply);
   void Reload();
+  void SetApplyInfo(std::shared_ptr<ApplyInfo> apply);
+  void Reset();
 
 protected:
   void paintEvent(QPaintEvent *event);
 
 private:
-  void loadApplyList();
+  void loadSelectedApply();
   Ui::ApplyFriendPage *ui;
   std::unordered_map<int, ApplyFriendItem *> _unauth_items;
+  int _selectedUid = 0;
 public slots:
   void slot_auth_rsp(std::shared_ptr<AuthRsp>);
 signals:

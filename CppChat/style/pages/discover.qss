@@ -1,0 +1,58 @@
+/* 发现：左侧入口列表和右侧空白占位。布局与尺寸由 discoverpage.ui 定义。 */
+DiscoverPage {
+    background: #fafafa;
+}
+
+DiscoverPage #discover_menu {
+    background: #ededee;
+    border: none;
+}
+
+DiscoverPage #discover_title {
+    color: ${color.text.primary};
+    font-size: ${font.size.heading};
+    font-weight: ${font.weight.normal};
+    padding-left: 20px;
+}
+
+DiscoverPage #discover_menu QPushButton {
+    background: transparent;
+    color: ${color.text.primary};
+    border: none;
+    border-radius: ${radius.square};
+    font-size: ${font.size.subheading};
+    text-align: left;
+    padding: 0 20px;
+}
+
+DiscoverPage #discover_menu QPushButton:hover {
+    background: #e1e1e3;
+}
+
+DiscoverPage #discover_menu QPushButton:pressed,
+DiscoverPage #discover_menu QPushButton:checked {
+    background: #d8d8da;
+}
+
+DiscoverPage #discover_content {
+    background: #fafafa;
+    border: none;
+}
+
+DiscoverPage #empty_emblem,
+DiscoverPage #placeholder_title,
+DiscoverPage #placeholder_description {
+    background: transparent;
+    border: none;
+}
+
+DiscoverPage #placeholder_title {
+    color: ${color.text.primary};
+    font-size: ${font.size.heading};
+    font-weight: ${font.weight.medium};
+}
+
+DiscoverPage #placeholder_description {
+    color: ${color.text.muted};
+    font-size: ${font.size.label};
+}

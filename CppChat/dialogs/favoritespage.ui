@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>FavoritesPage</class>
+ <widget class="QWidget" name="FavoritesPage">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>1048</width><height>720</height></rect>
+  </property>
+  <property name="windowTitle"><string>收藏</string></property>
+  <layout class="QHBoxLayout" name="page_layout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item>
+    <widget class="QWidget" name="favorites_filter_panel" native="true">
+     <property name="minimumSize"><size><width>280</width><height>0</height></size></property>
+     <property name="maximumSize"><size><width>280</width><height>16777215</height></size></property>
+     <layout class="QVBoxLayout" name="filter_layout">
+      <property name="spacing"><number>6</number></property>
+      <property name="leftMargin"><number>16</number></property>
+      <property name="topMargin"><number>16</number></property>
+      <property name="rightMargin"><number>16</number></property>
+      <property name="bottomMargin"><number>18</number></property>
+      <item>
+       <widget class="QWidget" name="favorites_search_box" native="true">
+        <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
+        <property name="maximumSize"><size><width>16777215</width><height>38</height></size></property>
+        <layout class="QHBoxLayout" name="search_layout">
+         <property name="spacing"><number>8</number></property>
+         <property name="leftMargin"><number>10</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>10</number></property>
+         <property name="bottomMargin"><number>0</number></property>
+         <item>
+          <widget class="QLabel" name="favorites_search_icon">
+           <property name="minimumSize"><size><width>18</width><height>18</height></size></property>
+           <property name="maximumSize"><size><width>18</width><height>18</height></size></property>
+           <property name="text"><string/></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="favorites_search_edit">
+           <property name="frame"><bool>false</bool></property>
+           <property name="placeholderText"><string>搜索收藏</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <spacer name="search_bottom_spacer">
+        <property name="orientation"><enum>Qt::Vertical</enum></property>
+        <property name="sizeType"><enum>QSizePolicy::Fixed</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>20</width><height>8</height></size></property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="write_note_btn">
+        <property name="minimumSize"><size><width>0</width><height>54</height></size></property>
+        <property name="maximumSize"><size><width>16777215</width><height>54</height></size></property>
+        <property name="text"><string>  写笔记</string></property>
+        <property name="iconSize"><size><width>22</width><height>22</height></size></property>
+        <property name="focusPolicy"><enum>Qt::NoFocus</enum></property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="note_bottom_spacer">
+        <property name="orientation"><enum>Qt::Vertical</enum></property>
+        <property name="sizeType"><enum>QSizePolicy::Fixed</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>20</width><height>10</height></size></property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QPushButton" name="favorite_all_btn">
+        <property name="minimumSize"><size><width>0</width><height>48</height></size></property>
+        <property name="maximumSize"><size><width>16777215</width><height>48</height></size></property>
+        <property name="text"><string>  全部收藏</string></property>
+        <property name="iconSize"><size><width>22</width><height>22</height></size></property>
+        <property name="checkable"><bool>true</bool></property>
+        <property name="focusPolicy"><enum>Qt::NoFocus</enum></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="favorite_recent_btn">
+        <property name="minimumSize"><size><width>0</width><height>48</height></size></property>
+        <property name="maximumSize"><size><width>16777215</width><height>48</height></size></property>
+        <property name="text"><string>  最近使用</string></property>
+        <property name="iconSize"><size><width>22</width><height>22</height></size></property>
+        <property name="focusPolicy"><enum>Qt::NoFocus</enum></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QFrame" name="favorites_divider">
+        <property name="frameShape"><enum>QFrame::HLine</enum></property>
+        <property name="frameShadow"><enum>QFrame::Plain</enum></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="favorite_link_btn">
+        <property name="minimumSize"><size><width>0</width><height>48</height></size></property>
+        <property name="maximumSize"><size><width>16777215</width><height>48</height></size></property>
+        <property name="text"><string>  链接</string></property>
+        <property name="iconSize"><size><width>22</width><height>22</height></size></property>
+        <property name="focusPolicy"><enum>Qt::NoFocus</enum></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="favorite_media_btn">
+        <property name="minimumSize"><size><width>0</width><height>48</height></size></property>
+        <property name="maximumSize"><size><width>16777215</width><height>48</height></size></property>
+        <property name="text"><string>  图片与视频</string></property>
+        <property name="iconSize"><size><width>22</width><height>22</height></size></property>
+        <property name="focusPolicy"><enum>Qt::NoFocus</enum></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="favorite_message_btn">
+        <property name="minimumSize"><size><width>0</width><height>48</height></size></property>
+        <property name="maximumSize"><size><width>16777215</width><height>48</height></size></property>
+        <property name="text"><string>  聊天记录</string></property>
+        <property name="iconSize"><size><width>22</width><height>22</height></size></property>
+        <property name="focusPolicy"><enum>Qt::NoFocus</enum></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="favorite_audio_btn">
+        <property name="minimumSize"><size><width>0</width><height>48</height></size></property>
+        <property name="maximumSize"><size><width>16777215</width><height>48</height></size></property>
+        <property name="text"><string>  语音</string></property>
+        <property name="iconSize"><size><width>22</width><height>22</height></size></property>
+        <property name="focusPolicy"><enum>Qt::NoFocus</enum></property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="filter_bottom_spacer">
+        <property name="orientation"><enum>Qt::Vertical</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="favorites_storage_lb">
+        <property name="text"><string>占位界面 · 收藏功能暂未接入</string></property>
+        <property name="alignment"><set>Qt::AlignCenter</set></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="favorites_content_panel" native="true">
+     <layout class="QVBoxLayout" name="content_layout">
+      <property name="spacing"><number>0</number></property>
+      <property name="leftMargin"><number>0</number></property>
+      <property name="topMargin"><number>0</number></property>
+      <property name="rightMargin"><number>0</number></property>
+      <property name="bottomMargin"><number>0</number></property>
+      <item>
+       <widget class="QWidget" name="favorites_header" native="true">
+        <property name="minimumSize"><size><width>0</width><height>72</height></size></property>
+        <property name="maximumSize"><size><width>16777215</width><height>72</height></size></property>
+        <layout class="QHBoxLayout" name="header_layout">
+         <property name="leftMargin"><number>34</number></property>
+         <property name="topMargin"><number>0</number></property>
+         <property name="rightMargin"><number>24</number></property>
+         <property name="bottomMargin"><number>0</number></property>
+         <item><widget class="QLabel" name="favorites_title_lb"><property name="text"><string>全部收藏</string></property></widget></item>
+         <item><spacer name="header_spacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <widget class="QScrollArea" name="favorites_scroll_area">
+        <property name="frameShape"><enum>QFrame::NoFrame</enum></property>
+        <property name="horizontalScrollBarPolicy"><enum>Qt::ScrollBarAlwaysOff</enum></property>
+        <property name="widgetResizable"><bool>true</bool></property>
+        <widget class="QWidget" name="favorites_scroll_content">
+         <property name="geometry"><rect><x>0</x><y>0</y><width>744</width><height>830</height></rect></property>
+         <property name="minimumSize"><size><width>0</width><height>830</height></size></property>
+         <layout class="QVBoxLayout" name="favorites_cards_layout">
+          <property name="spacing"><number>12</number></property>
+          <property name="leftMargin"><number>38</number></property>
+          <property name="topMargin"><number>16</number></property>
+          <property name="rightMargin"><number>38</number></property>
+          <property name="bottomMargin"><number>24</number></property>
+          <item>
+           <widget class="QFrame" name="favorite_card_1">
+            <property name="minimumSize"><size><width>0</width><height>150</height></size></property>
+            <layout class="QHBoxLayout" name="card_1_layout">
+             <property name="spacing"><number>18</number></property>
+             <property name="leftMargin"><number>18</number></property>
+             <property name="topMargin"><number>18</number></property>
+             <property name="rightMargin"><number>18</number></property>
+             <property name="bottomMargin"><number>18</number></property>
+             <item>
+              <widget class="QLabel" name="favorite_thumb_1">
+               <property name="minimumSize"><size><width>112</width><height>112</height></size></property>
+               <property name="maximumSize"><size><width>112</width><height>112</height></size></property>
+               <property name="pixmap"><pixmap resource="../rc.qrc">:/res/head_3.jpg</pixmap></property>
+               <property name="scaledContents"><bool>true</bool></property>
+              </widget>
+             </item>
+             <item>
+              <layout class="QVBoxLayout" name="card_1_text_layout">
+               <item><widget class="QLabel" name="favorite_card_title_1"><property name="text"><string>项目界面参考图</string></property></widget></item>
+               <item><spacer name="card_1_spacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+               <item><widget class="QLabel" name="favorite_card_source_1"><property name="text"><string>CppChat · 静态占位内容</string></property></widget></item>
+              </layout>
+             </item>
+             <item><widget class="QLabel" name="favorite_card_date_1"><property name="text"><string>今天</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignBottom|Qt::AlignTrailing</set></property></widget></item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QFrame" name="favorite_card_2">
+            <property name="minimumSize"><size><width>0</width><height>116</height></size></property>
+            <layout class="QHBoxLayout" name="card_2_layout">
+             <property name="spacing"><number>18</number></property>
+             <property name="leftMargin"><number>20</number></property>
+             <property name="topMargin"><number>18</number></property>
+             <property name="rightMargin"><number>20</number></property>
+             <property name="bottomMargin"><number>18</number></property>
+             <item>
+              <layout class="QVBoxLayout" name="card_2_text_layout">
+               <item><widget class="QLabel" name="favorite_card_title_2"><property name="text"><string>远方寄来爱的礼物，我也是吃上 CppChat 了，幸福～</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+               <item><spacer name="card_2_spacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>16</height></size></property></spacer></item>
+               <item><widget class="QLabel" name="favorite_card_source_2"><property name="text"><string>收藏笔记 · 静态占位内容</string></property></widget></item>
+              </layout>
+             </item>
+             <item><widget class="QLabel" name="favorite_card_date_2"><property name="text"><string>2026年10月2日</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignBottom|Qt::AlignTrailing</set></property></widget></item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QFrame" name="favorite_card_3">
+            <property name="minimumSize"><size><width>0</width><height>150</height></size></property>
+            <layout class="QHBoxLayout" name="card_3_layout">
+             <property name="spacing"><number>18</number></property>
+             <property name="leftMargin"><number>18</number></property>
+             <property name="topMargin"><number>18</number></property>
+             <property name="rightMargin"><number>18</number></property>
+             <property name="bottomMargin"><number>18</number></property>
+             <item>
+              <widget class="QLabel" name="favorite_thumb_3">
+               <property name="minimumSize"><size><width>112</width><height>112</height></size></property>
+               <property name="maximumSize"><size><width>112</width><height>112</height></size></property>
+               <property name="pixmap"><pixmap resource="../rc.qrc">:/res/head_6.jpg</pixmap></property>
+               <property name="scaledContents"><bool>true</bool></property>
+              </widget>
+             </item>
+             <item>
+              <layout class="QVBoxLayout" name="card_3_text_layout">
+               <item><widget class="QLabel" name="favorite_card_title_3"><property name="text"><string>聊天界面设计素材</string></property></widget></item>
+               <item><spacer name="card_3_spacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+               <item><widget class="QLabel" name="favorite_card_source_3"><property name="text"><string>CppChat · 静态占位内容</string></property></widget></item>
+              </layout>
+             </item>
+             <item><widget class="QLabel" name="favorite_card_date_3"><property name="text"><string>9月29日</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignBottom|Qt::AlignTrailing</set></property></widget></item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QFrame" name="favorite_card_4">
+            <property name="minimumSize"><size><width>0</width><height>116</height></size></property>
+            <layout class="QHBoxLayout" name="card_4_layout">
+             <property name="spacing"><number>18</number></property>
+             <property name="leftMargin"><number>20</number></property>
+             <property name="topMargin"><number>18</number></property>
+             <property name="rightMargin"><number>20</number></property>
+             <property name="bottomMargin"><number>18</number></property>
+             <item>
+              <layout class="QVBoxLayout" name="card_4_text_layout">
+               <item><widget class="QLabel" name="favorite_card_title_4"><property name="text"><string>https://github.com/Algebraaaa/CppChat</string></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+               <item><spacer name="card_4_spacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>16</height></size></property></spacer></item>
+               <item><widget class="QLabel" name="favorite_card_source_4"><property name="text"><string>链接 · 静态占位内容</string></property></widget></item>
+              </layout>
+             </item>
+             <item><widget class="QLabel" name="favorite_card_date_4"><property name="text"><string>9月7日</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignBottom|Qt::AlignTrailing</set></property></widget></item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <spacer name="cards_bottom_spacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer>
+          </item>
+         </layout>
+        </widget>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources><include location="../rc.qrc"/></resources>
+ <connections/>
+</ui>

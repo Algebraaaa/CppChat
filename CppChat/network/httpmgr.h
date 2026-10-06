@@ -11,7 +11,8 @@
 // CRTP
 class HttpMgr : public QObject,
                 public Singleton<HttpMgr>,
-                public std::enable_shared_from_this<HttpMgr> {
+                public std::enable_shared_from_this<HttpMgr>
+{
   Q_OBJECT
 public:
   void PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod);

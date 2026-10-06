@@ -7,7 +7,8 @@ namespace Ui {
 class LoadingDlg;
 }
 
-class LoadingDlg : public QDialog {
+class LoadingDlg : public QDialog
+{
   Q_OBJECT
 
 public:

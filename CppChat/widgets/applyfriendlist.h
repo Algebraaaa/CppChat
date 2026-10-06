@@ -1,7 +1,8 @@
 #ifndef APPLYFRIENDLIST_H
 #define APPLYFRIENDLIST_H
 #include "widgets/smoothscrolllist.h"
-class ApplyFriendList : public SmoothScrollList {
+class ApplyFriendList : public SmoothScrollList
+{
   Q_OBJECT
 public:
   ApplyFriendList(QWidget *parent = nullptr);

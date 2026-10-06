@@ -1,179 +1,652 @@
 #include "chatpage.h"
+#include "services/messagesender.h"
+#include "common/attachmentpreparer.h"
+#include "chathistorydialog.h"
+#include "messagemenu.h"
+#include "common/chatstore.h"
+#include <QMessageBox>
+#include <QClipboard>
+#include <QGuiApplication>
 #include "ui_chatpage.h"
 #include "network/tcpmgr.h"
 #include "network/usermgr.h"
-#include "widgets/TextBubble.h"
+#include "widgets/picturebubble.h"
+#include "widgets/textbubble.h"
 #include "widgets/chatitembase.h"
+#include "widgets/screencapture.h"
+#include "widgets/emojipicker.h"
 #include <QFileDialog>
-#include <QJsonDocument>
+#include <QDateTime>
+#include <QImageReader>
+#include <QImage>
 #include <QLabel>
 #include <QPainter>
+#include <QPushButton>
+#include <QResizeEvent>
+#include <QShowEvent>
+#include <QHideEvent>
 #include <QStyleOption>
 #include <QTextCursor>
 #include <QTimer>
-#include <QUuid>
+#include <QVBoxLayout>
+#include <utility>
 
 namespace {
-// 服务端回包同时包含 content 和 msg_content，并可能将中文转为 \uXXXX。
-// 为两份正文和回包字段预留空间，避免请求能发送、回包却超过服务端 2KB 上限。
-int escapedJsonSize(const QString &text)
+QString messageScrollKey(const std::shared_ptr<ChatDataBase> &message)
 {
-  int size = 0;
-  for (const auto ch : text) {
-    if (ch.unicode() < 0x20 || ch.unicode() > 0x7e) size += 6;
-    else if (ch == QLatin1Char('"') || ch == QLatin1Char('\\')) size += 2;
-    else ++size;
-  }
-  return size;
+  return message->GetUniqueId().isEmpty() ? QStringLiteral("server:%1").arg(message->GetMsgId())
+                                          : QStringLiteral("unique:") + message->GetUniqueId();
 }
 
-QByteArray textPacket(const QString &text, const QString &uniqueId, int sender, int receiver, int thread)
+QDateTime parseChatTime(const QString &value)
 {
-  const QJsonArray messages{QJsonObject{{"content", text}, {"unique_id", uniqueId}}};
-  return QJsonDocument(QJsonObject{{"fromuid", sender}, {"touid", receiver},
-      {"thread_id", thread}, {"text_array", messages}}).toJson(QJsonDocument::Compact);
+  QDateTime time = QDateTime::fromString(value, "yyyy-MM-dd HH:mm:ss.zzz");
+  if (!time.isValid())
+    time = QDateTime::fromString(value, "yyyy-MM-dd HH:mm:ss");
+  return time;
 }
+
+QString displayChatTime(const QDateTime &time)
+{
+  const QDate today = QDate::currentDate();
+  if (time.date() == today)
+    return time.toString("HH:mm");
+  if (time.date() == today.addDays(-1))
+    return QObject::tr("昨天 %1").arg(time.toString("HH:mm"));
+  if (time.date().year() == today.year())
+    return time.toString("MM-dd HH:mm");
+  return time.toString("yyyy-MM-dd HH:mm");
 }
+} // namespace
 
 ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
 {
   ui->setupUi(this);
-  ui->send_btn->SetState("normal", "hover", "press");
-  // 原来的“接收”是本地造消息的测试按钮；实际接收由 TCP 通知驱动。
-  ui->receive_btn->hide();
-  ui->emo_lb->SetState("normal", "hover", "press", "normal", "hover", "press");
-  ui->file_lb->SetState("normal", "hover", "press", "normal", "hover", "press");
-  _statusLabel = new QLabel(this);
-  _statusLabel->setObjectName("chat_status");
-  _statusLabel->setWordWrap(true);
-  qobject_cast<QVBoxLayout *>(layout())->insertWidget(1, _statusLabel);
+  _sender = new MessageSender(this);
+  setAttribute(Qt::WA_StyledBackground);
+  ui->chat_data_wid->setAttribute(Qt::WA_StyledBackground);
+  ui->title_wid->setAttribute(Qt::WA_StyledBackground);
+  ui->composer_wid->setAttribute(Qt::WA_StyledBackground);
+  ui->composer_card->setAttribute(Qt::WA_StyledBackground);
+  ui->tool_wid->setAttribute(Qt::WA_StyledBackground);
+  ui->chat_splitter->setStretchFactor(0, 1);
+  ui->chat_splitter->setStretchFactor(1, 0);
+  ui->chat_splitter->setSizes({430, 208});
+  ui->chatEdit->setPlaceholderText(tr("输入消息，按 Enter 发送"));
+  ui->emo_btn->setToolTip(tr("表情"));
+  ui->file_btn->setToolTip(tr("发送图片"));
+  ui->favorites_btn->setCursor(Qt::PointingHandCursor);
+  ui->favorites_btn->setAccessibleName(tr("收藏"));
+  connect(ui->favorites_btn, &QPushButton::clicked, this, &ChatPage::sig_open_favorites);
+  for (auto *button : {ui->voice_btn}) {
+    button->setCursor(Qt::PointingHandCursor);
+    button->setAccessibleName(button->toolTip());
+    connect(button, &QPushButton::clicked, this, [this, button] { ShowStatus(button->toolTip()); });
+  }
+  ui->screenshot_btn->setCursor(Qt::PointingHandCursor);
+  ui->chat_more_btn->setCursor(Qt::PointingHandCursor);
+  ui->chat_more_btn->setAccessibleName(tr("聊天设置"));
+  ui->chat_history_btn->setAccessibleName(tr("查找聊天记录"));
+  connect(ui->chat_history_btn, &QPushButton::clicked, this, &ChatPage::OpenHistory);
+  connect(ui->chat_settings_panel, &ChatSettingsPanel::sig_history_requested, this,
+          &ChatPage::OpenHistory);
+  ui->chat_settings_panel->SetToggleButton(ui->chat_more_btn);
+  connect(ui->chat_more_btn, &QPushButton::clicked, this, [this] {
+    if (_chat_data) {
+      UpdateSettingsRect();
+      ui->chat_settings_panel->Toggle();
+    }
+  });
+  connect(ui->chat_settings_panel, &ChatSettingsPanel::sig_pin_changed, this, [this](bool pinned) {
+    if (_chat_data)
+      emit sig_thread_pin_changed(_chat_data->GetThreadId(), pinned);
+  });
+  ui->screenshot_btn->setAccessibleName(tr("截屏"));
+  connect(ui->screenshot_btn, &QPushButton::clicked, this, &ChatPage::StartScreenCapture);
+  _draftTimer = new QTimer(this);
+  _draftTimer->setSingleShot(true);
+  _draftTimer->setInterval(500);
+  connect(_draftTimer, &QTimer::timeout, this, &ChatPage::SaveCurrentDraft);
+  connect(ui->chat_settings_panel, &ChatSettingsPanel::sig_clear_history, this, [this] {
+    const auto data = _chat_data;
+    if (!data || !ChatStore::instance()->IsReady())
+      return;
+    if (QMessageBox::question(
+            this, tr("清空本机聊天记录"),
+            tr("清空本机已确认的聊天记录？服务器记录、图片缓存和待确认消息会保留。")) !=
+        QMessageBox::Yes)
+      return;
+    const QPointer<ChatPage> guard(this);
+    ChatStore::instance()->ClearLocalHistory(data->GetThreadId(),
+                                             [guard, data](const ChatStoreResult &result) {
+                                               if (guard && result.error.isEmpty()) {
+                                                 data->ClearLocalMessages();
+                                                 if (guard->_historyDialog)
+                                                   guard->_historyDialog->Reset();
+                                                 emit guard->sig_reload_local(data->GetThreadId());
+                                               }
+                                             });
+  });
+  // 没有选中会话或输入内容只有空白字符时，发送按钮不可用。
+  connect(ui->chatEdit, &QTextEdit::textChanged, this, [this] {
+    UpdateSendButton();
+    if (_chat_data && !_restoringDraft && !_sender->SavingMessages() &&
+        !_loadingDrafts.contains(_chat_data->GetThreadId())) {
+      _dirtyDrafts.insert(_chat_data->GetThreadId());
+      _draftTimer->start();
+    }
+  });
+  connect(ui->chatEdit, &MessageTextEdit::attachmentsChanged, this, [this] {
+    UpdateSendButton();
+    if (_chat_data && !_restoringDraft && !_sender->SavingMessages()) {
+      _dirtyDrafts.insert(_chat_data->GetThreadId());
+      SaveCurrentDraft();
+    }
+  });
+  connect(AttachmentPreparer::instance(), &AttachmentPreparer::prepared, this,
+          [this](const QString &id) {
+            const auto threads = _drafts.keys();
+            for (int threadId : threads) {
+              if (_chat_data && _chat_data->GetThreadId() == threadId)
+                continue;
+              const auto draft = _drafts.value(threadId);
+              for (const auto &part : draft) {
+                if (part.preparation && part.preparation->id == id) {
+                  _dirtyDrafts.insert(threadId);
+                  PersistDraft(threadId);
+                  break;
+                }
+              }
+            }
+          });
   connect(ui->send_btn, &QPushButton::clicked, this, &ChatPage::on_send_btn_clicked);
   connect(ui->chatEdit, &MessageTextEdit::send, this, &ChatPage::on_send_btn_clicked);
-  connect(ui->file_lb, &ClickedLabel::clicked, this, [this] {
-    const auto files = QFileDialog::getOpenFileNames(this, tr("选择本地预览文件"));
+  connect(ui->chatEdit, &MessageTextEdit::attachmentError, this, &ChatPage::ShowStatus);
+  connect(ui->file_btn, &QPushButton::clicked, this, [this] {
+    if (!ui->chatEdit->isEnabled())
+      return;
+    if (!_chat_data || !TcpMgr::GetInstance()->IsConnected()) {
+      ShowStatus(tr("请先选择会话并连接聊天服务器"));
+      return;
+    }
+    if (!UserMgr::GetInstance()->CheckFriendById(_chat_data->GetOtherId())) {
+      ShowStatus(errorCodeMessage(FriendNotFound));
+      return;
+    }
+    const auto files = QFileDialog::getOpenFileNames(
+        this, tr("发送图片"), {}, tr("图片 (*.png *.jpg *.jpeg *.gif *.webp *.bmp)"));
     ui->chatEdit->insertFileFromUrl(files);
-    if (!files.isEmpty()) ShowStatus(tr("图片和文件目前仅支持本地预览，尚不能发送给好友"));
+    ui->chatEdit->setFocus();
   });
-  connect(ui->emo_lb, &ClickedLabel::clicked, this, [this] { ui->chatEdit->insertPlainText(QString::fromUtf8("🙂")); });
+  connect(_sender, &MessageSender::savingChanged, this, [this](bool saving) {
+    ui->chatEdit->setEnabled(!saving && _chat_data &&
+                             !_loadingDrafts.contains(_chat_data->GetThreadId()));
+    UpdateSendButton();
+  });
+  connect(_sender, &MessageSender::outgoingSaved, this, [this](int threadId) {
+    _drafts.remove(threadId);
+    _dirtyDrafts.remove(threadId);
+    if (_chat_data && _chat_data->GetThreadId() == threadId) {
+      _restoringDraft = true;
+      ui->chatEdit->clear();
+      _restoringDraft = false;
+    }
+  });
+  connect(_sender, &MessageSender::messagesChanged, this, [this](int threadId, bool bottom) {
+    if (_chat_data && _chat_data->GetThreadId() == threadId) {
+      SetChatData(_chat_data);
+      if (bottom)
+        ui->chat_data_list->scrollToBottom();
+    }
+    emit sig_messages_changed(threadId);
+  });
+  connect(_sender, &MessageSender::messageStatusChanged, this,
+          [this](int threadId, const QString &id, int status) {
+            if (_chat_data && _chat_data->GetThreadId() == threadId)
+              UpdateChatStatus(id, status);
+          });
+  connect(_sender, &MessageSender::status, this, [this](int threadId, const QString &message) {
+    if (_chat_data && _chat_data->GetThreadId() == threadId)
+      ShowStatus(message);
+  });
+  auto *emojiPicker = new EmojiPicker(this);
+  auto *emojiButton = ui->emo_btn;
+  const QPointer<MessageTextEdit> messageEdit(ui->chatEdit);
+  emojiButton->setCheckable(true);
+  connect(emojiPicker, &EmojiPicker::visibilityChanged, emojiButton,
+          [emojiButton, messageEdit](bool visible) {
+            emojiButton->setChecked(visible);
+            if (!visible && messageEdit && messageEdit->isVisible() && messageEdit->isEnabled())
+              messageEdit->setFocus(Qt::PopupFocusReason);
+          });
+  connect(emojiPicker, &EmojiPicker::emojiSelected, this, [this](const QString &id) {
+    if (!ui->chatEdit->isEnabled())
+      return;
+    ui->chatEdit->setFocus();
+    ui->chatEdit->insertEmoji(id);
+  });
+  connect(ui->emo_btn, &QPushButton::clicked, this, [this, emojiPicker] {
+    if (ui->chatEdit->isEnabled())
+      emojiPicker->PopupAt(ui->emo_btn, UserMgr::GetInstance()->GetUid());
+  });
   Reset();
 }
-ChatPage::~ChatPage() { delete ui; }
+ChatPage::~ChatPage()
+{
+  SaveCurrentDraft();
+  // 截屏控制器的回调依赖 ui，先释放控制器，再释放页面控件。
+  delete _screenCapture.data();
+  delete ui;
+}
+
+void ChatPage::StartScreenCapture()
+{
+  if (_screenCapture || !ui->chatEdit->isEnabled())
+    return;
+  if (!_chat_data || !TcpMgr::GetInstance()->IsConnected()) {
+    ShowStatus(tr("请先选择会话并连接聊天服务器"));
+    return;
+  }
+  if (!UserMgr::GetInstance()->CheckFriendById(_chat_data->GetOtherId())) {
+    ShowStatus(errorCodeMessage(FriendNotFound));
+    return;
+  }
+  const auto conversation = _chat_data;
+  auto *capture = new ScreenCapture(window(), this);
+  _screenCapture = capture;
+  ui->screenshot_btn->setEnabled(false);
+  ShowStatus({});
+  connect(capture, &ScreenCapture::captured, this, [this, conversation](const QImage &image) {
+    // 截屏期间网络和会话仍能变化，不向另一段会话插入图片。
+    if (_sender->SavingMessages() || _chat_data != conversation ||
+        !TcpMgr::GetInstance()->IsConnected() ||
+        !UserMgr::GetInstance()->CheckFriendById(conversation->GetOtherId())) {
+      ShowStatus(tr("会话已变化，请重新选择会话后截屏"));
+      return;
+    }
+    ui->chatEdit->insertImage(image);
+    ui->chatEdit->setFocus();
+  });
+  connect(capture, &ScreenCapture::failed, this, &ChatPage::ShowStatus);
+  connect(capture, &ScreenCapture::finished, this, [this, capture] {
+    _screenCapture = nullptr;
+    ui->screenshot_btn->setEnabled(bool(_chat_data));
+    capture->deleteLater();
+  });
+  capture->start();
+}
+
+void ChatPage::OpenHistory()
+{
+  if (!_chat_data)
+    return;
+  ui->chat_settings_panel->Close(false);
+  if (!_historyDialog)
+    _historyDialog = new ChatHistoryDialog(this);
+  _historyDialog->SetConversation(_chat_data->GetThreadId(), ui->title_label->text());
+  if (_historyDialog->isMinimized())
+    _historyDialog->showNormal();
+  else
+    _historyDialog->show();
+  _historyDialog->raise();
+  _historyDialog->activateWindow();
+}
 
 void ChatPage::Reset()
 {
+  AttachmentPreparer::instance()->FinishPending();
+  SaveCurrentDraft();
+  for (int threadId : _dirtyDrafts.values())
+    PersistDraft(threadId);
+  _sender->Reset();
+  _loadingDrafts.clear();
+  if (_historyDialog)
+    _historyDialog->Reset();
+  ui->chat_history_btn->setEnabled(false);
+  ui->chat_settings_panel->Close(false);
+  ui->chat_settings_panel->SetPinned(false);
+  ui->chat_more_btn->setEnabled(false);
+  if (_screenCapture)
+    _screenCapture->cancel();
   _chat_data.reset();
   _pendingItems.clear();
+  _renderedItems.clear();
+  _renderedMessages.clear();
+  _auxiliaryRows.clear();
   _drafts.clear();
+  _dirtyDrafts.clear();
   ui->chat_data_list->removeAllItem();
   ui->chatEdit->clear();
   ui->chatEdit->setEnabled(false);
   ui->send_btn->setEnabled(false);
+  ui->screenshot_btn->setEnabled(false);
   ui->title_label->setText(tr("选择好友开始聊天"));
   ShowStatus({});
 }
 
 void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
 {
-  if (!data) { Reset(); return; }
+  if (!data) {
+    Reset();
+    return;
+  }
   const bool changed = !_chat_data || _chat_data->GetThreadId() != data->GetThreadId();
-  if (changed && _chat_data) _drafts.insert(_chat_data->GetThreadId(), ui->chatEdit->toPlainText());
+  if (changed) {
+    if (_historyDialog)
+      _historyDialog->reject();
+    ui->chat_settings_panel->Close(false);
+    ui->chat_settings_panel->SetPinned(false);
+  }
+  if (changed && _screenCapture)
+    _screenCapture->cancel();
+  if (changed)
+    SaveCurrentDraft();
   _chat_data = data;
-  if (changed) ui->chatEdit->setPlainText(_drafts.value(data->GetThreadId()));
+  if (changed) {
+    _restoringDraft = true;
+    ui->chatEdit->setMessages(_drafts.value(data->GetThreadId()));
+    _restoringDraft = false;
+    if (!_drafts.contains(data->GetThreadId()) && !_loadingDrafts.contains(data->GetThreadId())) {
+      _loadingDrafts.insert(data->GetThreadId());
+      const QPointer<ChatPage> guard(this);
+      ChatStore::instance()->LoadDraft(
+          data->GetThreadId(), [guard, data](const ChatStoreResult &result) {
+            if (!guard)
+              return;
+            guard->_loadingDrafts.remove(data->GetThreadId());
+            if (result.error.isEmpty() && !guard->_drafts.contains(data->GetThreadId()))
+              guard->_drafts.insert(data->GetThreadId(), result.draft);
+            if (guard->_chat_data == data) {
+              guard->_restoringDraft = true;
+              guard->ui->chatEdit->setMessages(guard->_drafts.value(data->GetThreadId()));
+              guard->_restoringDraft = false;
+              guard->ui->chatEdit->setEnabled(!guard->_sender->SavingMessages());
+              guard->UpdateSendButton();
+            }
+          });
+    }
+  }
   const auto user = UserMgr::GetInstance()->GetFriendById(data->GetOtherId());
+  ui->chat_settings_panel->SetUser(user);
+  ui->chat_more_btn->setEnabled(true);
+  ui->chat_history_btn->setEnabled(true);
   ui->title_label->setText(user ? (user->_back.isEmpty() ? user->_name : user->_back)
-                           : tr("用户 %1").arg(data->GetOtherId()));
-  ui->chatEdit->setEnabled(true);
-  ui->send_btn->setEnabled(true);
-  _pendingItems.clear();
-  ui->chat_data_list->removeAllItem();
-  for (const auto &message : data->GetMsgMapRef()) AppendChatMsg(message);
-  for (const auto &message : data->GetPendingMessages()) AppendChatMsg(message);
+                                : tr("用户 %1").arg(data->GetOtherId()));
+  ui->chatEdit->setEnabled(!_sender->SavingMessages() &&
+                           !_loadingDrafts.contains(data->GetThreadId()));
+  ui->screenshot_btn->setEnabled(!_screenCapture);
+  UpdateSendButton();
+  RenderMessages(changed);
 }
 
-void ChatPage::AppendChatMsg(std::shared_ptr<ChatDataBase> message)
+void ChatPage::RenderMessages(bool changed)
 {
-  if (!message || message->GetMsgType() != ChatMsgType::TEXT) return;
+  ui->chat_data_list->beginUpdate(changed);
+  if (changed) {
+    _renderedItems.clear();
+    _renderedMessages.clear();
+    _auxiliaryRows.clear();
+    ui->chat_data_list->removeAllItem();
+  }
+  QHash<QString, ChatItemBase *> nextItems;
+  QHash<QString, std::shared_ptr<ChatDataBase>> nextMessages;
+  QHash<QString, QWidget *> nextAuxiliary;
+  QList<QWidget *> rows;
+  _pendingItems.clear();
+  if (_chat_data->GetMsgMapRef().size() >= 50) {
+    const auto key = QStringLiteral("older_records");
+    auto *older = _auxiliaryRows.value(key);
+    if (!older) {
+      auto *button = new QPushButton(tr("查看更早的聊天记录"));
+      button->setProperty("chat_scroll_key", key);
+      connect(button, &QPushButton::clicked, this, &ChatPage::OpenHistory);
+      older = button;
+    }
+    nextAuxiliary.insert(key, older);
+    rows.append(older);
+  }
+  QDateTime previousTime;
+  const auto append = [&](const std::shared_ptr<ChatDataBase> &message) {
+    if (!message ||
+        (message->GetMsgType() != ChatMsgType::TEXT && message->GetMsgType() != ChatMsgType::PIC))
+      return;
+    const auto key = messageScrollKey(message);
+    if (nextItems.contains(key))
+      return;
+    const auto time = parseChatTime(message->GetChatTime());
+    if (time.isValid()) {
+      if (!previousTime.isValid() || qAbs(previousTime.secsTo(time)) >= 300) {
+        const auto timeKey = QStringLiteral("time:") + key;
+        auto *label = qobject_cast<QLabel *>(_auxiliaryRows.value(timeKey));
+        if (!label) {
+          label = new QLabel;
+          label->setObjectName("chat_time_separator");
+          label->setProperty("chat_scroll_key", timeKey);
+          label->setAlignment(Qt::AlignCenter);
+          label->setMinimumHeight(30);
+        }
+        const auto text = displayChatTime(time);
+        if (label->text() != text)
+          label->setText(text);
+        nextAuxiliary.insert(timeKey, label);
+        rows.append(label);
+      }
+      previousTime = time;
+    }
+    auto *item = _renderedItems.value(key);
+    // 保存正文快照，不能用旧 shared_ptr 比较：发送确认可能原地修改消息对象。
+    if (!item || item->property("message_content").toString() != message->GetContent() ||
+        item->property("message_type").toInt() != static_cast<int>(message->GetMsgType()) ||
+        item->property("message_sender").toInt() != message->GetSendUid())
+      item = CreateChatItem(message);
+    item->setStatus(message->GetMsgId() == 0 && message->GetStatus() != SEND_FAILED
+                        ? -1
+                        : message->GetStatus());
+    if (message->GetMsgId() == 0)
+      _pendingItems.insert(message->GetUniqueId(), item);
+    nextItems.insert(key, item);
+    nextMessages.insert(key, message);
+    rows.append(item);
+  };
+  for (const auto &message : _chat_data->GetMsgMapRef())
+    append(message);
+  for (const auto &message : _chat_data->GetPendingMessages())
+    append(message);
+  _renderedItems = std::move(nextItems);
+  _renderedMessages = std::move(nextMessages);
+  _auxiliaryRows = std::move(nextAuxiliary);
+  ui->chat_data_list->setChatItems(rows);
+  ui->chat_data_list->endUpdate();
+}
+
+void ChatPage::RemoveChatThread(int threadId)
+{
+  _drafts.remove(threadId);
+  _dirtyDrafts.remove(threadId);
+  _sender->RemoveThread(threadId);
+  if (!_chat_data || _chat_data->GetThreadId() != threadId)
+    return;
+  if (_historyDialog)
+    _historyDialog->Reset();
+  ui->chat_history_btn->setEnabled(false);
+  ui->chat_settings_panel->Close(false);
+  ui->chat_more_btn->setEnabled(false);
+  if (_screenCapture)
+    _screenCapture->cancel();
+  _chat_data.reset();
+  _pendingItems.clear();
+  _renderedItems.clear();
+  _renderedMessages.clear();
+  _auxiliaryRows.clear();
+  ui->chat_data_list->removeAllItem();
+  ui->chatEdit->clear();
+  ui->chatEdit->setEnabled(false);
+  ui->send_btn->setEnabled(false);
+  ui->screenshot_btn->setEnabled(false);
+  ui->title_label->setText(tr("选择好友开始聊天"));
+}
+
+ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &message)
+{
   const auto mgr = UserMgr::GetInstance();
   const bool self = message->GetSendUid() == mgr->GetUid();
   const auto user = self ? mgr->GetUserInfo() : mgr->GetFriendById(message->GetSendUid());
   const auto role = self ? ChatRole::Self : ChatRole::Other;
   auto *item = new ChatItemBase(role);
-  item->setUserName(user ? user->_name : tr("用户 %1").arg(message->GetSendUid()));
+  const QString scrollKey = messageScrollKey(message);
+  item->setProperty("chat_scroll_key", scrollKey);
+  item->setProperty("message_content", message->GetContent());
+  item->setProperty("message_type", static_cast<int>(message->GetMsgType()));
+  item->setProperty("message_sender", message->GetSendUid());
+  // 当前只有一对一会话，微信式私聊气泡不重复显示发送者姓名。
+  item->setUserName(QString());
   const int senderUid = message->GetSendUid();
   const QString fallback = user ? user->_icon : QString();
   QPixmap icon = mgr->AvatarPixmap(senderUid, fallback);
   item->setUserIcon(icon);
   connect(mgr.get(), &UserMgr::sig_avatar_ready, item, [mgr, item, senderUid, fallback](int uid) {
-    if (uid == senderUid) item->setUserIcon(mgr->AvatarPixmap(uid, fallback));
+    if (uid == senderUid)
+      item->setUserIcon(mgr->AvatarPixmap(uid, fallback));
   });
-  item->setWidget(new TextBubble(role, message->GetContent()));
+  QPointer<PictureBubble> pictureBubble;
+  if (message->GetMsgType() == ChatMsgType::PIC) {
+    const auto fileId = message->GetContent();
+    auto *bubble = new PictureBubble(role);
+    pictureBubble = bubble;
+    item->setWidget(bubble);
+    bubble->loadImage(fileId);
+  } else
+    item->setWidget(new TextBubble(role, message->GetContent()));
   const bool pending = message->GetMsgId() == 0;
   item->setStatus(pending && message->GetStatus() != SEND_FAILED ? -1 : message->GetStatus());
-  if (pending) _pendingItems.insert(message->GetUniqueId(), item);
-  ui->chat_data_list->appendChatItem(item);
+  if (pending)
+    _pendingItems.insert(message->GetUniqueId(), item);
+  const auto data = _chat_data;
+  connect(item, &ChatItemBase::messageContextMenuRequested, this,
+          [this, item, scrollKey, data, pictureBubble](const QPoint &position) {
+            // 复用控件后必须读取最新消息，避免重试仍使用发送确认前的旧对象。
+            const auto message = _renderedMessages.value(scrollKey);
+            if (!message || _renderedItems.value(scrollKey) != item)
+              return;
+            auto *menu = new MessageMenu(item);
+            const bool imageMessage = message->GetMsgType() == ChatMsgType::PIC;
+            connect(menu, &MessageMenu::copyRequested, this,
+                    [message, imageMessage, pictureBubble] {
+                      if (imageMessage && pictureBubble)
+                        pictureBubble->copyOriginal();
+                      else if (!imageMessage)
+                        QGuiApplication::clipboard()->setText(message->GetContent());
+                    });
+            connect(menu, &MessageMenu::placeholderRequested, this,
+                    [this](const QString &title) { ShowStatus(tr("%1功能暂未实现").arg(title)); });
+            connect(menu, &MessageMenu::retryRequested, this, [this, message, data] {
+              _sender->RetryMessage(std::static_pointer_cast<TextChatData>(message), data);
+            });
+            const bool showRetry =
+                data && message->GetMsgId() == 0 && message->GetStatus() == SEND_FAILED;
+            const bool canRetry = _sender->CanRetry();
+            menu->Popup(position, !imageMessage || (pictureBubble && pictureBubble->hasImage()),
+                        showRetry, canRetry);
+          });
+  return item;
 }
 
 void ChatPage::UpdateChatStatus(const QString &uniqueId, int status)
 {
-  if (auto *item = _pendingItems.value(uniqueId)) item->setStatus(status);
-  if (status != SEND_FAILED) _pendingItems.remove(uniqueId);
+  if (auto *item = _pendingItems.value(uniqueId))
+    item->setStatus(status);
+  if (status >= 0 && status != SEND_FAILED)
+    _pendingItems.remove(uniqueId);
 }
 void ChatPage::ShowStatus(const QString &message)
-{ _statusLabel->setText(message); _statusLabel->setVisible(!message.isEmpty()); }
+{
+  ui->chat_status->setText(message);
+  ui->chat_status->setVisible(!message.isEmpty());
+}
+
+void ChatPage::SaveCurrentDraft()
+{
+  if (_draftTimer)
+    _draftTimer->stop();
+  if (!_chat_data || _restoringDraft || _sender->SavingMessages() ||
+      _loadingDrafts.contains(_chat_data->GetThreadId()) ||
+      !_dirtyDrafts.contains(_chat_data->GetThreadId()))
+    return;
+  const auto draft = ui->chatEdit->messages();
+  _drafts.insert(_chat_data->GetThreadId(), draft);
+  PersistDraft(_chat_data->GetThreadId());
+}
+
+void ChatPage::PersistDraft(int threadId)
+{
+  if (!ChatStore::instance()->IsReady())
+    return;
+  auto draft = _drafts.value(threadId);
+  for (auto &part : draft) {
+    if (!part.preparation)
+      continue;
+    if (!part.preparation->ready)
+      return;
+    part.imageData = part.preparation->bytes;
+    part.preparation.reset();
+  }
+  // 处理失败的图片不写成空图片草稿；其余文字和成功图片照常保留。
+  draft.erase(std::remove_if(draft.begin(), draft.end(),
+                             [](const MsgInfo &part) {
+                               return part.msgFlag == "image" && part.imageData.isEmpty();
+                             }),
+              draft.end());
+  _dirtyDrafts.remove(threadId);
+  ChatStore::instance()->SaveDraft(threadId, draft);
+}
+
+void ChatPage::UpdateSendButton()
+{
+  ui->send_btn->setEnabled(_chat_data && ui->chatEdit->isEnabled() && !_sender->SavingMessages() &&
+                           !ui->chatEdit->toPlainText().trimmed().isEmpty() &&
+                           ui->chatEdit->attachmentsReady());
+}
 
 void ChatPage::on_send_btn_clicked()
 {
-  if (!_chat_data) return;
-  const auto tcp = TcpMgr::GetInstance();
-  if (!tcp->IsConnected()) { ShowStatus(tr("连接已断开，请重新登录")); return; }
-  const QString text = ui->chatEdit->toPlainText();
-  if (text.trimmed().isEmpty()) return;
-  if (text.contains(QChar::ObjectReplacementCharacter)) {
-    ShowStatus(tr("当前只能发送文本，请先移除输入框中的图片或文件预览"));
+  if (!_chat_data || _sender->SavingMessages() || !ui->chatEdit->isEnabled())
+    return;
+  if (!ui->chatEdit->attachmentsReady()) {
+    ShowStatus(tr("请等待图片处理完成，或删除处理失败的图片"));
     return;
   }
+  SaveCurrentDraft();
+  _sender->Send(ui->chatEdit->messages(), _chat_data);
+}
 
-  // 每个 JSON 包都控制在服务端 2048 字节上限内，按 Unicode 码点分割，避免拆开代理对。
-  QStringList parts;
-  QString part;
-  const QString sampleId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-  const int sender = UserMgr::GetInstance()->GetUid();
-  const int receiver = _chat_data->GetOtherId();
-  const int thread = _chat_data->GetThreadId();
-  for (int i = 0; i < text.size(); ++i) {
-    QString symbol(text[i]);
-    if (text[i].isHighSurrogate() && i + 1 < text.size() && text[i + 1].isLowSurrogate()) symbol += text[++i];
-    const QString candidate = part + symbol;
-    if (!part.isEmpty() && (escapedJsonSize(candidate) > 600
-        || textPacket(candidate, sampleId, sender, receiver, thread).size() > 1800)) {
-      parts.append(part);
-      part.clear();
-    }
-    part += symbol;
-  }
-  if (!part.isEmpty()) parts.append(part);
-  ui->chatEdit->clear();
-  _drafts.remove(thread);
-  ShowStatus({});
-  const auto data = _chat_data;
-  for (const auto &content : parts) {
-    const auto id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    const auto message = std::make_shared<TextChatData>(id, thread, ChatFormType::PRIVATE,
-        ChatMsgType::TEXT, content, sender, UN_READ);
-    data->AppendUnRspMsg(id, message);
-    AppendChatMsg(message);
-    emit tcp->sig_send_data(ID_TEXT_CHAT_MSG_REQ, textPacket(content, id, sender, receiver, thread));
-    // 回包按 unique_id 将待确认消息移入正式记录，计时器仅标记仍未确认的消息。
-    QTimer::singleShot(15000, this, [this, data, message, id] {
-      if (!data->GetMsgUnRspRef().contains(id)) return;
-      message->SetStatus(SEND_FAILED);
-      if (_chat_data == data) {
-        UpdateChatStatus(id, SEND_FAILED);
-        ShowStatus(tr("部分消息未收到确认，请检查连接；服务端晚到的确认仍会更新状态"));
-      }
-    });
-  }
-  emit sig_messages_changed(thread);
+void ChatPage::SetThreadPinned(int threadId, bool pinned)
+{
+  if (_chat_data && _chat_data->GetThreadId() == threadId)
+    ui->chat_settings_panel->SetPinned(pinned);
+}
+
+void ChatPage::UpdateSettingsRect()
+{
+  const int top = ui->title_wid->mapTo(this, QPoint(0, ui->title_wid->height())).y();
+  ui->chat_settings_panel->SetAvailableRect(QRect(0, top, width(), qMax(0, height() - top)));
+}
+
+void ChatPage::resizeEvent(QResizeEvent *event)
+{
+  QWidget::resizeEvent(event);
+  UpdateSettingsRect();
+}
+
+void ChatPage::showEvent(QShowEvent *event)
+{
+  QWidget::showEvent(event);
+  UpdateSettingsRect();
+}
+
+void ChatPage::hideEvent(QHideEvent *event)
+{
+  ui->chat_settings_panel->Close(false);
+  QWidget::hideEvent(event);
 }
 
 void ChatPage::paintEvent(QPaintEvent *)

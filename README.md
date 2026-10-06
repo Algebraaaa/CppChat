@@ -12,14 +12,29 @@ B站恋恋风辰大佬的C++全栈即时通讯项目，我在辰哥的基础上�
 | `GateServer/` | HTTP 接入、注册登录、MySQL/Redis 访问、gRPC 客户端 |
 | `VerifyServer/` | Node.js 验证码和邮件服务 |
 | `StatusServer/` | 聊天节点分配与 Token 校验 |
-| `ChatServer/` | TCP 会话、消息组帧、发送队列和登录处理 |
-| `ChatServer2/` | 第二个聊天服务实例源码，用于多节点通信与分配场景 |
+| `ChatServer/` | 第一个聊天节点入口、配置示例及 SQL 迁移 |
+| `ChatServer2/` | 第二个独立聊天节点入口、配置示例及 SQL 迁移 |
+| `ChatServerShared/` | 两个节点共用的 TCP、会话、好友/消息业务、DAO、连接池与生命周期实现 |
 
 头像来源说明见 [AVATAR_SOURCES.md](CppChat/Resources/AVATAR_SOURCES.md)
 
 ## 配置
 
 此仓库只有源代码，没有各种工程文件，需要自行配置工程、安装依赖，并根据相应工具版本重新编译，配置文件里面买的CHANGE_ME需要更换你本机的密码等参数，示例中的密码、授权码和账号均为占位值。
+
+## 2026-10-06 更新
+
+同步客户端页面、聊天本地存储、图文发送/历史同步流程服务与服务端架构整理。两个聊天节点仍分别构建、部署和维护自己的配置/会话，公共源码只保留一份；登录和心跳归入会话服务，SQL 按用户、好友、消息领域归组，资源服务分离文件业务与网络入口。聊天请求关联契约见 [协议说明](CppChat/docs/protocol-contract.md)。
+
+本仓库沿用源码/资源发布规则，不上传 qmake、VS、CMake 或 npm 工程清单，不包含实际配置、凭证、运行数据、编译产物及自动测试脚本。客户端 `third_party/spdlog` 是业务源码依赖的 vendored 头文件与许可证，不包含编译好的库。此前 Debug/Release 编译与隔离测试结果是历史记录，不等于真实数据库和双客户端跨节点联调已验收。
+
+自行建立工程时：
+
+- 两个聊天节点各使用自己的 `ChatServer.cpp`，分别编译 `ChatServerShared` 中的公共实现并加入其头文件搜索路径；不要把两个入口编进同一程序。
+- GateServer 需将 `ChatServerShared/BusinessExecutor.cpp` 加入自己的工程，并加入公共头文件搜索路径。
+- StatusServer 复用公共 `ServicePolicy.h`，不编入聊天节点入口。
+- ResourceServer 源码位于 `CppChat/resource_server`，需加入该目录源码及公共 `BusinessExecutor.cpp`；Qt 客户端不编入资源服务入口。
+- Qt 客户端需登记 `app/common/dialogs/network/services/widgets` 源码、Designer `.ui` 和 `rc.qrc`，其源码包含独立的 SQLite 工作线程。运行配置使用各目录的安全示例自行创建。
 
 还需要自己搭环境：C++ boost库、grpc、mysql、redis等，MSVC建议使用vcpkg让codex给你配
 

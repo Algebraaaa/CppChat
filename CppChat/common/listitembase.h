@@ -3,7 +3,8 @@
 #include "global.h"
 #include <QWidget>
 
-class ListItemBase : public QWidget {
+class ListItemBase : public QWidget
+{
   Q_OBJECT
 public:
   explicit ListItemBase(QWidget *parent = nullptr);

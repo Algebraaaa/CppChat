@@ -1,0 +1,172 @@
+/* Contact list, search results and friend applications. */
+
+QDialog#ChatDialog #search_list {
+    background-color: ${color.surface.subtle};
+    border: none;
+}
+
+QDialog#ChatDialog #search_list::item:selected {
+    background-color: #e3e8e5;
+    border: none;
+    outline: none;
+}
+
+QDialog#ChatDialog #search_list::item:hover:!selected {
+    background-color: #eef0ef;
+    border: none;
+    outline: none;
+}
+
+QDialog#ChatDialog #search_list::item:selected:hover {
+    background-color: #dce4de;
+}
+
+QDialog#ChatDialog #search_list:focus {
+    border: none;
+    outline: none;
+}
+
+QDialog#ChatDialog #search_list QLabel#search_empty_tip {
+    color: ${color.text.muted};
+    background-color: transparent;
+    font-size: ${font.size.label};
+}
+
+/* Address book: full-width sections and delegate-painted contact rows. */
+QDialog#ChatDialog #contact_manage_btn {
+    background: #fafafa;
+    border: none;
+    border-radius: ${radius.avatar};
+    color: ${color.text.primary};
+    font-size: ${font.size.message};
+}
+
+QDialog#ChatDialog #contact_manage_btn:hover {
+    background: ${color.surface};
+}
+
+QDialog#ChatDialog #contact_manage_btn:pressed {
+    background: #e1e2e4;
+}
+
+QDialog#ChatDialog #con_user_list {
+    background: #ededee;
+    border: none;
+    padding: 10px 0 0 0;
+    color: ${color.text.primary};
+    font-size: ${font.size.message};
+    selection-color: ${color.surface};
+    selection-background-color: ${color.list.selected};
+    qproperty-secondaryColor: ${color.text.muted};
+    qproperty-dividerColor: #e0e0e4;
+    qproperty-applicationSelectionColor: #e1e1e5;
+}
+
+QDialog#ChatDialog #con_user_list::item {
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    padding: 0;
+}
+
+QDialog#ChatDialog #con_user_list::item:hover:!selected {
+    background: #e1e1e5;
+}
+
+QDialog#ChatDialog #con_user_list::item:selected {
+    background: ${color.list.selected};
+    color: ${color.surface};
+}
+
+QDialog#ChatDialog #con_user_list::item:selected:hover {
+    background: ${color.list.selected.hover};
+}
+
+QDialog#ChatDialog #con_user_list:focus {
+    border: none;
+    outline: none;
+}
+
+QDialog#ChatDialog #contact_placeholder_page {
+    background: #fafafa;
+}
+
+QDialog#ChatDialog #contact_placeholder_page QLabel {
+    background: transparent;
+}
+
+QDialog#ChatDialog #contact_placeholder_page #placeholder_title {
+    color: ${color.text.primary};
+    font-size: ${font.size.section};
+}
+
+QDialog#ChatDialog #contact_placeholder_page #placeholder_description {
+    color: ${color.text.muted};
+    font-size: ${font.size.base};
+}
+
+QDialog#ChatDialog #friend_apply_page #friend_apply_lb {
+    font-size: ${font.size.section};
+    font-weight: ${font.weight.normal};
+}
+
+QDialog#ChatDialog #friend_apply_page #apply_hint {
+    color: ${color.text.muted};
+    font-size: ${font.size.base};
+    padding: 24px;
+}
+
+QDialog#ChatDialog #friend_apply_page #friend_apply_wid {
+    background-color: #f1f2f3;
+    border-bottom: 1px solid #ede9e7;
+}
+
+QDialog#ChatDialog #friend_apply_page #apply_friend_list {
+    background-color: #f1f2f3;
+    border-left: 1px solid #ede9e7;
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+}
+
+ApplyFriendItem#ApplyFriendItem {
+    background-color: #f1f2f3;
+    border-bottom: 2px solid #dbd9d9;
+}
+
+ApplyFriendItem#ApplyFriendItem #user_chat_lb {
+    color: #a2a2a2;
+    font-size: ${font.size.base};
+}
+
+ApplyFriendItem#ApplyFriendItem #addBtn[state='normal'] {
+    background-color: #d3d7d4;
+    color: #2cb46e;
+    font-size: ${font.size.subheading};
+    border-radius: ${radius.pill};
+}
+
+ApplyFriendItem#ApplyFriendItem #addBtn[state='hover'] {
+    background-color: #D3D3D3;
+    color: #2cb46e;
+    font-size: ${font.size.subheading};
+    border-radius: ${radius.pill};
+}
+
+ApplyFriendItem#ApplyFriendItem #addBtn[state='press'] {
+    background-color: #BEBEBE;
+    color: #2cb46e;
+    font-size: ${font.size.subheading};
+    border-radius: ${radius.pill};
+}
+
+ApplyFriendItem#ApplyFriendItem #already_add_lb {
+    color: rgb(153,153,153);
+    font-size: ${font.size.small};
+}
+
+ApplyFriendItem#ApplyFriendItem #user_name_lb {
+    color: rgb(0,0,0);
+    font-size: ${font.size.subheading};
+    font-weight: ${font.weight.normal};
+}

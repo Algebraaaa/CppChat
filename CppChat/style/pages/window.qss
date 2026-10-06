@@ -1,0 +1,64 @@
+/* MainWindow：外边距露出的 1px 边线和系统外框共用 color.border.window。
+   系统外框/标题栏颜色由 ThemeManager 的 WindowFrameFilter 统一应用。 */
+
+QMainWindow#MainWindow {
+    background-color: ${color.border.window};
+    border: none;
+}
+
+QMainWindow#MainWindow #centralwidget {
+    background-color: ${color.border.window};
+}
+
+QMainWindow#MainWindow #content_host {
+    background-color: #f3f3f3;
+}
+
+QMainWindow#MainWindow #title_bar {
+    background-color: ${color.surface.subtle};
+    border: none;
+    border-bottom: 1px solid ${color.surface.pressed};
+}
+
+QMainWindow#MainWindow #title_bar #title_label {
+    color: #303133;
+    font-size: ${font.size.label};
+}
+
+QMainWindow#MainWindow #title_bar QPushButton {
+    color: #404040;
+    background-color: transparent;
+    border: none;
+    border-radius: ${radius.square};
+    font-size: ${font.size.subheading};
+}
+
+QMainWindow#MainWindow #pin_btn:hover,
+QMainWindow#MainWindow #minimize_btn:hover,
+QMainWindow#MainWindow #maximize_btn:hover {
+    background-color: #e5e5e5;
+}
+
+QMainWindow#MainWindow #pin_btn:pressed,
+QMainWindow#MainWindow #minimize_btn:pressed,
+QMainWindow#MainWindow #maximize_btn:pressed {
+    background-color: #d6d6d6;
+}
+
+QMainWindow#MainWindow #close_btn:hover {
+    color: white;
+    background-color: #e81123;
+}
+
+QMainWindow#MainWindow #pin_btn:checked {
+    background-color: #dff3e7;
+}
+
+QMainWindow#MainWindow #pin_btn:checked:hover {
+    background-color: #cfebdb;
+}
+
+QMainWindow#MainWindow #close_btn:pressed {
+    color: white;
+    background-color: #c50f1f;
+}

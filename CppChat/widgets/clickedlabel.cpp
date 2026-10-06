@@ -11,13 +11,11 @@ ClickedLabel::ClickedLabel(QWidget *parent) : QLabel(parent)
 // 处理鼠标按下事件。
 void ClickedLabel::mousePressEvent(QMouseEvent *event)
 {
-  // 只响应鼠标左键
+  // 响应鼠标左键
   if (event->button() == Qt::LeftButton) {
     // 记住左键是从当前控件开始按下的
     _left_button_pressed = true;
-    // 如果配置了 press 就显示按下样式；否则沿用 hover 样式
     applyState(_press.isEmpty() ? _hover : _press);
-    // 通知外部：鼠标左键已经按下。
     emit pressed();
   }
   QLabel::mousePressEvent(event);
