@@ -410,16 +410,7 @@ int MysqlDao::UpdateProfile(int uid, const std::string &name, const std::string 
   if (!connection.Get())
     return ErrorCodes::DatabaseError;
   try {
-    if (has_avatar) {
-      // A separate table keeps the binary image out of login and friend-list
-      // packets.
-      std::unique_ptr<sql::Statement> schema(connection.Get()->createStatement());
-      schema->execute("CREATE TABLE IF NOT EXISTS user_avatars ("
-                      "uid INT UNSIGNED NOT NULL PRIMARY KEY, "
-                      "image MEDIUMBLOB NOT NULL, "
-                      "FOREIGN KEY (uid) REFERENCES users(id) ON DELETE "
-                      "CASCADE) ENGINE=InnoDB");
-    }
+    // Schema setup owns user_avatars; profile writes require only data privileges.
     MySqlTransaction transaction(connection.Get());
     std::unique_ptr<sql::PreparedStatement> update(connection.Get()->prepareStatement(
         "UPDATE users SET username=?, nick=?, profile_description=? WHERE "
