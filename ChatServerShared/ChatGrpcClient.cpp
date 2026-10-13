@@ -4,7 +4,8 @@
 #include <sstream>
 #include <vector>
 
-ChatGrpcClient::ChatGrpcClient() {
+ChatGrpcClient::ChatGrpcClient()
+{
   auto &config = ConfigMgr::GetInstance();
   std::stringstream sections(config["PeerServer"]["Servers"]);
   std::string section;
@@ -12,13 +13,13 @@ ChatGrpcClient::ChatGrpcClient() {
     const auto name = config[section]["Name"];
     if (name.empty())
       continue;
-    chat_stub_pools_[name] = std::make_unique<ChatStubPool>(
-        5, config[section]["Host"], config[section]["Port"]);
+    chat_stub_pools_[name] =
+        std::make_unique<ChatStubPool>(5, config[section]["Host"], config[section]["Port"]);
   }
 }
 
-AddFriendRsp ChatGrpcClient::NotifyAddFriend(std::string server_name,
-                                             const AddFriendReq &request) {
+AddFriendRsp ChatGrpcClient::NotifyAddFriend(std::string server_name, const AddFriendReq &request)
+{
   AddFriendRsp reply;
   reply.set_error(ErrorCodes::RPCFailed);
   reply.set_applyuid(request.applyuid());
@@ -36,8 +37,7 @@ AddFriendRsp ChatGrpcClient::NotifyAddFriend(std::string server_name,
   }
   Defer return_stub([&pool, &stub]() { pool->ReturnStub(std::move(stub)); });
   ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() +
-                       std::chrono::seconds(3));
+  context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(3));
   const Status status = stub->NotifyAddFriend(&context, request, &reply);
   if (!status.ok()) {
     reply.set_error(ErrorCodes::RPCFailed);
@@ -48,7 +48,8 @@ AddFriendRsp ChatGrpcClient::NotifyAddFriend(std::string server_name,
 }
 
 AuthFriendRsp ChatGrpcClient::NotifyAuthFriend(std::string server_name,
-                                               const AuthFriendReq &request) {
+                                               const AuthFriendReq &request)
+{
   AuthFriendRsp reply;
   reply.set_error(ErrorCodes::RPCFailed);
   reply.set_fromuid(request.fromuid());
@@ -66,8 +67,7 @@ AuthFriendRsp ChatGrpcClient::NotifyAuthFriend(std::string server_name,
   }
   Defer return_stub([&pool, &stub]() { pool->ReturnStub(std::move(stub)); });
   ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() +
-                       std::chrono::seconds(3));
+  context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(3));
   const Status status = stub->NotifyAuthFriend(&context, request, &reply);
   if (!status.ok()) {
     reply.set_error(ErrorCodes::RPCFailed);
@@ -78,8 +78,8 @@ AuthFriendRsp ChatGrpcClient::NotifyAuthFriend(std::string server_name,
 }
 
 TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_name,
-                                                 const TextChatMsgReq &request,
-                                                 const Json::Value &) {
+                                                 const TextChatMsgReq &request, const Json::Value &)
+{
   TextChatMsgRsp reply;
   reply.set_error(ErrorCodes::RPCFailed);
   reply.set_fromuid(request.fromuid());
@@ -97,8 +97,7 @@ TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_name,
   }
   Defer return_stub([&pool, &stub]() { pool->ReturnStub(std::move(stub)); });
   ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() +
-                       std::chrono::seconds(3));
+  context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(3));
   const Status status = stub->NotifyTextChatMsg(&context, request, &reply);
   if (!status.ok()) {
     reply.set_error(ErrorCodes::RPCFailed);
@@ -109,7 +108,8 @@ TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_name,
 }
 
 KickUserRsp ChatGrpcClient::NotifyKickUser(const std::string &server_name,
-                                           const KickUserReq &request) {
+                                           const KickUserReq &request)
+{
   KickUserRsp reply;
   reply.set_error(ErrorCodes::RPCFailed);
 
@@ -126,8 +126,7 @@ KickUserRsp ChatGrpcClient::NotifyKickUser(const std::string &server_name,
   }
   Defer return_stub([&pool, &stub]() { pool->ReturnStub(std::move(stub)); });
   ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() +
-                       std::chrono::seconds(3));
+  context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(3));
   const Status status = stub->NotifyKickUser(&context, request, &reply);
   if (!status.ok()) {
     reply.set_error(ErrorCodes::RPCFailed);
@@ -137,9 +136,9 @@ KickUserRsp ChatGrpcClient::NotifyKickUser(const std::string &server_name,
   return reply;
 }
 
-message::DeleteFriendRsp
-ChatGrpcClient::NotifyDeleteFriend(const std::string &server_name,
-                                   const message::DeleteFriendReq &request) {
+message::DeleteFriendRsp ChatGrpcClient::NotifyDeleteFriend(const std::string &server_name,
+                                                            const message::DeleteFriendReq &request)
+{
   message::DeleteFriendRsp reply;
   reply.set_error(ErrorCodes::RPCFailed);
 
@@ -156,8 +155,7 @@ ChatGrpcClient::NotifyDeleteFriend(const std::string &server_name,
   }
   Defer return_stub([&pool, &stub]() { pool->ReturnStub(std::move(stub)); });
   ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() +
-                       std::chrono::seconds(3));
+  context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(3));
   const Status status = stub->NotifyDeleteFriend(&context, request, &reply);
   if (!status.ok()) {
     reply.set_error(ErrorCodes::RPCFailed);

@@ -1,7 +1,7 @@
 #include "LogicSystem.h"
-#include "SessionService.h"
-#include "RequestContract.h"
 #include "ContactTags.h"
+#include "RequestContract.h"
+#include "SessionService.h"
 
 #include <algorithm>
 #include <cctype>
@@ -106,14 +106,8 @@ LogicSystem::~LogicSystem()
   server_.reset();
 }
 
-void LogicSystem::Stop()
-{
-  executor_->Stop();
-}
-void LogicSystem::BeginStop()
-{
-  executor_->BeginStop();
-}
+void LogicSystem::Stop() { executor_->Stop(); }
+void LogicSystem::BeginStop() { executor_->BeginStop(); }
 
 void LogicSystem::ReportMetrics() const
 {

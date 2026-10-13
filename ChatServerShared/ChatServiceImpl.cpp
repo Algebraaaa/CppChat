@@ -9,9 +9,9 @@
 #include <json/value.h>
 ChatServiceImpl::ChatServiceImpl() {}
 
-Status ChatServiceImpl::NotifyAddFriend(ServerContext *context,
-                                        const AddFriendReq *request,
-                                        AddFriendRsp *reply) {
+Status ChatServiceImpl::NotifyAddFriend(ServerContext *context, const AddFriendReq *request,
+                                        AddFriendRsp *reply)
+{
   // 查找用户是否在本服务器
   auto touid = request->touid();
   auto session = UserMgr::GetInstance()->GetSession(touid);
@@ -40,9 +40,9 @@ Status ChatServiceImpl::NotifyAddFriend(ServerContext *context,
   return Status::OK;
 }
 
-Status ChatServiceImpl::NotifyAuthFriend(ServerContext *,
-                                         const AuthFriendReq *request,
-                                         AuthFriendRsp *reply) {
+Status ChatServiceImpl::NotifyAuthFriend(ServerContext *, const AuthFriendReq *request,
+                                         AuthFriendRsp *reply)
+{
   const int from = request->fromuid(), to = request->touid();
   reply->set_fromuid(from);
   reply->set_touid(to);
@@ -58,8 +58,8 @@ Status ChatServiceImpl::NotifyAuthFriend(ServerContext *,
 }
 
 Status ChatServiceImpl::NotifyTextChatMsg(::grpc::ServerContext *context,
-                                          const TextChatMsgReq *request,
-                                          TextChatMsgRsp *reply) {
+                                          const TextChatMsgReq *request, TextChatMsgRsp *reply)
+{
   auto touid = request->touid();
   auto session = UserMgr::GetInstance()->GetSession(touid);
   reply->set_error(ErrorCodes::Success);
@@ -97,9 +97,9 @@ Status ChatServiceImpl::NotifyTextChatMsg(::grpc::ServerContext *context,
   return Status::OK;
 }
 
-Status ChatServiceImpl::NotifyKickUser(::grpc::ServerContext *,
-                                       const KickUserReq *request,
-                                       KickUserRsp *response) {
+Status ChatServiceImpl::NotifyKickUser(::grpc::ServerContext *, const KickUserReq *request,
+                                       KickUserRsp *response)
+{
   response->set_error(ErrorCodes::Success);
   const int uid = request->uid();
   if (uid <= 0) {
@@ -113,10 +113,10 @@ Status ChatServiceImpl::NotifyKickUser(::grpc::ServerContext *,
   session->NotifyOffline(uid);
   return Status::OK;
 }
-Status
-ChatServiceImpl::NotifyDeleteFriend(::grpc::ServerContext *,
-                                    const message::DeleteFriendReq *request,
-                                    message::DeleteFriendRsp *response) {
+Status ChatServiceImpl::NotifyDeleteFriend(::grpc::ServerContext *,
+                                           const message::DeleteFriendReq *request,
+                                           message::DeleteFriendRsp *response)
+{
   const int uid = request->touid(), other = request->fromuid();
   response->set_error(ErrorCodes::Success);
   if (uid <= 0 || other <= 0 || uid == other) {

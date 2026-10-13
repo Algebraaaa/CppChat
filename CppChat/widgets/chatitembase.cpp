@@ -37,9 +37,10 @@ ChatItemBase::ChatItemBase(ChatRole role, QWidget *parent) : QWidget(parent), m_
   }
   m_pStatusLabel = new QLabel(this);
   m_pStatusLabel->setContextMenuPolicy(Qt::CustomContextMenu);
-  connect(m_pStatusLabel, &QWidget::customContextMenuRequested, this, [this](const QPoint &position) {
-    emit messageContextMenuRequested(m_pStatusLabel->mapToGlobal(position));
-  });
+  connect(m_pStatusLabel, &QWidget::customContextMenuRequested, this,
+          [this](const QPoint &position) {
+            emit messageContextMenuRequested(m_pStatusLabel->mapToGlobal(position));
+          });
   m_pStatusLabel->setObjectName("message_status");
   m_pStatusLabel->setAlignment(m_role == ChatRole::Self ? Qt::AlignRight : Qt::AlignLeft);
   pGLayout->addWidget(m_pStatusLabel, 2, 1);
@@ -77,8 +78,8 @@ void ChatItemBase::setStatus(int status)
 {
   if (m_role != ChatRole::Self)
     return;
-  const QString text = status < 0 ? tr("发送中")
-      : (status == SEND_FAILED ? tr("未确认 · 右键重试") : tr("已发送"));
+  const QString text =
+      status < 0 ? tr("发送中") : (status == SEND_FAILED ? tr("未确认 · 右键重试") : tr("已发送"));
   if (!m_pStatusLabel->isHidden() && m_pStatusLabel->text() == text &&
       m_pStatusLabel->property("failed").toBool() == (status == SEND_FAILED))
     return;

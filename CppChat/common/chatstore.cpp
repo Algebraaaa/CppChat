@@ -1,14 +1,15 @@
 #include "chatstore.h"
+#include "runtimepaths.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDate>
-#include <QDir>
 #include <QDebug>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QLockFile>
-#include <QSaveFile>
 #include <QRunnable>
+#include <QSaveFile>
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -28,12 +29,16 @@ const QString kDatabaseRelativePath = QStringLiteral("sql/db.sqlite");
 
 QString chatDataRoot(QString &error)
 {
+  if (!RuntimePaths::dataDirectory().isEmpty())
+    return RuntimePaths::dataDirectory();
   QDir directory(QCoreApplication::applicationDirPath());
   QString root = directory.filePath("chat_data");
   // 开发运行时定位项目根目录，让数据与 build 目录分开。
-  // 发布目录没有 .pro 文件时，使用 EXE 同级目录。
+  // 用客户端 CMake 入口及 main.cpp 区分客户端与上层服务端工程。
+  // 发布目录没有客户端源码时，使用 EXE 同级目录。
   do {
-    if (QFileInfo(directory.filePath("CppChat.pro")).isFile()) {
+    if (QFileInfo(directory.filePath("CMakeLists.txt")).isFile() &&
+        QFileInfo(directory.filePath("app/main.cpp")).isFile()) {
       root = directory.filePath("chat_data");
       break;
     }
@@ -154,8 +159,7 @@ void migrateLegacyAccount(const QStringList &legacyDirectories, const QString &d
   qInfo() << "Local chat account copied from:" << legacyDirectory << "to:" << directory;
 }
 
-class Transaction
-{
+class Transaction {
 public:
   explicit Transaction(QSqlDatabase &database) : _database(database)
   {
@@ -212,8 +216,8 @@ bool saveMessage(QSqlDatabase &database, const StoredMessage &message)
   if (message.serverId > 0 && message.serverId <= boundary.value(0).toInt()) {
     // 清空发生在回执到达之前时，仍须核销对应的本机待确认记录。
     QSqlQuery remove(database);
-    remove.prepare(
-        "DELETE FROM messages WHERE thread_id=? AND sender_uid=? AND unique_id=? AND server_id IS NULL");
+    remove.prepare("DELETE FROM messages WHERE thread_id=? AND sender_uid=? AND unique_id=? AND "
+                   "server_id IS NULL");
     remove.addBindValue(message.threadId);
     remove.addBindValue(message.senderUid);
     remove.addBindValue(message.uniqueId);
@@ -299,8 +303,7 @@ bool saveMessage(QSqlDatabase &database, const StoredMessage &message)
 }
 } // namespace
 
-struct ChatStore::Worker : QObject
-{
+struct ChatStore::Worker : QObject {
   QSqlDatabase database;
   void Close()
   {
@@ -311,10 +314,7 @@ struct ChatStore::Worker : QObject
     database = QSqlDatabase();
     QSqlDatabase::removeDatabase(name);
   }
-  ~Worker() override
-  {
-    Close();
-  }
+  ~Worker() override { Close(); }
 };
 
 StoredMessage StoredMessage::From(const std::shared_ptr<ChatDataBase> &message)
@@ -352,10 +352,7 @@ ChatStore::ChatStore(QObject *parent) : QObject(parent), _worker(new Worker)
   _thread.start();
 }
 
-ChatStore::~ChatStore()
-{
-  Shutdown();
-}
+ChatStore::~ChatStore() { Shutdown(); }
 
 void ChatStore::Shutdown()
 {
@@ -485,6 +482,8 @@ void ChatStore::OpenAccount(int uid, const QString &server, Callback callback)
                                                 accountPath};
   if (!legacyRoot.isEmpty())
     legacyDirectories.append(legacyRoot + accountPath);
+  if (!RuntimePaths::dataDirectory().isEmpty())
+    legacyDirectories = {_directory};
   const auto directory = _directory;
   const bool validServer = !server.trimmed().isEmpty();
   auto *worker = _worker;
@@ -493,10 +492,9 @@ void ChatStore::OpenAccount(int uid, const QString &server, Callback callback)
         worker->Close();
         checked(uid > 0 && validServer, "Invalid account or server namespace");
         checked(directoryError.isEmpty(), directoryError);
-        checked(
-            QSqlDatabase::isDriverAvailable("QSQLITE"),
-            QStringLiteral(
-                "未找到 SQLite 驱动，请检查客户端 sqldrivers 目录中的 qsqlite.dll（调试版可能为 qsqlited.dll）"));
+        checked(QSqlDatabase::isDriverAvailable("QSQLITE"),
+                QStringLiteral("未找到 SQLite 驱动，请检查客户端 sqldrivers 目录中的 "
+                               "qsqlite.dll（调试版可能为 qsqlited.dll）"));
         migrateLegacyAccount(legacyDirectories, directory);
         checked(QDir().mkpath(directory + "/sql") && QDir().mkpath(directory + "/attachments"),
                 QStringLiteral("无法创建本地聊天数据目录，请检查数据目录的写入权限：%1")
@@ -571,7 +569,8 @@ void ChatStore::SaveConversations(const QVector<StoredConversation> &conversatio
           query.prepare(
               "INSERT INTO conversations(thread_id,other_uid,last_server_id,last_time,summary) "
               "VALUES(?,?,?,?,?) ON CONFLICT(thread_id) DO UPDATE SET other_uid=excluded.other_uid,"
-              "last_time=CASE WHEN excluded.last_server_id>=last_server_id THEN excluded.last_time ELSE last_time END,"
+              "last_time=CASE WHEN excluded.last_server_id>=last_server_id THEN excluded.last_time "
+              "ELSE last_time END,"
               "last_server_id=MAX(last_server_id,excluded.last_server_id)");
           query.addBindValue(conversation.threadId);
           query.addBindValue(conversation.otherUid);
@@ -614,9 +613,9 @@ void ChatStore::SaveMessages(const QVector<StoredMessage> &messages, int syncThr
                                          QString::number(message.serverId));
         if (syncThread > 0 && cursor >= 0) {
           QSqlQuery query(database);
-          query.prepare(
-              "INSERT INTO sync_state(thread_id,confirmed_cursor) VALUES(?,?) "
-              "ON CONFLICT(thread_id) DO UPDATE SET confirmed_cursor=MAX(confirmed_cursor,excluded.confirmed_cursor)");
+          query.prepare("INSERT INTO sync_state(thread_id,confirmed_cursor) VALUES(?,?) "
+                        "ON CONFLICT(thread_id) DO UPDATE SET "
+                        "confirmed_cursor=MAX(confirmed_cursor,excluded.confirmed_cursor)");
           query.addBindValue(syncThread);
           query.addBindValue(cursor);
           run(query);
@@ -690,7 +689,8 @@ void ChatStore::SearchMessages(int thread, const QString &text, int type, Histor
             "SELECT " + kMessageColumns +
             " FROM messages m JOIN conversations c ON c.thread_id=m.thread_id "
             "WHERE m.thread_id=? AND (m.server_id IS NULL OR m.server_id>c.hidden_before_id) "
-            "AND (?<0 OR m.message_type=? OR (?=3 AND (m.content LIKE '%http://%' OR m.content LIKE '%https://%'))) "
+            "AND (?<0 OR m.message_type=? OR (?=3 AND (m.content LIKE '%http://%' OR m.content "
+            "LIKE '%https://%'))) "
             "AND (?='' OR (m.chat_time>=? AND m.chat_time<?)) AND m.content LIKE ? ESCAPE '\\' "
             "AND COALESCE(m.server_id,2147483647)<=? "
             "AND (COALESCE(m.server_id,2147483647),m.local_id)<(?,?) "
@@ -735,7 +735,8 @@ void ChatStore::SaveDraft(int thread, const QVector<MsgInfo> &draft)
         for (int i = 0; i < draft.size(); ++i) {
           QSqlQuery insert(database);
           insert.prepare(
-              "INSERT INTO drafts(thread_id,ordinal,message_flag,content,image_data) VALUES(?,?,?,?,?) "
+              "INSERT INTO drafts(thread_id,ordinal,message_flag,content,image_data) "
+              "VALUES(?,?,?,?,?) "
               "ON CONFLICT(thread_id,ordinal) DO UPDATE SET message_flag=excluded.message_flag,"
               "content=excluded.content,image_data=excluded.image_data "
               "WHERE message_flag IS NOT excluded.message_flag OR content IS NOT excluded.content "
@@ -760,8 +761,8 @@ void ChatStore::LoadDraft(int thread, Callback callback)
       [thread](QSqlDatabase &database) {
         ChatStoreResult result;
         QSqlQuery query(database);
-        query.prepare(
-            "SELECT message_flag,content,image_data FROM drafts WHERE thread_id=? ORDER BY ordinal");
+        query.prepare("SELECT message_flag,content,image_data FROM drafts WHERE thread_id=? ORDER "
+                      "BY ordinal");
         query.addBindValue(thread);
         run(query);
         while (query.next()) {
@@ -841,9 +842,9 @@ void ChatStore::SaveAttachment(const QString &id, const QByteArray &image, Callb
             [id, attachment](QSqlDatabase &database) {
               Transaction transaction(database);
               QSqlQuery query(database);
-              query.prepare(
-                  "INSERT INTO attachments(file_id,path,sha256,size) VALUES(?,?,?,?) "
-                  "ON CONFLICT(file_id) DO UPDATE SET path=excluded.path,sha256=excluded.sha256,size=excluded.size");
+              query.prepare("INSERT INTO attachments(file_id,path,sha256,size) VALUES(?,?,?,?) "
+                            "ON CONFLICT(file_id) DO UPDATE SET "
+                            "path=excluded.path,sha256=excluded.sha256,size=excluded.size");
               query.addBindValue(id);
               query.addBindValue(attachment.path);
               query.addBindValue(attachment.checksum);
@@ -916,9 +917,9 @@ void ChatStore::ClearLocalHistory(int thread, Callback callback)
         Transaction transaction(database);
         QSqlQuery query(database);
         // 记录隐藏边界，保留同步/去重信息；后续补拉不会把清空前的内容再次显示。
-        query.prepare(
-            "UPDATE conversations SET hidden_before_id=MAX(last_server_id,"
-            "hidden_before_id,COALESCE((SELECT MAX(server_id) FROM messages WHERE thread_id=?),0)),summary='' WHERE thread_id=?");
+        query.prepare("UPDATE conversations SET hidden_before_id=MAX(last_server_id,"
+                      "hidden_before_id,COALESCE((SELECT MAX(server_id) FROM messages WHERE "
+                      "thread_id=?),0)),summary='' WHERE thread_id=?");
         query.addBindValue(thread);
         query.addBindValue(thread);
         run(query);

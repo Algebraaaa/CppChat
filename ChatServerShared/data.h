@@ -26,11 +26,12 @@ struct UserInfo {
 };
 
 struct ApplyInfo {
-  ApplyInfo(int uid, std::string name, std::string desc, std::string icon,
-            std::string nick, int sex, int status)
-      : _uid(uid), _name(std::move(name)), _desc(std::move(desc)),
-        _icon(std::move(icon)), _nick(std::move(nick)), _sex(sex),
-        _status(status) {}
+  ApplyInfo(int uid, std::string name, std::string desc, std::string icon, std::string nick,
+            int sex, int status)
+      : _uid(uid), _name(std::move(name)), _desc(std::move(desc)), _icon(std::move(icon)),
+        _nick(std::move(nick)), _sex(sex), _status(status)
+  {
+  }
 
   int _uid = 0;
   std::string _name;

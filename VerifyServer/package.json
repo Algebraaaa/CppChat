@@ -1,0 +1,12 @@
+{
+  "name": "cppchat-verify",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": { "test": "node --test ../tests/node/*.test.cjs" },
+  "dependencies": {
+    "@grpc/grpc-js": "1.14.6",
+    "@grpc/proto-loader": "0.8.0",
+    "ioredis": "5.8.0",
+    "nodemailer": "10.1.0"
+  }
+}

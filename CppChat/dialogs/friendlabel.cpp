@@ -12,10 +12,7 @@ FriendLabel::FriendLabel(QWidget *parent) : QFrame(parent), ui(new Ui::FriendLab
   connect(ui->close_lb, &ClickedLabel::clicked, this, &FriendLabel::slot_close);
 }
 
-FriendLabel::~FriendLabel()
-{
-  delete ui;
-}
+FriendLabel::~FriendLabel() { delete ui; }
 
 void FriendLabel::SetText(QString text)
 {
@@ -31,22 +28,10 @@ void FriendLabel::SetText(QString text)
   _height = this->height();
 }
 
-int FriendLabel::Width()
-{
-  return _width;
-}
+int FriendLabel::Width() { return _width; }
 
-int FriendLabel::Height()
-{
-  return _height;
-}
+int FriendLabel::Height() { return _height; }
 
-QString FriendLabel::Text()
-{
-  return _text;
-}
+QString FriendLabel::Text() { return _text; }
 
-void FriendLabel::slot_close()
-{
-  emit sig_close(_text);
-}
+void FriendLabel::slot_close() { emit sig_close(_text); }

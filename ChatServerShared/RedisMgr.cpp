@@ -20,7 +20,8 @@ namespace {
  * 都会释放。
  */
 struct ReplyDeleter {
-  void operator()(redisReply *reply) const {
+  void operator()(redisReply *reply) const
+  {
     if (reply != nullptr) {
       freeReplyObject(reply);
     }
@@ -38,17 +39,20 @@ using ReplyPtr = std::unique_ptr<redisReply, ReplyDeleter>;
  */
 class RedisConnectionGuard {
 public:
-  RedisConnectionGuard(RedisConPool *pool, redisContext *context)
-      : _pool(pool), _context(context) {}
+  RedisConnectionGuard(RedisConPool *pool, redisContext *context) : _pool(pool), _context(context)
+  {
+  }
 
-  ~RedisConnectionGuard() {
+  ~RedisConnectionGuard()
+  {
     // 即使 _context 是 nullptr 也可以调用，ReturnConnection 会安全地直接返回。
     if (_pool != nullptr) {
       _pool->ReturnConnection(_context);
     }
   }
 
-  redisContext *Get() const {
+  redisContext *Get() const
+  {
     // 这里只借出普通指针用于执行命令，连接所有权仍由守卫和连接池管理。
     return _context;
   }
@@ -60,7 +64,8 @@ private:
 
 // config.ini 中的端口和连接池大小都是字符串。
 // 转换失败、为 0 或为负数时使用安全的默认值 fallback。
-int ParsePositiveInt(const std::string &text, int fallback) {
+int ParsePositiveInt(const std::string &text, int fallback)
+{
   try {
     const int value = std::stoi(text);
     return value > 0 ? value : fallback;
@@ -70,29 +75,29 @@ int ParsePositiveInt(const std::string &text, int fallback) {
 }
 
 // SET/AUTH 成功时需要收到 STATUS 类型的 "OK" 回复。
-bool IsStatusOk(const redisReply *reply) {
-  return reply != nullptr && reply->type == REDIS_REPLY_STATUS &&
-         reply->str != nullptr && std::string(reply->str, reply->len) == "OK";
+bool IsStatusOk(const redisReply *reply)
+{
+  return reply != nullptr && reply->type == REDIS_REPLY_STATUS && reply->str != nullptr &&
+         std::string(reply->str, reply->len) == "OK";
 }
 } // namespace
 
-RedisMgr::RedisMgr() {
+RedisMgr::RedisMgr()
+{
   // 2026-08-12 对比：
   // 旧写法：对每个配置分别写 count() ? at() : 默认值，直接依赖 SectionInfo 内部
   // map。 新写法：统一使用 GetSection() 和 GetValue(key, default_value)。
   // 好处：配置读取更像自然语言，RedisMgr 不再关心 map 的存储和查找细节。
   const SectionInfo redis_config = ConfigMgr::GetInstance().GetSection("Redis");
   const std::string host = redis_config.GetValue("Host", "127.0.0.1");
-  const int port =
-      ParsePositiveInt(redis_config.GetValue("Port", "6379"), 6379);
+  const int port = ParsePositiveInt(redis_config.GetValue("Port", "6379"), 6379);
   const std::string password = redis_config.GetValue("Passwd");
-  const int pool_size =
-      ParsePositiveInt(redis_config.GetValue("PoolSize", "5"), 5);
+  const int pool_size = ParsePositiveInt(redis_config.GetValue("PoolSize", "5"), 5);
 
   // make_unique 创建由 RedisMgr 独占的连接池。
   // 构造连接池时会立即尝试建立 pool_size 条 Redis 连接并完成认证。
-  _connection_pool = std::make_unique<RedisConPool>(
-      static_cast<std::size_t>(pool_size), host, port, password);
+  _connection_pool =
+      std::make_unique<RedisConPool>(static_cast<std::size_t>(pool_size), host, port, password);
 
   if (_connection_pool->IsAvailable()) {
     LOG_INFO("RedisMgr backend is ready.");
@@ -103,23 +108,24 @@ RedisMgr::RedisMgr() {
   }
 }
 
-RedisMgr::~RedisMgr() {
+RedisMgr::~RedisMgr()
+{
   // 主动关闭可以立即唤醒等待连接的线程；unique_ptr 随后会自动析构连接池。
   Close();
 }
 
-bool RedisMgr::Get(const std::string &key, std::string &value) {
+bool RedisMgr::Get(const std::string &key, std::string &value)
+{
   // 1. 从连接池借连接，并交给守卫；本函数结束时守卫自动归还连接。
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (connection.Get() == nullptr) {
     return false;
   }
 
   // 2. %b 表示二进制安全字符串，后面必须依次传数据指针和字节长度。
   //    因此 key 即使不是以 '\0' 结尾也能被 hiredis 正确读取。
-  ReplyPtr reply(static_cast<redisReply *>(
-      redisCommand(connection.Get(), "GET %b", key.data(), key.size())));
+  ReplyPtr reply(
+      static_cast<redisReply *>(redisCommand(connection.Get(), "GET %b", key.data(), key.size())));
   // 3. GET 命中字符串键时返回 STRING；键不存在时通常返回 NIL，也会在这里失败。
   if (!reply || reply->type != REDIS_REPLY_STRING || reply->str == nullptr) {
     return false;
@@ -130,44 +136,42 @@ bool RedisMgr::Get(const std::string &key, std::string &value) {
   return true;
 }
 
-bool RedisMgr::Set(const std::string &key, const std::string &value) {
+bool RedisMgr::Set(const std::string &key, const std::string &value)
+{
   // 每个命令函数都遵循同样流程：借连接 -> 执行命令 -> 检查 reply -> 自动归还。
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (connection.Get() == nullptr) {
     return false;
   }
 
-  ReplyPtr reply(static_cast<redisReply *>(
-      redisCommand(connection.Get(), "SET %b %b", key.data(), key.size(),
-                   value.data(), value.size())));
+  ReplyPtr reply(static_cast<redisReply *>(redisCommand(connection.Get(), "SET %b %b", key.data(),
+                                                        key.size(), value.data(), value.size())));
   // SET 成功时 Redis 返回 STATUS "OK"。
   return IsStatusOk(reply.get());
 }
 
-bool RedisMgr::LPush(const std::string &key, const std::string &value) {
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+bool RedisMgr::LPush(const std::string &key, const std::string &value)
+{
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (connection.Get() == nullptr) {
     return false;
   }
 
-  ReplyPtr reply(static_cast<redisReply *>(
-      redisCommand(connection.Get(), "LPUSH %b %b", key.data(), key.size(),
-                   value.data(), value.size())));
+  ReplyPtr reply(static_cast<redisReply *>(redisCommand(connection.Get(), "LPUSH %b %b", key.data(),
+                                                        key.size(), value.data(), value.size())));
   // LPUSH/RPUSH 返回插入后列表的元素数量，因此应当是大于 0 的 INTEGER。
   return reply && reply->type == REDIS_REPLY_INTEGER && reply->integer > 0;
 }
 
-bool RedisMgr::LPop(const std::string &key, std::string &value) {
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+bool RedisMgr::LPop(const std::string &key, std::string &value)
+{
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (connection.Get() == nullptr) {
     return false;
   }
 
-  ReplyPtr reply(static_cast<redisReply *>(
-      redisCommand(connection.Get(), "LPOP %b", key.data(), key.size())));
+  ReplyPtr reply(
+      static_cast<redisReply *>(redisCommand(connection.Get(), "LPOP %b", key.data(), key.size())));
   // 列表为空时 Redis 返回 NIL；只有 STRING 才代表真的弹出了一个元素。
   if (!reply || reply->type != REDIS_REPLY_STRING || reply->str == nullptr) {
     return false;
@@ -177,29 +181,28 @@ bool RedisMgr::LPop(const std::string &key, std::string &value) {
   return true;
 }
 
-bool RedisMgr::RPush(const std::string &key, const std::string &value) {
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+bool RedisMgr::RPush(const std::string &key, const std::string &value)
+{
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (connection.Get() == nullptr) {
     return false;
   }
 
-  ReplyPtr reply(static_cast<redisReply *>(
-      redisCommand(connection.Get(), "RPUSH %b %b", key.data(), key.size(),
-                   value.data(), value.size())));
+  ReplyPtr reply(static_cast<redisReply *>(redisCommand(connection.Get(), "RPUSH %b %b", key.data(),
+                                                        key.size(), value.data(), value.size())));
   // 返回值是插入后列表长度。
   return reply && reply->type == REDIS_REPLY_INTEGER && reply->integer > 0;
 }
 
-bool RedisMgr::RPop(const std::string &key, std::string &value) {
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+bool RedisMgr::RPop(const std::string &key, std::string &value)
+{
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (connection.Get() == nullptr) {
     return false;
   }
 
-  ReplyPtr reply(static_cast<redisReply *>(
-      redisCommand(connection.Get(), "RPOP %b", key.data(), key.size())));
+  ReplyPtr reply(
+      static_cast<redisReply *>(redisCommand(connection.Get(), "RPOP %b", key.data(), key.size())));
   // RPOP 与 LPOP 仅弹出方向不同，回复判断规则相同。
   if (!reply || reply->type != REDIS_REPLY_STRING || reply->str == nullptr) {
     return false;
@@ -209,20 +212,19 @@ bool RedisMgr::RPop(const std::string &key, std::string &value) {
   return true;
 }
 
-bool RedisMgr::HSet(const std::string &key, const std::string &hkey,
-                    const std::string &value) {
+bool RedisMgr::HSet(const std::string &key, const std::string &hkey, const std::string &value)
+{
   // std::string 重载只负责转换参数，真正发送命令的逻辑集中在下一个重载。
   return HSet(key.c_str(), hkey.c_str(), value.data(), value.size());
 }
 
-bool RedisMgr::HSet(const char *key, const char *hkey, const char *hvalue,
-                    std::size_t hvaluelen) {
+bool RedisMgr::HSet(const char *key, const char *hkey, const char *hvalue, std::size_t hvaluelen)
+{
   if (key == nullptr || hkey == nullptr || hvalue == nullptr) {
     return false;
   }
 
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (connection.Get() == nullptr) {
     return false;
   }
@@ -230,24 +232,22 @@ bool RedisMgr::HSet(const char *key, const char *hkey, const char *hvalue,
   // redisCommandArgv 把命令拆成参数数组，不需要自己拼接带空格的命令字符串。
   const char *arguments[] = {"HSET", key, hkey, hvalue};
   // 每个参数都有明确长度，所以 hvalue 可以安全保存二进制内容和中间的 '\0'。
-  const std::size_t argument_lengths[] = {4, std::strlen(key),
-                                          std::strlen(hkey), hvaluelen};
+  const std::size_t argument_lengths[] = {4, std::strlen(key), std::strlen(hkey), hvaluelen};
   ReplyPtr reply(static_cast<redisReply *>(
       redisCommandArgv(connection.Get(), 4, arguments, argument_lengths)));
   // HSET 返回 INTEGER：1 表示新增字段，0 表示覆盖字段；两种都属于执行成功。
   return reply && reply->type == REDIS_REPLY_INTEGER;
 }
 
-std::string RedisMgr::HGet(const std::string &key, const std::string &hkey) {
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+std::string RedisMgr::HGet(const std::string &key, const std::string &hkey)
+{
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (connection.Get() == nullptr) {
     return "";
   }
 
-  ReplyPtr reply(static_cast<redisReply *>(
-      redisCommand(connection.Get(), "HGET %b %b", key.data(), key.size(),
-                   hkey.data(), hkey.size())));
+  ReplyPtr reply(static_cast<redisReply *>(redisCommand(connection.Get(), "HGET %b %b", key.data(),
+                                                        key.size(), hkey.data(), hkey.size())));
   if (!reply || reply->type != REDIS_REPLY_STRING || reply->str == nullptr) {
     return "";
   }
@@ -256,35 +256,34 @@ std::string RedisMgr::HGet(const std::string &key, const std::string &hkey) {
   return std::string(reply->str, reply->len);
 }
 
-bool RedisMgr::HDel(const std::string &key, const std::string &field) {
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+bool RedisMgr::HDel(const std::string &key, const std::string &field)
+{
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (connection.Get() == nullptr) {
     return false;
   }
 
-  ReplyPtr reply(static_cast<redisReply *>(
-      redisCommand(connection.Get(), "HDEL %b %b", key.data(), key.size(),
-                   field.data(), field.size())));
+  ReplyPtr reply(static_cast<redisReply *>(redisCommand(connection.Get(), "HDEL %b %b", key.data(),
+                                                        key.size(), field.data(), field.size())));
   return reply && reply->type == REDIS_REPLY_INTEGER && reply->integer > 0;
 }
 
-bool RedisMgr::Del(const std::string &key) {
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+bool RedisMgr::Del(const std::string &key)
+{
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (connection.Get() == nullptr) {
     return false;
   }
 
-  ReplyPtr reply(static_cast<redisReply *>(
-      redisCommand(connection.Get(), "DEL %b", key.data(), key.size())));
+  ReplyPtr reply(
+      static_cast<redisReply *>(redisCommand(connection.Get(), "DEL %b", key.data(), key.size())));
   // DEL 返回删除数量：0 表示键原本不存在，仍说明命令已经被 Redis 正常执行。
   return reply && reply->type == REDIS_REPLY_INTEGER;
 }
 
-bool RedisMgr::ExistsKey(const std::string &key) {
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+bool RedisMgr::ExistsKey(const std::string &key)
+{
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (connection.Get() == nullptr) {
     return false;
   }
@@ -295,58 +294,54 @@ bool RedisMgr::ExistsKey(const std::string &key) {
   return reply && reply->type == REDIS_REPLY_INTEGER && reply->integer > 0;
 }
 
-bool RedisMgr::IsAvailable() const {
+bool RedisMgr::IsAvailable() const
+{
   // 先判断 unique_ptr，避免构造过程失败或析构阶段访问空连接池。
   return _connection_pool && _connection_pool->IsAvailable();
 }
 
-void RedisMgr::Close() {
+void RedisMgr::Close()
+{
   // Close 是幂等操作：多次调用不会重复释放同一条连接。
   if (_connection_pool) {
     _connection_pool->Close();
   }
 }
 
-std::string RedisMgr::AcquireLock(const std::string &lock_name,
-                                  int lock_timeout_seconds,
-                                  int acquire_timeout_seconds) {
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+std::string RedisMgr::AcquireLock(const std::string &lock_name, int lock_timeout_seconds,
+                                  int acquire_timeout_seconds)
+{
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (connection.Get() == nullptr) {
     return {};
   }
-  return DistLock::GetInstance().Acquire(connection.Get(), lock_name,
-                                         lock_timeout_seconds,
+  return DistLock::GetInstance().Acquire(connection.Get(), lock_name, lock_timeout_seconds,
                                          acquire_timeout_seconds);
 }
 
-bool RedisMgr::ReleaseLock(const std::string &lock_name,
-                           const std::string &identifier) {
+bool RedisMgr::ReleaseLock(const std::string &lock_name, const std::string &identifier)
+{
   if (identifier.empty()) {
     return false;
   }
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (connection.Get() == nullptr) {
     return false;
   }
-  return DistLock::GetInstance().Release(connection.Get(), lock_name,
-                                         identifier);
+  return DistLock::GetInstance().Release(connection.Get(), lock_name, identifier);
 }
 
-RedisReadStatus RedisMgr::Read(const std::string &key, std::string &value,
-                               bool require_expiry) {
+RedisReadStatus RedisMgr::Read(const std::string &key, std::string &value, bool require_expiry)
+{
   value.clear();
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (!connection.Get())
     return RedisReadStatus::Error;
   const char *script = "if redis.call('ttl',KEYS[1])>0 then return "
                        "redis.call('get',KEYS[1]) end; return nil";
   ReplyPtr reply(static_cast<redisReply *>(
       require_expiry
-          ? redisCommand(connection.Get(), "EVAL %s 1 %b", script, key.data(),
-                         key.size())
+          ? redisCommand(connection.Get(), "EVAL %s 1 %b", script, key.data(), key.size())
           : redisCommand(connection.Get(), "GET %b", key.data(), key.size())));
   if (!reply)
     return RedisReadStatus::Error;
@@ -358,26 +353,23 @@ RedisReadStatus RedisMgr::Read(const std::string &key, std::string &value,
   return RedisReadStatus::Found;
 }
 
-bool RedisMgr::SetEx(const std::string &key, const std::string &value,
-                     int seconds) {
+bool RedisMgr::SetEx(const std::string &key, const std::string &value, int seconds)
+{
   if (seconds <= 0)
     return false;
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (!connection.Get())
     return false;
-  ReplyPtr reply(static_cast<redisReply *>(
-      redisCommand(connection.Get(), "SET %b %b EX %d", key.data(), key.size(),
-                   value.data(), value.size(), seconds)));
+  ReplyPtr reply(
+      static_cast<redisReply *>(redisCommand(connection.Get(), "SET %b %b EX %d", key.data(),
+                                             key.size(), value.data(), value.size(), seconds)));
   return IsStatusOk(reply.get());
 }
 
-bool RedisMgr::Evaluate(const std::string &script,
-                        const std::vector<std::string> &keys,
-                        const std::vector<std::string> &values,
-                        long long &result) {
-  RedisConnectionGuard connection(_connection_pool.get(),
-                                  _connection_pool->GetConnection());
+bool RedisMgr::Evaluate(const std::string &script, const std::vector<std::string> &keys,
+                        const std::vector<std::string> &values, long long &result)
+{
+  RedisConnectionGuard connection(_connection_pool.get(), _connection_pool->GetConnection());
   if (!connection.Get())
     return false;
   const std::string key_count = std::to_string(keys.size());
@@ -391,9 +383,8 @@ bool RedisMgr::Evaluate(const std::string &script,
     arguments.push_back(value.data());
     lengths.push_back(value.size());
   }
-  ReplyPtr reply(static_cast<redisReply *>(
-      redisCommandArgv(connection.Get(), static_cast<int>(arguments.size()),
-                       arguments.data(), lengths.data())));
+  ReplyPtr reply(static_cast<redisReply *>(redisCommandArgv(
+      connection.Get(), static_cast<int>(arguments.size()), arguments.data(), lengths.data())));
   if (!reply || reply->type != REDIS_REPLY_INTEGER)
     return false;
   result = reply->integer;
@@ -401,8 +392,8 @@ bool RedisMgr::Evaluate(const std::string &script,
 }
 
 int RedisMgr::RegisterSession(int uid, const std::string &session_id,
-                              const std::string &server_name,
-                              const std::string &token) {
+                              const std::string &server_name, const std::string &token)
+{
   const std::string id = std::to_string(uid);
   long long result = 0;
   // Validate and consume the pending credential, then atomically publish the
@@ -417,58 +408,53 @@ int RedisMgr::RegisterSession(int uid, const std::string &session_id,
       "redis.call('set',KEYS[4],ARGV[3],'EX',ARGV[4]); "
       "if redis.call('get',KEYS[1])==ARGV[1] then redis.call('del',KEYS[1]) "
       "end; return 1";
-  if (!Evaluate(script,
-                {std::string(ServicePolicy::PendingTokenPrefix) + id,
-                 std::string(RESOURCE_TOKEN_PREFIX) + id,
-                 std::string(USER_SESSION_PREFIX) + id,
-                 std::string(USER_IP_PREFIX) + id},
-                {token, session_id, server_name,
-                 std::to_string(ServicePolicy::ActiveSessionSeconds)},
-                result))
+  if (!Evaluate(
+          script,
+          {std::string(ServicePolicy::PendingTokenPrefix) + id,
+           std::string(RESOURCE_TOKEN_PREFIX) + id, std::string(USER_SESSION_PREFIX) + id,
+           std::string(USER_IP_PREFIX) + id},
+          {token, session_id, server_name, std::to_string(ServicePolicy::ActiveSessionSeconds)},
+          result))
     return ErrorCodes::RedisError;
   return result == 1 ? ErrorCodes::Success : ErrorCodes::TokenInvalid;
 }
 
-int RedisMgr::RefreshSession(int uid, const std::string &session_id) {
+int RedisMgr::RefreshSession(int uid, const std::string &session_id)
+{
   const std::string id = std::to_string(uid);
   long long result = 0;
-  const std::string script =
-      "if redis.call('get',KEYS[1])~=ARGV[1] or "
-      "redis.call('exists',KEYS[2])==0 then return 0 end "
-      "for i=1,3 do redis.call('expire',KEYS[i],ARGV[2]) end; return 1";
-  if (!Evaluate(
-          script,
-          {std::string(USER_SESSION_PREFIX) + id,
-           std::string(RESOURCE_TOKEN_PREFIX) + id,
-           std::string(USER_IP_PREFIX) + id},
-          {session_id, std::to_string(ServicePolicy::ActiveSessionSeconds)},
-          result))
+  const std::string script = "if redis.call('get',KEYS[1])~=ARGV[1] or "
+                             "redis.call('exists',KEYS[2])==0 then return 0 end "
+                             "for i=1,3 do redis.call('expire',KEYS[i],ARGV[2]) end; return 1";
+  if (!Evaluate(script,
+                {std::string(USER_SESSION_PREFIX) + id, std::string(RESOURCE_TOKEN_PREFIX) + id,
+                 std::string(USER_IP_PREFIX) + id},
+                {session_id, std::to_string(ServicePolicy::ActiveSessionSeconds)}, result))
     return -1;
   return static_cast<int>(result);
 }
 
-bool RedisMgr::ReleaseSession(int uid, const std::string &session_id) {
+bool RedisMgr::ReleaseSession(int uid, const std::string &session_id)
+{
   const std::string id = std::to_string(uid);
   long long result = 0;
   return Evaluate("if redis.call('get',KEYS[1])~=ARGV[1] then return 0 end; "
                   "redis.call('del',KEYS[1],KEYS[2],KEYS[3]); return 1",
-                  {std::string(USER_SESSION_PREFIX) + id,
-                   std::string(RESOURCE_TOKEN_PREFIX) + id,
+                  {std::string(USER_SESSION_PREFIX) + id, std::string(RESOURCE_TOKEN_PREFIX) + id,
                    std::string(USER_IP_PREFIX) + id},
                   {session_id}, result);
 }
 
-bool RedisMgr::PublishNode(const std::string &name,
-                           const std::string &instance_id,
-                           std::size_t online_count) {
+bool RedisMgr::PublishNode(const std::string &name, const std::string &instance_id,
+                           std::size_t online_count)
+{
   Json::Value health;
   health["instance_id"] = instance_id;
   health["online"] = Json::UInt64(online_count);
   long long result = 0;
-  const std::string script =
-      "local v=redis.call('get',KEYS[1]); "
-      "if v and cjson.decode(v).instance_id~=ARGV[1] then return 0 end; "
-      "redis.call('set',KEYS[1],ARGV[2],'EX',ARGV[3]); return 1";
+  const std::string script = "local v=redis.call('get',KEYS[1]); "
+                             "if v and cjson.decode(v).instance_id~=ARGV[1] then return 0 end; "
+                             "redis.call('set',KEYS[1],ARGV[2],'EX',ARGV[3]); return 1";
   return Evaluate(script, {std::string(ServicePolicy::NodeHealthPrefix) + name},
                   {instance_id, health.toStyledString(),
                    std::to_string(ServicePolicy::NodeLeaseSeconds)},
@@ -476,12 +462,11 @@ bool RedisMgr::PublishNode(const std::string &name,
          result == 1;
 }
 
-void RedisMgr::RemoveNode(const std::string &name,
-                          const std::string &instance_id) {
+void RedisMgr::RemoveNode(const std::string &name, const std::string &instance_id)
+{
   long long result = 0;
   Evaluate("local v=redis.call('get',KEYS[1]); "
            "if v and cjson.decode(v).instance_id==ARGV[1] then return "
            "redis.call('del',KEYS[1]) end; return 0",
-           {std::string(ServicePolicy::NodeHealthPrefix) + name}, {instance_id},
-           result);
+           {std::string(ServicePolicy::NodeHealthPrefix) + name}, {instance_id}, result);
 }

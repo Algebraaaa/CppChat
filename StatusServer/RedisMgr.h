@@ -14,8 +14,7 @@ class RedisMgr : public Singleton<RedisMgr> {
 
 public:
   ~RedisMgr();
-  RedisReadStatus Read(const std::string &key, std::string &value,
-                       bool require_expiry = false);
+  RedisReadStatus Read(const std::string &key, std::string &value, bool require_expiry = false);
   bool SetEx(const std::string &key, const std::string &value, int seconds);
 
 private:

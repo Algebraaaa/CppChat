@@ -2,12 +2,11 @@
 #define MESSAGETEXTEDIT_H
 
 #include "common/global.h"
+#include <QHash>
 #include <QTextEdit>
 #include <QVector>
-#include <QHash>
 
-class MessageTextEdit : public QTextEdit
-{
+class MessageTextEdit : public QTextEdit {
   Q_OBJECT
 public:
   explicit MessageTextEdit(QWidget *parent = nullptr);

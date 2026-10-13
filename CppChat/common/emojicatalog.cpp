@@ -21,9 +21,12 @@ const QVector<EmojiEntry> &EmojiCatalog::Entries()
         continue;
       for (const auto &value : QJsonDocument::fromJson(file.readAll()).array()) {
         const auto object = value.toObject();
-        EmojiEntry emoji{object.value("id").toString(), object.value("name").toString(),
-                         object.value("token").toString(), object.value("category").toString(),
-                         {}, object.value("resource").toString(),
+        EmojiEntry emoji{object.value("id").toString(),
+                         object.value("name").toString(),
+                         object.value("token").toString(),
+                         object.value("category").toString(),
+                         {},
+                         object.value("resource").toString(),
                          object.value("pack").toString(QStringLiteral("qq"))};
         for (const auto &alias : object.value("aliases").toArray())
           emoji.aliases.append(alias.toString());

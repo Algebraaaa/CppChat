@@ -13,7 +13,8 @@ namespace {
 #endif
 constexpr const char *kServiceName = CPPCHAT_NODE_NAME;
 
-std::tm ToLocalTime(std::time_t time_value) {
+std::tm ToLocalTime(std::time_t time_value)
+{
   std::tm local_time{};
 #ifdef _WIN32
   localtime_s(&local_time, &time_value);
@@ -23,7 +24,8 @@ std::tm ToLocalTime(std::time_t time_value) {
   return local_time;
 }
 
-std::string CurrentDate() {
+std::string CurrentDate()
+{
   const std::time_t now = std::time(nullptr);
   const std::tm local_time = ToLocalTime(now);
   std::ostringstream stream;
@@ -32,33 +34,32 @@ std::string CurrentDate() {
 }
 } // namespace
 
-Logger &Logger::GetInstance() {
+Logger &Logger::GetInstance()
+{
   static Logger logger;
   return logger;
 }
 
-Logger::Logger() {
+Logger::Logger()
+{
   try {
-    const std::filesystem::path log_directory =
-        std::filesystem::current_path() / "logs";
+    const std::filesystem::path log_directory = std::filesystem::current_path() / "logs";
     std::filesystem::create_directories(log_directory);
 
     const std::filesystem::path log_path =
-        log_directory /
-        (std::string(kServiceName) + "_" + CurrentDate() + ".log");
+        log_directory / (std::string(kServiceName) + "_" + CurrentDate() + ".log");
     log_file_.open(log_path, std::ios::out | std::ios::app);
 
     if (!log_file_.is_open()) {
-      std::cerr << "[LOGGER] Failed to open log file: " << log_path.string()
-                << std::endl;
+      std::cerr << "[LOGGER] Failed to open log file: " << log_path.string() << std::endl;
     }
   } catch (const std::exception &exception) {
-    std::cerr << "[LOGGER] Failed to initialize file logging: "
-              << exception.what() << std::endl;
+    std::cerr << "[LOGGER] Failed to initialize file logging: " << exception.what() << std::endl;
   }
 }
 
-Logger::~Logger() {
+Logger::~Logger()
+{
   // Logger 正在析构，不能通过 LOG_DEBUG 再次获取自身实例。
   Write(LogLevel::Debug, "Logger Meyers singleton destroyed.");
 
@@ -69,12 +70,14 @@ Logger::~Logger() {
   }
 }
 
-void Logger::SetMinimumLevel(LogLevel minimum_level) {
+void Logger::SetMinimumLevel(LogLevel minimum_level)
+{
   std::lock_guard<std::mutex> lock(mutex_);
   minimum_level_ = minimum_level;
 }
 
-void Logger::Write(LogLevel level, const std::string &message) {
+void Logger::Write(LogLevel level, const std::string &message)
+{
   std::lock_guard<std::mutex> lock(mutex_);
   if (level < minimum_level_) {
     return;
@@ -84,15 +87,12 @@ void Logger::Write(LogLevel level, const std::string &message) {
   const std::time_t now_time = std::chrono::system_clock::to_time_t(now);
   const std::tm local_time = ToLocalTime(now_time);
   const auto milliseconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          now.time_since_epoch()) %
-      1000;
+      std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
 
   std::ostringstream line;
-  line << '[' << std::put_time(&local_time, "%Y-%m-%d %H:%M:%S") << '.'
-       << std::setfill('0') << std::setw(3) << milliseconds.count() << ']'
-       << " [" << kServiceName << ']' << " [" << LevelName(level) << ']'
-       << " [thread " << std::this_thread::get_id() << "] " << message;
+  line << '[' << std::put_time(&local_time, "%Y-%m-%d %H:%M:%S") << '.' << std::setfill('0')
+       << std::setw(3) << milliseconds.count() << ']' << " [" << kServiceName << ']' << " ["
+       << LevelName(level) << ']' << " [thread " << std::this_thread::get_id() << "] " << message;
 
   std::ostream &console = level == LogLevel::Error ? std::cerr : std::cout;
   console << line.str() << std::endl;
@@ -103,7 +103,8 @@ void Logger::Write(LogLevel level, const std::string &message) {
   }
 }
 
-const char *Logger::LevelName(LogLevel level) {
+const char *Logger::LevelName(LogLevel level)
+{
   switch (level) {
   case LogLevel::Debug:
     return "DEBUG";

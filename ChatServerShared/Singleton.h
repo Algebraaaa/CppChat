@@ -15,7 +15,8 @@ protected:
 
   static std::shared_ptr<T> instance_;
 
-  static std::string_view SingletonTypeName() noexcept {
+  static std::string_view SingletonTypeName() noexcept
+  {
     std::string_view type_name(typeid(T).name());
     constexpr std::string_view class_prefix = "class ";
     constexpr std::string_view struct_prefix = "struct ";
@@ -29,7 +30,8 @@ protected:
   }
 
 public:
-  static std::shared_ptr<T> GetInstance() {
+  static std::shared_ptr<T> GetInstance()
+  {
     static std::once_flag flag;
     std::call_once(flag, []() { instance_ = std::shared_ptr<T>(new T); });
     return instance_;
@@ -38,7 +40,8 @@ public:
   // 在业务线程全部停止后显式调用，让具体单例在 Logger 销毁前释放。
   static void DestroyInstance() { instance_.reset(); }
 
-  virtual ~Singleton() {
+  virtual ~Singleton()
+  {
     // 使用模板参数 T，即使已经进入基类析构阶段也能打印具体单例类名。
     LOG_DEBUG(SingletonTypeName(), " singleton instance destroyed.");
   }

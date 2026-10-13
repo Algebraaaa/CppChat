@@ -4,8 +4,7 @@
 #include <QLineEdit>
 
 // CustomizeEdit 在普通输入框上增加安全字数限制和失去焦点通知
-class CustomizeEdit : public QLineEdit
-{
+class CustomizeEdit : public QLineEdit {
   Q_OBJECT
 public:
   explicit CustomizeEdit(QWidget *parent = nullptr);

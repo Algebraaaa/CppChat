@@ -11,28 +11,22 @@ ResetDialog::ResetDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ResetDia
   ui->setupUi(this);
   ui->newpsd_edit->setEchoMode(QLineEdit::Password);
   _feedback = new FormFeedback(ui->error_label, this);
-  _feedback->addField(ui->user_edit, [this]() {
-    return InputValidator::userError(ui->user_edit->text());
-  });
-  _feedback->addField(ui->email_edit, [this]() {
-    return InputValidator::emailError(ui->email_edit->text());
-  });
+  _feedback->addField(ui->user_edit,
+                      [this]() { return InputValidator::userError(ui->user_edit->text()); });
+  _feedback->addField(ui->email_edit,
+                      [this]() { return InputValidator::emailError(ui->email_edit->text()); });
   _feedback->addField(ui->verify_edit, [this]() {
     return InputValidator::verifyCodeError(ui->verify_edit->text());
   });
-  _feedback->addField(ui->newpsd_edit, [this]() {
-    return InputValidator::passwordError(ui->newpsd_edit->text());
-  });
+  _feedback->addField(ui->newpsd_edit,
+                      [this]() { return InputValidator::passwordError(ui->newpsd_edit->text()); });
   connect(HttpMgr::GetInstance().get(), &HttpMgr::sig_reset_mod_finish, this,
           &ResetDialog::slot_reset_mod_finish);
 
   initHttpHandlers();
 }
 
-ResetDialog::~ResetDialog()
-{
-  delete ui;
-}
+ResetDialog::~ResetDialog() { delete ui; }
 
 void ResetDialog::initHttpHandlers()
 {

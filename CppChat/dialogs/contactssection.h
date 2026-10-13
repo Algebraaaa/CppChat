@@ -2,15 +2,14 @@
 #define CONTACTSSECTION_H
 
 #include "common/userdata.h"
-#include <QWidget>
 #include <QTimer>
+#include <QWidget>
 namespace Ui {
 class ContactsSection;
 }
 
 // 完整通讯录模块：联系人搜索/列表，以及资料、好友申请和占位详情。
-class ContactsSection : public QWidget
-{
+class ContactsSection : public QWidget {
   Q_OBJECT
 public:
   explicit ContactsSection(QWidget *parent = nullptr);

@@ -4,14 +4,14 @@
 
 ## 复用的项目与资料
 
-- [Qt qtbase](https://github.com/qt/qtbase)：直接使用已有 Qt 环境的 Qt SQL 模块和 QSQLITE 驱动，无需额外 SQLite C++ 包装库。项目和公共 client.pri 已添加 `QT += sql`。
+- [Qt qtbase](https://github.com/qt/qtbase)：直接使用已有 Qt 环境的 Qt SQL 模块和 QSQLITE 驱动，无需额外 SQLite C++ 包装库。客户端 CMake 链接 `Qt6::Sql`。
 - [TDLib](https://github.com/tdlib/td/blob/master/td/telegram/MessageDb.cpp)：参考其 SQLite 消息表、索引、事务与异步数据库职责划分；未复制源码，也未引入 Telegram 的协议栈。
 - [SQLiteCpp](https://github.com/SRombauts/SQLiteCpp)：评估过的成熟包装库；本项目已有 Qt，继续使用同一套数据库 API。
 - [Qt QSQLITE 文档](https://doc.qt.io/qt-6/sql-driver.html#qsqlite)、[QSqlDatabase 线程约束](https://doc.qt.io/qt-6/qsqldatabase.html)、[SQLite WAL](https://www.sqlite.org/wal.html)。
 
 ## 存放位置与隔离
 
-2026-10-06 调整：开发运行时从 EXE 目录向上寻找 `CppChat.pro`，默认保存在项目根目录的 `chat_data/`，不受当前工作目录影响。数据库使用 `sql/db.sqlite` 布局：
+2026-10-11：开发运行时从 EXE 目录向上寻找同时包含 `CMakeLists.txt` 和 `app/main.cpp` 的客户端根目录，默认保存在客户端的 `chat_data/`，不受当前工作目录影响。数据库使用 `sql/db.sqlite` 布局：
 
 ```text
 <项目根目录>/chat_data/accounts/<GateServer URL 的 SHA256 前 24 位>/<uid>/
@@ -22,7 +22,7 @@
 
 登录成功后日志输出实际数据库路径。同一 GateServer 后面的 ChatServer1、ChatServer2 共用账号缓存；不同 GateServer、不同 uid 使用不同目录。账号切换会关闭旧连接并增加登录代数，数据库、图片传输和发送计时器拒绝旧代数回调。
 
-本项目当前默认数据根目录为 `../chat_data/`，不再随 Debug、Release 或 build 子目录变化。不创建项目外独立数据目录。发布目录没有 `CppChat.pro` 时，使用 EXE 同级的 `chat_data/`。目标在 C 盘时拒绝打开数据库；目标不可写时显示错误，不自动改存 AppData 或其他系统盘目录。暂不提供目录选择界面。
+本项目当前默认数据根目录为客户端根目录中的 `chat_data/`，不随 Debug、Release 或 build 子目录变化。不创建项目外独立数据目录。发布目录没有客户端 CMake 工程及源码标记时，使用 EXE 同级的 `chat_data/`。目标在 C 盘时拒绝打开数据库；目标不可写时显示错误，不自动改存 AppData 或其他系统盘目录。暂不提供目录选择界面。
 
 首次登录某个账号时，如果新位置还没有 `sql/db.sqlite`，依次检查项目账号目录中的旧 `chat.db`、当前 EXE 同级的旧账号目录、旧 `QStandardPaths::AppLocalDataLocation/accounts/...`。采用找到的第一份数据库，不自动合并多份旧库。工作线程用 [SQLite VACUUM INTO](https://www.sqlite.org/lang_vacuum.html#vacuum_with_an_into_clause) 生成完整快照（包含已提交的 WAL 数据），并复制该账号图片缓存；临时数据也位于目标盘。全部完成后才发布正式目录；同目录布局升级只发布 `sql/` 子目录。失败时保留原数据并允许重试。新位置已有数据库时不重复迁移、不覆盖，旧库作为恢复副本保留。
 
@@ -75,9 +75,9 @@ Debug 旧运行目录和旧 AppData 中的数据一致，旧数据库及 WAL/SHM
 
 历史响应根据实际 styled JSON 大小分批，预留包头以外的正文空间，保证不超过现有 MAX_LENGTH。空页明确返回空数组和原游标。个别旧消息如果单条本身就超过包限制，会返回加载失败并保持游标，不能无声跳过。
 
-**部署时同时升级、重启两套 ChatServer，随后重新登录客户端。** 本轮没有执行 MySQL DDL。两套 `schema_migrations/2026-10-02-chat-message-retry-index.sql` 已提供可重复执行的查询索引脚本，建议在备份并核对库名后手动执行，以免每次 UUID 查找扫描消息表；脚本不删除或改写消息。去重依赖所有聊天写入经过上述事务和行锁；数据库本身暂未增加 UUID 唯一约束。可在审计历史 UUID/列定义后补充唯一约束，避免直接对旧问候记录或既有重复数据执行不兼容的迁移。
+**部署时同时升级、重启两套 ChatServer，随后重新登录客户端。** 本轮没有执行 MySQL DDL。[查询索引脚本](../../database/mysql/migrations/2026-10-02-chat-message-retry-index.sql) 可重复执行，两套聊天节点共用同一数据库时只需执行一份，建议在备份并核对库名后手动执行，以免每次 UUID 查找扫描消息表；脚本不删除或改写消息。去重依赖所有聊天写入经过上述事务和行锁；数据库本身暂未增加 UUID 唯一约束。可在审计历史 UUID/列定义后补充唯一约束，避免直接对旧问候记录或既有重复数据执行不兼容的迁移。
 
-客户端需重新运行 qmake，然后由你编译。Windows 构建完成后，`CppChat.pro` 会从当前 Qt Kit 自动复制 Qt SQL 库到 EXE 目录，并将 SQLite 插件复制到 `sqldrivers` 子目录；Debug 构建优先使用带 `d` 后缀的 DLL，没有时使用该 Kit 提供的普通 DLL 名称。发布包应包含这些文件，不要从其他 Qt 版本复制插件。
+客户端使用 CMake 构建。Windows 链接完成后，CMake 调用当前 Qt Kit 的 `windeployqt`，将 Qt SQL 库部署到 EXE 目录，将 SQLite 插件部署到 `sqldrivers` 子目录。本机 MinGW Qt 的 DLL 由 Debug、Release 应用共用。发布包应包含这些文件，不要从其他 Qt 版本复制插件。
 
 ### 启动后没有聊天记录的排查
 
@@ -105,7 +105,7 @@ python scripts/check_style.py
 2. 输入图文草稿，切换会话、退出再登录，图文顺序与表情恢复。
 3. 在消息发出但回执未到时关闭程序；再登录先补拉核对，已经发送成功的消息合并到原行。对仍未确认的文字和图片右键重试，确认 MySQL 只有一个 UUID 对应的消息 ID。
 4. A 经节点 1 发送后，在节点 2 用同一个账号重试同一 UUID；检查原 ID 被返回。两套服务端都必须已升级。
-5. 连续收发较长中文消息和图片，检查历史页没有超过 2KB、游标连续、旧消息没有漏掉。
+5. 连续收发较长中文消息和图片，检查历史页没有超过 16 KiB、游标连续、旧消息没有漏掉。
 6. 搜索中文、`100%_`、图片、链接、日期并翻页；查找记录的条数与当前隐藏边界一致。
 7. 清空本机已确认记录，再登录/补拉，旧记录不重新出现，新记录正常显示。
 8. 切换两个账号和两个 GateServer，记录、草稿、图片互不串入；上传过程中切换账号，旧传输不修改新账号界面。

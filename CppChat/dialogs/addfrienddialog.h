@@ -12,8 +12,7 @@ class AddFriendDialog;
 
 // “更多”菜单中的添加朋友窗口。
 // 它只负责向服务器查找陌生用户，顶部主搜索框则只做本地搜索。
-class AddFriendDialog : public QDialog
-{
+class AddFriendDialog : public QDialog {
   Q_OBJECT
 
 public:

@@ -7,8 +7,7 @@
 #include <algorithm>
 
 namespace {
-enum EntryKind
-{
+enum EntryKind {
   NewFriends,
   Application,
   Category,
@@ -18,8 +17,7 @@ enum EntryKind
   Friend,
   Empty
 };
-enum EntryRole
-{
+enum EntryRole {
   KindRole = Qt::UserRole,
   UidRole,
   IconRole,
@@ -42,8 +40,7 @@ QString contactInitial(const QString &name)
 }
 
 // 委托只绘制可见行，避免每个联系人都创建 QWidget；整行选中、缩略头像和省略文字统一绘制。
-class ContactDelegate : public QStyledItemDelegate
-{
+class ContactDelegate : public QStyledItemDelegate {
 public:
   explicit ContactDelegate(QObject *parent) : QStyledItemDelegate(parent) {}
 

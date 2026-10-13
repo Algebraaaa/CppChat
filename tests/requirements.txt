@@ -1,0 +1,12 @@
+pytest==8.4.2
+pytest-html==4.1.1
+testcontainers==4.13.2
+docker==7.1.0
+PyMySQL==1.1.2
+redis==6.4.0
+requests==2.32.5
+hypothesis==6.140.3
+cryptography==46.0.2
+psutil==7.1.0
+gcovr==8.3
+ruff==0.13.2

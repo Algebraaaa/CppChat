@@ -23,8 +23,7 @@ public:
   void Stop();
 
 private:
-  using WorkGuard =
-      boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
+  using WorkGuard = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
 
   explicit AsioIOServicePool(std::size_t pool_size = 2);
 

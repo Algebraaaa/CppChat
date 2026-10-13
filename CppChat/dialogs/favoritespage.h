@@ -8,8 +8,7 @@ class FavoritesPage;
 }
 
 // 收藏页目前只负责展示 UI 占位，搜索、分类和收藏数据接口后续再接入。
-class FavoritesPage : public QWidget
-{
+class FavoritesPage : public QWidget {
   Q_OBJECT
 
 public:

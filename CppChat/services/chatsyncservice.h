@@ -1,29 +1,22 @@
 #pragma once
 
 #include "common/userdata.h"
-#include <QObject>
 #include <QHash>
+#include <QObject>
 #include <QQueue>
 #include <QSet>
 #include <QTimer>
 
 // Owns account-local restoration, server pagination and durable message merge.
 // Navigation, unread indicators and widgets remain in ChatDialog.
-class ChatSyncService : public QObject
-{
+class ChatSyncService : public QObject {
   Q_OBJECT
 public:
   explicit ChatSyncService(QObject *parent = nullptr);
   void StartSession(int uid, const QString &server);
   void ResetSession();
-  bool ThreadsComplete() const
-  {
-    return _threadsComplete;
-  }
-  bool IsReady() const
-  {
-    return _storeReady;
-  }
+  bool ThreadsComplete() const { return _threadsComplete; }
+  bool IsReady() const { return _storeReady; }
   void LoadThreads();
   void ReloadThreads();
   std::shared_ptr<ChatThreadData> EnsureThread(int threadId, int otherUid);
@@ -48,10 +41,7 @@ private:
   void SendHistoryRequest();
   void ReadLocalMessages(int threadId);
   void RequestFailed(ReqId request, const QString &message);
-  bool IsCurrent(quint64 revision) const
-  {
-    return _revision == revision && _storeReady;
-  }
+  bool IsCurrent(quint64 revision) const { return _revision == revision && _storeReady; }
   quint64 _revision = 0;
   quint64 _historyOperation = 0;
   QHash<int, quint64> _threadRevisions;

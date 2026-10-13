@@ -5,7 +5,8 @@
 #include <utility>
 
 BusinessExecutor::BusinessExecutor(std::size_t workers, std::size_t queue_limit)
-    : queue_limit_(queue_limit) {
+    : queue_limit_(queue_limit)
+{
   if (workers == 0 || workers > 16 || queue_limit == 0)
     throw std::invalid_argument("Invalid business executor limits");
   for (std::size_t i = 0; i < workers; ++i)
@@ -21,8 +22,8 @@ BusinessExecutor::BusinessExecutor(std::size_t workers, std::size_t queue_limit)
 
 BusinessExecutor::~BusinessExecutor() { Stop(); }
 
-bool BusinessExecutor::Submit(const std::string &key,
-                              std::function<void()> task) {
+bool BusinessExecutor::Submit(const std::string &key, std::function<void()> task)
+{
   std::lock_guard<std::mutex> lock(mutex_);
   if (!task || !accepting_ || metrics_.queued >= queue_limit_) {
     ++metrics_.rejected;
@@ -36,12 +37,14 @@ bool BusinessExecutor::Submit(const std::string &key,
   return true;
 }
 
-BusinessMetrics BusinessExecutor::Snapshot() const {
+BusinessMetrics BusinessExecutor::Snapshot() const
+{
   std::lock_guard<std::mutex> lock(mutex_);
   return metrics_;
 }
 
-void BusinessExecutor::BeginStop() {
+void BusinessExecutor::BeginStop()
+{
   {
     std::lock_guard<std::mutex> lock(mutex_);
     accepting_ = false;
@@ -50,15 +53,15 @@ void BusinessExecutor::BeginStop() {
     lane->ready.notify_all();
 }
 
-bool BusinessExecutor::WaitIdleUntil(
-    std::chrono::steady_clock::time_point deadline) {
+bool BusinessExecutor::WaitIdleUntil(std::chrono::steady_clock::time_point deadline)
+{
   std::unique_lock<std::mutex> lock(mutex_);
-  return idle_.wait_until(lock, deadline, [this] {
-    return metrics_.queued == 0 && metrics_.active == 0;
-  });
+  return idle_.wait_until(lock, deadline,
+                          [this] { return metrics_.queued == 0 && metrics_.active == 0; });
 }
 
-std::size_t BusinessExecutor::Stop(bool drain) {
+std::size_t BusinessExecutor::Stop(bool drain)
+{
   std::lock_guard<std::mutex> stop_lock(stop_mutex_);
   std::size_t discarded = 0;
   {
@@ -82,7 +85,8 @@ std::size_t BusinessExecutor::Stop(bool drain) {
   return discarded;
 }
 
-void BusinessExecutor::RunLane(std::size_t index) {
+void BusinessExecutor::RunLane(std::size_t index)
+{
   auto &lane = *lanes_[index];
   for (;;) {
     Task task;
@@ -106,11 +110,8 @@ void BusinessExecutor::RunLane(std::size_t index) {
       failed = true;
     }
     const auto finished = std::chrono::steady_clock::now();
-    const double wait =
-        std::chrono::duration<double, std::milli>(started - task.enqueued)
-            .count();
-    const double run =
-        std::chrono::duration<double, std::milli>(finished - started).count();
+    const double wait = std::chrono::duration<double, std::milli>(started - task.enqueued).count();
+    const double run = std::chrono::duration<double, std::milli>(finished - started).count();
     {
       std::lock_guard<std::mutex> lock(mutex_);
       --metrics_.active;

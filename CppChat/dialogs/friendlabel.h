@@ -8,8 +8,7 @@ namespace Ui {
 class FriendLabel;
 }
 
-class FriendLabel : public QFrame
-{
+class FriendLabel : public QFrame {
   Q_OBJECT
 
 public:

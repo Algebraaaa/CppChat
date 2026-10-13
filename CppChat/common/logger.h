@@ -12,8 +12,7 @@
  * 普通日志交给 spdlog 的有界异步队列；警告及严重错误即时写入并刷新。
  * Logger 只负责统一格式、按日期保存和写入，不参与任何业务逻辑。
  */
-class Logger
-{
+class Logger {
 public:
   // 安装日志处理器。重复调用是安全的。
   static bool install();

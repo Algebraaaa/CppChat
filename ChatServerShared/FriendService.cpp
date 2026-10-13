@@ -11,7 +11,8 @@
 #include "const.h"
 
 int FriendService::Apply(int uid, int other, const std::string &description,
-                         const std::string &remark, const Json::Value &input) {
+                         const std::string &remark, const Json::Value &input)
+{
   if (uid <= 0 || other <= 0 || uid == other)
     return ErrorCodes::UidInvalid;
   Json::Value tags;
@@ -21,8 +22,8 @@ int FriendService::Apply(int uid, int other, const std::string &description,
                                                SerializeContactTags(tags)))
     return ErrorCodes::DatabaseError;
   std::string destination;
-  if (!RedisMgr::GetInstance()->Get(
-          std::string(USER_IP_PREFIX) + std::to_string(other), destination))
+  if (!RedisMgr::GetInstance()->Get(std::string(USER_IP_PREFIX) + std::to_string(other),
+                                    destination))
     return ErrorCodes::Success; // Persisted applications are fetched on next
                                 // login.
   std::shared_ptr<UserInfo> applicant;
@@ -43,31 +44,28 @@ int FriendService::Apply(int uid, int other, const std::string &description,
     request.set_touid(other);
     request.set_name(applicant ? applicant->name : std::string());
     request.set_desc(description);
-    const auto reply =
-        ChatGrpcClient::GetInstance()->NotifyAddFriend(destination, request);
+    const auto reply = ChatGrpcClient::GetInstance()->NotifyAddFriend(destination, request);
     if (reply.error() != ErrorCodes::Success)
-      LOG_WARNING("Friend application persisted; notification failed: uid=",
-                  other);
+      LOG_WARNING("Friend application persisted; notification failed: uid=", other);
   }
   return ErrorCodes::Success;
 }
 
-bool FriendService::Accept(
-    int uid, int other, const std::string &remark, const Json::Value &input,
-    std::vector<std::shared_ptr<ChatMessage>> &messages) {
+bool FriendService::Accept(int uid, int other, const std::string &remark, const Json::Value &input,
+                           std::vector<std::shared_ptr<ChatMessage>> &messages)
+{
   Json::Value tags;
-  return uid > 0 && other > 0 && uid != other &&
-         NormalizeContactTags(input, tags) &&
-         MysqlMgr::GetInstance()->AddFriend(
-             uid, other, remark, SerializeContactTags(tags), messages);
+  return uid > 0 && other > 0 && uid != other && NormalizeContactTags(input, tags) &&
+         MysqlMgr::GetInstance()->AddFriend(uid, other, remark, SerializeContactTags(tags),
+                                            messages);
 }
 
-void FriendService::NotifyAccepted(int from, int to, Json::Value notification) {
+void FriendService::NotifyAccepted(int from, int to, Json::Value notification)
+{
   if (from <= 0 || to <= 0 || from == to)
     return;
   const auto target = UserMgr::GetInstance()->GetSession(to);
-  if (!target ||
-      MysqlMgr::GetInstance()->CheckFriendship(to, from) != ErrorCodes::Success)
+  if (!target || MysqlMgr::GetInstance()->CheckFriendship(to, from) != ErrorCodes::Success)
     return;
   notification["error"] = ErrorCodes::Success;
   std::shared_ptr<UserInfo> user;
@@ -76,8 +74,7 @@ void FriendService::NotifyAccepted(int from, int to, Json::Value notification) {
   else
     notification["error"] = ErrorCodes::UidInvalid;
   std::string back, tags;
-  if (MysqlMgr::GetInstance()->GetFriendMetadata(to, from, back, tags) ==
-      ErrorCodes::Success) {
+  if (MysqlMgr::GetInstance()->GetFriendMetadata(to, from, back, tags) == ErrorCodes::Success) {
     notification["back"] = back;
     notification["tags"] = ParseContactTags(tags);
   } else {
@@ -89,11 +86,10 @@ void FriendService::NotifyAccepted(int from, int to, Json::Value notification) {
   target->Send(notification.toStyledString(), ID_NOTIFY_AUTH_FRIEND_REQ);
 }
 
-void FriendService::NotifyAcceptance(int from, int to,
-                                     const Json::Value &payload) {
+void FriendService::NotifyAcceptance(int from, int to, const Json::Value &payload)
+{
   std::string destination;
-  if (!RedisMgr::GetInstance()->Get(
-          std::string(USER_IP_PREFIX) + std::to_string(to), destination))
+  if (!RedisMgr::GetInstance()->Get(std::string(USER_IP_PREFIX) + std::to_string(to), destination))
     return;
   if (destination == ConfigMgr::GetInstance()["SelfServer"]["Name"])
     NotifyAccepted(from, to, payload);
@@ -101,17 +97,16 @@ void FriendService::NotifyAcceptance(int from, int to,
     message::AuthFriendReq request;
     request.set_fromuid(from);
     request.set_touid(to);
-    const auto reply =
-        ChatGrpcClient::GetInstance()->NotifyAuthFriend(destination, request);
+    const auto reply = ChatGrpcClient::GetInstance()->NotifyAuthFriend(destination, request);
     if (reply.error() != ErrorCodes::Success)
       LOG_WARNING("Friend acceptance persisted; notification failed: uid=", to);
   }
 }
 
-void FriendService::NotifyDeleted(int uid, int other) {
+void FriendService::NotifyDeleted(int uid, int other)
+{
   const auto target = UserMgr::GetInstance()->GetSession(uid);
-  if (!target || MysqlMgr::GetInstance()->CheckFriendship(uid, other) !=
-                     ErrorCodes::FriendNotFound)
+  if (!target || MysqlMgr::GetInstance()->CheckFriendship(uid, other) != ErrorCodes::FriendNotFound)
     return; // Suppress an old deletion after the friendship has been re-added.
   Json::Value notification;
   notification["error"] = ErrorCodes::Success;
@@ -120,7 +115,8 @@ void FriendService::NotifyDeleted(int uid, int other) {
   target->Send(notification.toStyledString(), ID_NOTIFY_DELETE_FRIEND);
 }
 
-int FriendService::Delete(int uid, int other) {
+int FriendService::Delete(int uid, int other)
+{
   if (uid <= 0 || other <= 0 || uid == other)
     return ErrorCodes::UidInvalid;
   if (!MysqlMgr::GetInstance()->DeleteFriend(uid, other))
@@ -130,13 +126,12 @@ int FriendService::Delete(int uid, int other) {
     NotifyDeleted(other, uid);
   else {
     std::string destination;
-    if (RedisMgr::GetInstance()->Get(
-            std::string(USER_IP_PREFIX) + std::to_string(other), destination)) {
+    if (RedisMgr::GetInstance()->Get(std::string(USER_IP_PREFIX) + std::to_string(other),
+                                     destination)) {
       message::DeleteFriendReq request;
       request.set_fromuid(uid);
       request.set_touid(other);
-      const auto reply = ChatGrpcClient::GetInstance()->NotifyDeleteFriend(
-          destination, request);
+      const auto reply = ChatGrpcClient::GetInstance()->NotifyDeleteFriend(destination, request);
       if (reply.error() != ErrorCodes::Success)
         LOG_WARNING("Friend deletion persisted; notification failed; heartbeat "
                     "will reconcile: uid=",
@@ -146,21 +141,19 @@ int FriendService::Delete(int uid, int other) {
   return ErrorCodes::Success;
 }
 
-int FriendService::SetTags(int uid, int other, const Json::Value &input,
-                           Json::Value &tags) {
+int FriendService::SetTags(int uid, int other, const Json::Value &input, Json::Value &tags)
+{
   if (uid <= 0 || other <= 0 || uid == other)
     return ErrorCodes::UidInvalid;
   if (!NormalizeContactTags(input, tags))
     return ErrorCodes::Error_Json;
-  return MysqlMgr::GetInstance()->SetContactTags(uid, other,
-                                                 SerializeContactTags(tags));
+  return MysqlMgr::GetInstance()->SetContactTags(uid, other, SerializeContactTags(tags));
 }
-bool FriendService::List(int uid,
-                         std::vector<std::shared_ptr<UserInfo>> &friends) {
+bool FriendService::List(int uid, std::vector<std::shared_ptr<UserInfo>> &friends)
+{
   return uid > 0 && MysqlMgr::GetInstance()->GetFriendList(uid, friends);
 }
-bool FriendService::Applications(
-    int uid, std::vector<std::shared_ptr<ApplyInfo>> &applications) {
-  return uid > 0 &&
-         MysqlMgr::GetInstance()->GetApplyList(uid, applications, 0, 10);
+bool FriendService::Applications(int uid, std::vector<std::shared_ptr<ApplyInfo>> &applications)
+{
+  return uid > 0 && MysqlMgr::GetInstance()->GetApplyList(uid, applications, 0, 10);
 }

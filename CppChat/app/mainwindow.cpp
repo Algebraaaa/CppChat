@@ -1,11 +1,11 @@
 #include "app/mainwindow.h"
+#include "common/chatstore.h"
 #include "dialogs/chatdialog.h"
 #include "dialogs/logindialog.h"
 #include "dialogs/registerdialog.h"
 #include "dialogs/resetdialog.h"
 #include "network/tcpmgr.h"
 #include "network/usermgr.h"
-#include "common/chatstore.h"
 #include "ui_mainwindow.h"
 
 #include <QApplication>
@@ -18,8 +18,8 @@
 #include <QWindow>
 
 #ifdef Q_OS_WIN
-#include <qt_windows.h>
 #include <dwmapi.h>
+#include <qt_windows.h>
 #endif
 
 namespace {

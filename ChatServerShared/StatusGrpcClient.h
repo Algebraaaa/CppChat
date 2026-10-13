@@ -17,8 +17,7 @@
 // 不是底层 TCP 连接。
 class StatusStubPool final {
 public:
-  StatusStubPool(std::size_t pool_size, const std::string &host,
-                 const std::string &port);
+  StatusStubPool(std::size_t pool_size, const std::string &host, const std::string &port);
   ~StatusStubPool();
 
   StatusStubPool(const StatusStubPool &) = delete;

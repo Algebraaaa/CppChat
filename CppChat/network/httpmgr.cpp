@@ -4,13 +4,11 @@
 #include <QJsonDocument>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QSslError>
 
 HttpMgr::~HttpMgr() {}
 
-HttpMgr::HttpMgr()
-{
-  connect(this, &HttpMgr::sig_http_finish, this, &HttpMgr::slot_http_finish);
-}
+HttpMgr::HttpMgr() { connect(this, &HttpMgr::sig_http_finish, this, &HttpMgr::slot_http_finish); }
 
 void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
 {
@@ -30,6 +28,12 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
                                   // 在这里它指向的就是那个全局唯一的 HttpMgr 实例
   // ⑤ 让快递员真正把请求发出去
   QNetworkReply *reply = _manager.post(request, data);
+  QObject::connect(reply, &QNetworkReply::sslErrors, reply,
+                   [reply](const QList<QSslError> &errors) {
+                     for (const auto &error : errors)
+                       qWarning() << "HTTPS certificate verification failed:" << reply->url()
+                                  << error.errorString();
+                   });
   // ⑥ 约定"回信到了"时干什么
   // lambda为什么不捕获this？等回信期间对象若被销毁，this 变野指针，emit this->... 崩溃
   QObject::connect(reply, &QNetworkReply::finished, [self, reply, req_id, mod]() {

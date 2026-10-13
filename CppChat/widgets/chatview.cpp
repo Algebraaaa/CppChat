@@ -281,8 +281,8 @@ bool ChatView::handleWheelEvent(QWheelEvent *event)
   if (m_pScrollAnimation->state() != QAbstractAnimation::Running ||
       (distance > 0 && m_scrollTarget > current) || (distance < 0 && m_scrollTarget < current))
     m_scrollTarget = current;
-  m_scrollTarget = qBound(m_pVScrollBar->minimum(), m_scrollTarget - distance,
-                          m_pVScrollBar->maximum());
+  m_scrollTarget =
+      qBound(m_pVScrollBar->minimum(), m_scrollTarget - distance, m_pVScrollBar->maximum());
   _followBottom = false;
   captureAnchor();
   m_pScrollAnimation->stop();

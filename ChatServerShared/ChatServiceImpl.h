@@ -31,14 +31,11 @@ public:
   Status NotifyAuthFriend(ServerContext *context, const AuthFriendReq *request,
                           AuthFriendRsp *response) override;
 
-  Status NotifyTextChatMsg(::grpc::ServerContext *context,
-                           const TextChatMsgReq *request,
+  Status NotifyTextChatMsg(::grpc::ServerContext *context, const TextChatMsgReq *request,
                            TextChatMsgRsp *response) override;
-  Status NotifyKickUser(::grpc::ServerContext *context,
-                        const KickUserReq *request,
+  Status NotifyKickUser(::grpc::ServerContext *context, const KickUserReq *request,
                         KickUserRsp *response) override;
-  Status NotifyDeleteFriend(::grpc::ServerContext *context,
-                            const message::DeleteFriendReq *request,
+  Status NotifyDeleteFriend(::grpc::ServerContext *context, const message::DeleteFriendReq *request,
                             message::DeleteFriendRsp *response) override;
 
 private:

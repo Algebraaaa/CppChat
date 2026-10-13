@@ -18,8 +18,7 @@ class CServer;
 class CSession;
 class LogicNode;
 
-using MessageCallback =
-    std::function<void(std::shared_ptr<CSession>, short, const std::string &)>;
+using MessageCallback = std::function<void(std::shared_ptr<CSession>, short, const std::string &)>;
 
 class LogicSystem : public Singleton<LogicSystem> {
   friend class Singleton<LogicSystem>;
@@ -50,8 +49,8 @@ private:
                        const std::string &message_data);
   void HeartBeatHandler(std::shared_ptr<CSession> session, short message_id,
                         const std::string &message_data);
-  void GetUserThreadsHandler(std::shared_ptr<CSession> session,
-                             short message_id, const std::string &message_data);
+  void GetUserThreadsHandler(std::shared_ptr<CSession> session, short message_id,
+                             const std::string &message_data);
   void CreatePrivateChat(std::shared_ptr<CSession> session, short message_id,
                          const std::string &message_data);
   void LoadChatMsg(std::shared_ptr<CSession> session, short message_id,

@@ -1,26 +1,25 @@
 #ifndef IMAGECROPPER_H
 #define IMAGECROPPER_H
 
-#include <QWidget>
-#include <QPointer>
 #include <QDialog>
-#include <QPainter>
-#include <QLabel>
-#include <QPixmap>
-#include <QString>
-#include <QMessageBox>
 #include <QHBoxLayout>
-#include <QVBoxLayout>
+#include <QLabel>
+#include <QMessageBox>
+#include <QPainter>
+#include <QPixmap>
+#include <QPointer>
 #include <QPushButton>
+#include <QString>
+#include <QVBoxLayout>
+#include <QWidget>
 
 #include "imagecropperlabel.h"
 
 /*******************************************************
  *  Loacl private class, which do image-cropping
  *  Used in class ImageCropper
-*******************************************************/
-class ImageCropperDialogPrivate : public QDialog
-{
+ *******************************************************/
+class ImageCropperDialogPrivate : public QDialog {
   Q_OBJECT
 public:
   ImageCropperDialogPrivate(const QPixmap &imageIn, QPixmap &outputImage, int windowWidth,
@@ -71,9 +70,8 @@ private:
  *  class ImageCropperDialog
  *      create a instane of class ImageCropperDialogPrivate
  *      and get cropped image from the instance(after closing)
-********************************************************************/
-class ImageCropperDialog : QObject
-{
+ ********************************************************************/
+class ImageCropperDialog : QObject {
 public:
   static QPixmap getCroppedImage(const QString &filename, int windowWidth, int windowHeight,
                                  CropperShape cropperShape, QSize crooperSize = QSize(),

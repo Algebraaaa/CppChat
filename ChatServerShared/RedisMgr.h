@@ -22,18 +22,16 @@
  */
 enum class RedisReadStatus { Found, Missing, Error };
 
-class RedisMgr : public Singleton<RedisMgr>,
-                 public std::enable_shared_from_this<RedisMgr> {
+class RedisMgr : public Singleton<RedisMgr>, public std::enable_shared_from_this<RedisMgr> {
   friend class Singleton<RedisMgr>;
 
 public:
-  RedisReadStatus Read(const std::string &key, std::string &value,
-                       bool require_expiry = false);
+  RedisReadStatus Read(const std::string &key, std::string &value, bool require_expiry = false);
   bool SetEx(const std::string &key, const std::string &value, int seconds);
   // 析构时关闭连接池。
   ~RedisMgr();
-  int RegisterSession(int uid, const std::string &session_id,
-                      const std::string &server_name, const std::string &token);
+  int RegisterSession(int uid, const std::string &session_id, const std::string &server_name,
+                      const std::string &token);
   int RefreshSession(int uid, const std::string &session_id);
   bool ReleaseSession(int uid, const std::string &session_id);
   bool PublishNode(const std::string &name, const std::string &instance_id,
@@ -53,11 +51,9 @@ public:
   // 从列表右侧弹出元素。
   bool RPop(const std::string &key, std::string &value);
   // 设置哈希表 key 中字段 hkey 的值；这是方便 std::string 调用的重载。
-  bool HSet(const std::string &key, const std::string &hkey,
-            const std::string &value);
+  bool HSet(const std::string &key, const std::string &hkey, const std::string &value);
   // 底层 HSET 重载允许 hvalue 包含 '\0'，所以需要显式传入 hvaluelen。
-  bool HSet(const char *key, const char *hkey, const char *hvalue,
-            std::size_t hvaluelen);
+  bool HSet(const char *key, const char *hkey, const char *hvalue, std::size_t hvaluelen);
   // 读取哈希字段；不存在或失败时返回空字符串。
   // 注意：这个接口无法区分“字段值本来就是空字符串”和“读取失败”。
   std::string HGet(const std::string &key, const std::string &hkey);
@@ -72,18 +68,16 @@ public:
   // 主动关闭底层连接池；重复调用是安全的。
   void Close();
 
-  std::string AcquireLock(const std::string &lock_name,
-                          int lock_timeout_seconds,
+  std::string AcquireLock(const std::string &lock_name, int lock_timeout_seconds,
                           int acquire_timeout_seconds);
   bool ReleaseLock(const std::string &lock_name, const std::string &identifier);
-  std::string acquireLock(const std::string &lock_name,
-                          int lock_timeout_seconds,
-                          int acquire_timeout_seconds) {
-    return AcquireLock(lock_name, lock_timeout_seconds,
-                       acquire_timeout_seconds);
+  std::string acquireLock(const std::string &lock_name, int lock_timeout_seconds,
+                          int acquire_timeout_seconds)
+  {
+    return AcquireLock(lock_name, lock_timeout_seconds, acquire_timeout_seconds);
   }
-  bool releaseLock(const std::string &lock_name,
-                   const std::string &identifier) {
+  bool releaseLock(const std::string &lock_name, const std::string &identifier)
+  {
     return ReleaseLock(lock_name, identifier);
   }
 

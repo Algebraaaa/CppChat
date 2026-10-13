@@ -1,4 +1,5 @@
 #include "conversationpreferences.h"
+#include "runtimepaths.h"
 #include <QCoreApplication>
 #include <QDir>
 #include <QHash>
@@ -14,8 +15,7 @@
 namespace {
 QString settingsPath()
 {
-  const QString directory =
-      QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/CppChat";
+  const QString directory = RuntimePaths::preferencesDirectory();
   QDir().mkpath(directory);
   return directory + "/conversations.ini";
 }
@@ -34,8 +34,7 @@ QSet<int> readThreads(const QVariant &value)
 
 // 所有入口在 GUI 线程调用；缓冲值先放在内存，定时器到期才交给 QSettings。
 // 不能逐次 setValue 再延迟 sync：QSettings 自身也会在事件循环中自动同步。
-class PreferenceStore : public QObject
-{
+class PreferenceStore : public QObject {
 public:
   explicit PreferenceStore(QObject *parent)
       : QObject(parent), settings(settingsPath(), QSettings::IniFormat)
@@ -46,10 +45,7 @@ public:
     connect(QCoreApplication::instance(), &QCoreApplication::aboutToQuit, this,
             [this] { Flush(); });
   }
-  ~PreferenceStore() override
-  {
-    Flush();
-  }
+  ~PreferenceStore() override { Flush(); }
 
   QVariant Read(const QString &key) const
   {

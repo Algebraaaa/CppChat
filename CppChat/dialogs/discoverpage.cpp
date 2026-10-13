@@ -22,10 +22,7 @@ DiscoverPage::DiscoverPage(QWidget *parent) : QWidget(parent), ui(new Ui::Discov
   Reset();
 }
 
-DiscoverPage::~DiscoverPage()
-{
-  delete ui;
-}
+DiscoverPage::~DiscoverPage() { delete ui; }
 
 void DiscoverPage::Reset()
 {

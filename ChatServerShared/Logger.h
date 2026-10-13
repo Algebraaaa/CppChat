@@ -18,19 +18,23 @@ public:
   Logger(Logger &&) = delete;
   Logger &operator=(Logger &&) = delete;
 
-  template <typename... Args> void Debug(Args &&...args) {
+  template <typename... Args> void Debug(Args &&...args)
+  {
     Write(LogLevel::Debug, BuildMessage(std::forward<Args>(args)...));
   }
 
-  template <typename... Args> void Info(Args &&...args) {
+  template <typename... Args> void Info(Args &&...args)
+  {
     Write(LogLevel::Info, BuildMessage(std::forward<Args>(args)...));
   }
 
-  template <typename... Args> void Warning(Args &&...args) {
+  template <typename... Args> void Warning(Args &&...args)
+  {
     Write(LogLevel::Warning, BuildMessage(std::forward<Args>(args)...));
   }
 
-  template <typename... Args> void Error(Args &&...args) {
+  template <typename... Args> void Error(Args &&...args)
+  {
     Write(LogLevel::Error, BuildMessage(std::forward<Args>(args)...));
   }
 
@@ -40,7 +44,8 @@ private:
   Logger();
   ~Logger();
 
-  template <typename... Args> static std::string BuildMessage(Args &&...args) {
+  template <typename... Args> static std::string BuildMessage(Args &&...args)
+  {
     std::ostringstream stream;
     (stream << ... << std::forward<Args>(args));
     return stream.str();

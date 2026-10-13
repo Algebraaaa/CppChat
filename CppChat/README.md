@@ -5,15 +5,57 @@ ResourceServer 传输，本地消息和草稿保存在按服务端及账号隔�
 
 ## 开发与维护入口
 
-- 在 Qt Creator 中打开 `CppChat.pro`，选择对应 Qt Kit，运行 qmake 后构建。
-- `client.pri` 登记客户端源码、UI 和资源；`.ui` 管布局，QSS 管外观，C++ 管行为。
+- 在 Qt Creator 中打开本客户端目录的 `CMakeLists.txt`，选择对应 Qt Kit 和 Debug / Release 配置后构建。
+- `CMakeLists.txt` 管理客户端源码、UI、资源和 Qt 运行库部署；`.ui` 管布局，QSS 管外观，C++ 管行为。
 - [项目目录与约定](docs/project-guide.md)
 - [界面功能](docs/ui-features.md)与[本地聊天记录](docs/local-chat-history.md)
 - [性能优化实现和验证](docs/performance-improvements.md)
 - [架构加固阶段与验证](docs/architecture-hardening-20261006.md)和[客户端流程服务](services/README.md)
-- [服务端架构](docs/backend-architecture.md)与[资源服务构建配置](resource_server/README.md)
+- [服务端架构](docs/backend-architecture.md)与[资源服务构建配置](../ResourceServer/README.md)
 
 `config.ini`、真实账号数据库、图片缓存、日志和编译产物属于本机文件，不应发布。
+
+## CMake 构建
+
+仅客户端采用此构建入口，上层服务端工程保持独立。需要 CMake 3.24+、Ninja、C++17 编译器和 Qt 6 的 Core、Gui、Widgets、Network、Sql、Svg、Concurrent 模块。
+
+在客户端目录执行：
+
+```powershell
+cmake --preset debug -DCMAKE_PREFIX_PATH=D:/Qt/6.12.0/mingw_64
+cmake --build --preset debug
+```
+
+`CMakePresets.json` 提供 `debug` / `release`。本机的 `CMakeUserPresets.json` 配置了已安装的 Qt、MinGW 和 Ninja，可直接使用 `local-debug` / `local-release`，或在仓库根目录执行 `CppChat.cmd build -Target Client -Configuration Debug`。Debug 与 Release 分别输出到本客户端的 `build/debug`、`build/release`。Windows 链接后自动部署当前 Qt Kit 的 DLL、插件和 SQLite 驱动。
+
+本机配置为客户端根目录的 `config.ini`，修改它后重新运行 CMake，即会同步到 Debug / Release 的 EXE 所在目录。客户端实际读取 EXE 同级的 `config.ini`。配置已被 Git 忽略。
+
+## 连接本机或云端
+
+`GateServer/scheme` 支持 `http` / `https`，`ChatServer/tls` 和 `ResourceServer/tls` 控制聊天、图片连接是否使用 TLS。省略这些设置时仍使用原来的 HTTP / TCP，兼容本机服务。启用 TLS 时会校验服务器证书和主机名，聊天登录与图片请求在握手完成后发送。
+
+当前华为云配置为：
+
+```ini
+[GateServer]
+host=123.60.167.18
+port=443
+scheme=https
+
+[ChatServer]
+tls=true
+
+[ResourceServer]
+host=123.60.167.18
+port=8443
+tls=true
+```
+
+两个聊天节点的公网 TLS 端口为 `8441` / `8442`，地址和端口由登录接口分配，不在客户端写死。切回本机时，GateServer 使用 `127.0.0.1:8090`、`scheme=http`，ChatServer 使用 `tls=false`，ResourceServer 使用 `127.0.0.1:8093`、`tls=false`。修改源码目录中的配置后，在仓库根目录执行 `CppChat.cmd sync` 并重启客户端；源码修改后还需重新编译。
+
+Windows 发行目录需要包含 Qt 的 `tls` 插件目录；本机 Kit 使用随 Qt 部署的 Schannel 后端和 Windows 证书信任库，无需另外安装 OpenSSL。云端的服务和账号与本机独立，连接云端时直接启动客户端 EXE，或在 Qt Creator 中运行客户端。
+
+2026-10-11：客户端已移除 qmake 工程，改用 CMake。下面较早的工具表和清理记录为历史记录。
 
 ## 本机验证环境
 
@@ -46,7 +88,7 @@ ResourceServer 传输，本地消息和草稿保存在按服务端及账号隔�
 
 ## 2026-10-06 本地聊天数据位置
 
-开发运行时从 EXE 目录向上找到 `CppChat.pro`，聊天数据放在本项目根目录下：
+开发运行时从 EXE 目录向上找到客户端 `CMakeLists.txt` 与 `app/main.cpp`，聊天数据放在本客户端根目录下：
 `chat_data/accounts/<服务器哈希>/<UID>/sql/db.sqlite`，图片缓存仍在账号目录下的 `attachments/`。
 不使用项目外独立目录，不写入 C 盘，不随 build 子目录变化。
 发布目录没有项目文件时使用 EXE 同级的 `chat_data/`；目标位于 C 盘或不可写时明确报错。

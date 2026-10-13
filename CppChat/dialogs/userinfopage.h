@@ -1,16 +1,15 @@
 #ifndef USERINFOPAGE_H
 #define USERINFOPAGE_H
 
-#include <QWidget>
-#include <QPixmap>
 #include <QByteArray>
+#include <QPixmap>
+#include <QWidget>
 
 namespace Ui {
 class UserInfoPage;
 }
 
-class UserInfoPage : public QWidget
-{
+class UserInfoPage : public QWidget {
   Q_OBJECT
 
 public:

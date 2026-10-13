@@ -1,10 +1,10 @@
 #ifndef CHATPAGE_H
 #define CHATPAGE_H
 #include "common/userdata.h"
-#include <QWidget>
 #include <QHash>
-#include <QSet>
 #include <QPointer>
+#include <QSet>
+#include <QWidget>
 class ChatItemBase;
 class QTimer;
 class ScreenCapture;
@@ -13,8 +13,7 @@ class MessageSender;
 namespace Ui {
 class ChatPage;
 }
-class ChatPage : public QWidget
-{
+class ChatPage : public QWidget {
   Q_OBJECT
 public:
   explicit ChatPage(QWidget *parent = nullptr);

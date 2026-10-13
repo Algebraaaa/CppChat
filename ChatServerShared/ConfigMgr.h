@@ -6,8 +6,8 @@
 struct SectionInfo {
   std::map<std::string, std::string> values;
 
-  std::string GetValue(const std::string &key,
-                       std::string default_value = {}) const {
+  std::string GetValue(const std::string &key, std::string default_value = {}) const
+  {
     const auto iter = values.find(key);
     return iter == values.end() ? default_value : iter->second;
   }

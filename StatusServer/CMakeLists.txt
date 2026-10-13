@@ -1,0 +1,1 @@
+cppchat_add_server(StatusServer StatusServer StatusServer)

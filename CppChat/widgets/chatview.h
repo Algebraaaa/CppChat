@@ -9,8 +9,7 @@ class QGraphicsOpacityEffect;
 class QTimer;
 class QWheelEvent;
 
-class ChatView : public QWidget
-{
+class ChatView : public QWidget {
   Q_OBJECT
 public:
   explicit ChatView(QWidget *parent = nullptr);

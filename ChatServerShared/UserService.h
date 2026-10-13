@@ -16,9 +16,7 @@ public:
   static std::shared_ptr<UserInfo> GetByName(const std::string &name);
   static void WriteProfile(const UserInfo &user, Json::Value &value);
   static ProfileUpdateResult UpdateProfile(int uid, const std::string &name,
-                                           const std::string &nick,
-                                           const std::string &description,
-                                           const std::string &avatar,
-                                           bool has_avatar);
+                                           const std::string &nick, const std::string &description,
+                                           const std::string &avatar, bool has_avatar);
   static bool GetAvatar(int uid, std::string &avatar);
 };

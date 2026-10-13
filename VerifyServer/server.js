@@ -1,11 +1,6 @@
 const crypto = require('crypto');
-const grpc = require('@grpc/grpc-js');
-
-const messagePackage = require('./proto');
 const serverConstants = require('./const');
-const serverConfig = require('./config');
-const emailService = require('./email');
-const redisService = require('./redis');
+
 // 2026-08-12 对比：
 // 旧写法：Redis 保存600秒，但邮件提示“3分钟”，两处含义不一致。
 // 新写法：统一使用 VERIFY_CODE_TTL_SECONDS = 180。
@@ -21,80 +16,89 @@ function sendGrpcResponse(grpcCallback, emailAddress, errorCode) {
 }
 
 // 函数名必须和 GateServer 共同使用的 message.proto 保持一致。
-async function GetVerifyCode(grpcCall, grpcCallback) {
-  const emailAddress = grpcCall.request.email;
-  const verificationCodeKey =
-    serverConstants.verificationCodeKeyPrefix + emailAddress;
-  console.log('Verification requested');
+function createHandlers({ config, email, redis }) {
+  async function GetVerifyCode(grpcCall, grpcCallback) {
+    const emailAddress = grpcCall.request.email;
+    const verificationCodeKey =
+      serverConstants.verificationCodeKeyPrefix + emailAddress;
+    console.log('Verification requested');
 
-  try {
-    let verificationCode = await redisService.getValue(verificationCodeKey);
+    try {
+      let verificationCode = await redis.getValue(verificationCodeKey);
 
-    if (verificationCode === null) {
-      // 2026-08-12 对比：
-      // 旧写法：uuidv4().substring(0, 4)，会产生4位十六进制字符。
-      // 新写法：crypto.randomInt() 生成100000到999999之间的6位数字。
-      // 好处：随机源适合安全用途、组合更多，并且纯数字更方便用户输入。
-      verificationCode = crypto.randomInt(100000, 1000000).toString();
+      if (verificationCode === null) {
+        // 2026-08-12 对比：
+        // 旧写法：uuidv4().substring(0, 4)，会产生4位十六进制字符。
+        // 新写法：crypto.randomInt() 生成100000到999999之间的6位数字。
+        // 好处：随机源适合安全用途、组合更多，并且纯数字更方便用户输入。
+        verificationCode = crypto.randomInt(100000, 1000000).toString();
 
-      const verificationCodeSaved = await redisService.setValueWithExpiration(
-        verificationCodeKey,
-        verificationCode,
-        VERIFY_CODE_TTL_SECONDS
-      );
-
-      if (!verificationCodeSaved) {
-        sendGrpcResponse(
-          grpcCallback,
-          emailAddress,
-          serverConstants.ErrorCodes.RedisError
+        const verificationCodeSaved = await redis.setValueWithExpiration(
+          verificationCodeKey,
+          verificationCode,
+          VERIFY_CODE_TTL_SECONDS
         );
-        return;
+
+        if (!verificationCodeSaved) {
+          sendGrpcResponse(
+            grpcCallback,
+            emailAddress,
+            serverConstants.ErrorCodes.RedisError
+          );
+          return;
+        }
       }
+
+      const verificationEmail = {
+        from: config.emailUser,
+        to: emailAddress,
+        subject: '验证码',
+        text: `您的验证码为 ${verificationCode}，请在3分钟内完成注册。`,
+      };
+
+      await email.sendEmail(verificationEmail);
+      sendGrpcResponse(
+        grpcCallback,
+        emailAddress,
+        serverConstants.ErrorCodes.Success
+      );
+    } catch (requestError) {
+      console.error('GetVerifyCode failed:', requestError.message);
+      sendGrpcResponse(
+        grpcCallback,
+        emailAddress,
+        serverConstants.ErrorCodes.InternalError
+      );
     }
-
-    const verificationEmail = {
-      from: serverConfig.emailUser,
-      to: emailAddress,
-      subject: '验证码',
-      text: `您的验证码为 ${verificationCode}，请在3分钟内完成注册。`,
-    };
-
-    await emailService.sendEmail(verificationEmail);
-    sendGrpcResponse(
-      grpcCallback,
-      emailAddress,
-      serverConstants.ErrorCodes.Success
-    );
-  } catch (requestError) {
-    console.error('GetVerifyCode failed:', requestError.message);
-    sendGrpcResponse(
-      grpcCallback,
-      emailAddress,
-      serverConstants.ErrorCodes.InternalError
-    );
   }
+
+  return { GetVerifyCode };
 }
 
 function startVerifyServer() {
+  // Importing handlers has no file, SMTP, Redis or listening side effects.
+  const grpc = require('@grpc/grpc-js');
+  const messagePackage = require('./proto');
+  const config = require('./config');
+  const redis = require('./redis');
+  const email = require('./email');
   const grpcServer = new grpc.Server();
-  grpcServer.addService(messagePackage.VerifyService.service, { GetVerifyCode });
-  grpcServer.bindAsync(
-    '0.0.0.0:50051',
-    grpc.ServerCredentials.createInsecure(),
-    (bindError, listeningPort) => {
-      if (bindError) {
-        console.error('Failed to start gRPC VerifyServer:', bindError.message);
+  grpcServer.addService(messagePackage.VerifyService.service,
+    createHandlers({ config, email, redis }));
+  grpcServer.bindAsync(config.listenAddress, grpc.ServerCredentials.createInsecure(),
+    (error, port) => {
+      if (error) {
+        console.error('Failed to start gRPC VerifyServer:', error.message);
+        redis.closeConnection().finally(() => { process.exitCode = 1; });
         return;
       }
-
-      // 2026-08-12 对比：
-      // 旧写法：bindAsync 成功后继续调用 grpc-js 1.14 已弃用的 server.start()。
-      // 新写法：绑定成功后直接报告实际 listeningPort，并在上方显式处理绑定错误。
-      // 好处：消除弃用调用；端口被占用时不会再误报“启动成功”。
-      console.log(`gRPC VerifyServer started on port ${listeningPort}`);
-    }
-  );
+      console.log(`gRPC VerifyServer started on port ${port}`);
+    });
+  const stop = () => grpcServer.tryShutdown(() => redis.closeConnection());
+  process.once('SIGINT', stop);
+  process.once('SIGTERM', stop);
+  return grpcServer;
 }
 
-startVerifyServer();
+module.exports = { createHandlers, startVerifyServer, VERIFY_CODE_TTL_SECONDS };
+if (require.main === module) startVerifyServer();

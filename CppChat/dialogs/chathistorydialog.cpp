@@ -1,17 +1,17 @@
 #include "chathistorydialog.h"
 #include "common/chatstore.h"
-#include "network/usermgr.h"
 #include "network/resourcemgr.h"
+#include "network/usermgr.h"
+#include "ui_chathistorydialog.h"
 #include "widgets/picturebubble.h"
 #include "widgets/textbubble.h"
-#include "ui_chathistorydialog.h"
 #include <QButtonGroup>
 #include <QDate>
 #include <QEvent>
-#include <QLabel>
 #include <QImage>
-#include <QLineEdit>
 #include <QInputDialog>
+#include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
@@ -92,10 +92,7 @@ ChatHistoryDialog::ChatHistoryDialog(QWidget *parent)
   Reset();
 }
 
-ChatHistoryDialog::~ChatHistoryDialog()
-{
-  delete ui;
-}
+ChatHistoryDialog::~ChatHistoryDialog() { delete ui; }
 
 void ChatHistoryDialog::SetConversation(int threadId, const QString &name)
 {

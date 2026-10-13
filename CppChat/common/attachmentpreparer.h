@@ -11,8 +11,7 @@
 #include <memory>
 
 // 字段只在 GUI 线程读写。MsgInfo 持有状态，使未完成的图片跟随原草稿。
-struct PreparedAttachment
-{
+struct PreparedAttachment {
   QString id;
   QByteArray bytes;
   QImage preview;
@@ -20,8 +19,7 @@ struct PreparedAttachment
   bool ready = false;
 };
 
-class AttachmentPreparer : public QObject
-{
+class AttachmentPreparer : public QObject {
   Q_OBJECT
 public:
   static AttachmentPreparer *instance();
@@ -37,14 +35,12 @@ signals:
 
 private:
   explicit AttachmentPreparer(QObject *parent);
-  struct Result
-  {
+  struct Result {
     QByteArray bytes;
     QImage preview;
     QString error;
   };
-  struct Completion
-  {
+  struct Completion {
     std::shared_ptr<PreparedAttachment> attachment;
     Result result;
     qint64 cost = 0;

@@ -13,8 +13,7 @@ namespace Ui {
 class ChatDialog;
 }
 
-class ChatDialog : public QDialog
-{
+class ChatDialog : public QDialog {
   Q_OBJECT
 public:
   explicit ChatDialog(QWidget *parent = nullptr);
@@ -28,13 +27,7 @@ protected:
   bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
-  enum class Section
-  {
-    Chat,
-    Contacts,
-    Favorites,
-    Discover
-  };
+  enum class Section { Chat, Contacts, Favorites, Discover };
   void SwitchSection(Section section);
   bool IsChatVisible() const;
   void MarkCurrentRead();

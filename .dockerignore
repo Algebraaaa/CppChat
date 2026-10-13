@@ -1,0 +1,12 @@
+.git
+.runtime
+build
+CppChat/build
+node_modules
+VerifyServer/node_modules
+**/chat_data
+**/resource_data
+**/logs
+**/__pycache__
+**/config.ini
+**/config.json

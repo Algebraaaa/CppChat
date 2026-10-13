@@ -1,12 +1,11 @@
 ﻿#ifndef TEXTBUBBLE_H
 #define TEXTBUBBLE_H
 
-#include <QTextEdit>
 #include "bubbleframe.h"
 #include <QHBoxLayout>
+#include <QTextEdit>
 
-class TextBubble : public BubbleFrame
-{
+class TextBubble : public BubbleFrame {
   Q_OBJECT
 public:
   TextBubble(ChatRole role, const QString &text, QWidget *parent = nullptr);

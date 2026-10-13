@@ -15,8 +15,7 @@ class ConversationSection;
 }
 
 // 完整聊天模块：搜索、会话列表和会话内容。网络分页与跨模块导航由 ChatDialog 协调。
-class ConversationSection : public QWidget
-{
+class ConversationSection : public QWidget {
   Q_OBJECT
 public:
   explicit ConversationSection(QWidget *parent = nullptr);

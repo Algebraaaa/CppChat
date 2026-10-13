@@ -8,8 +8,7 @@
 
 class QTextCursor;
 
-struct EmojiEntry
-{
+struct EmojiEntry {
   QString id;
   QString name;
   QString token;

@@ -32,10 +32,7 @@ SideMenuPopup::SideMenuPopup(QWidget *parent) : QDialog(parent), ui(new Ui::Side
   }
 }
 
-SideMenuPopup::~SideMenuPopup()
-{
-  delete ui;
-}
+SideMenuPopup::~SideMenuPopup() { delete ui; }
 
 void SideMenuPopup::PopupAt(QWidget *anchor)
 {

@@ -5,8 +5,7 @@
 
 // 本机会话偏好按账号隔离，不改变服务端消息送达状态。
 namespace ConversationPreferences {
-struct State
-{
+struct State {
   QSet<int> pinned;
   QSet<int> unread;
 };

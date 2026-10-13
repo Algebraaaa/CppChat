@@ -1,12 +1,16 @@
 #include "tcpmgr.h"
-#include <QScopedValueRollback>
+#include "common/runtimepaths.h"
 #include "usermgr.h"
+#include <QCoreApplication>
 #include <QDataStream>
 #include <QJsonDocument>
 #include <QJsonParseError>
+#include <QScopedValueRollback>
 #include <QSet>
-#include <QVector>
+#include <QSettings>
+#include <QSslError>
 #include <QUuid>
+#include <QVector>
 
 namespace {
 constexpr int kHeartbeatIntervalMs = 10000;
@@ -103,8 +107,21 @@ TcpMgr::TcpMgr()
     emit sig_con_success(false);
   });
   connect(&_socket, &QTcpSocket::connected, this, [this] {
-    _connectTimer.stop();
-    emit sig_con_success(true);
+    if (!_tlsEnabled) {
+      _connectTimer.stop();
+      emit sig_con_success(true);
+    }
+  });
+  connect(&_socket, &QSslSocket::encrypted, this, [this] {
+    if (_tlsEnabled && _connectTimer.isActive()) {
+      _connectTimer.stop();
+      qInfo() << "Chat TLS connection established:" << _socket.peerName() << _socket.peerPort();
+      emit sig_con_success(true);
+    }
+  });
+  connect(&_socket, &QSslSocket::sslErrors, this, [](const QList<QSslError> &errors) {
+    for (const auto &error : errors)
+      qWarning() << "Chat TLS certificate verification failed:" << error.errorString();
   });
   connect(&_socket, &QTcpSocket::readyRead, this, &TcpMgr::readPackets);
   connect(&_socket, &QTcpSocket::errorOccurred, this, [this](QAbstractSocket::SocketError error) {
@@ -142,7 +159,8 @@ TcpMgr::TcpMgr()
 
 bool TcpMgr::IsConnected() const
 {
-  return _loggedIn && _socket.state() == QAbstractSocket::ConnectedState;
+  return _loggedIn && _socket.state() == QAbstractSocket::ConnectedState &&
+         (!_tlsEnabled || _socket.isEncrypted());
 }
 
 void TcpMgr::resetConnectionState()
@@ -177,8 +195,21 @@ void TcpMgr::slot_tcp_connect(ServerInfo server)
     emit sig_con_success(false);
     return;
   }
+  QSettings settings(RuntimePaths::configFile(), QSettings::IniFormat);
+  _tlsEnabled = settings.value("ChatServer/tls", false).toBool();
+  if (_tlsEnabled && !QSslSocket::supportsSsl()) {
+    qWarning() << "Chat TLS is unavailable: no usable Qt TLS backend.";
+    emit sig_con_success(false);
+    return;
+  }
   _connectTimer.start();
-  _socket.connectToHost(server.Host, static_cast<quint16>(port));
+  if (_tlsEnabled) {
+    _socket.setPeerVerifyMode(QSslSocket::VerifyPeer);
+    _socket.setProtocol(QSsl::TlsV1_2OrLater);
+    _socket.connectToHostEncrypted(server.Host.trimmed(), static_cast<quint16>(port));
+  } else {
+    _socket.connectToHost(server.Host.trimmed(), static_cast<quint16>(port));
+  }
 }
 
 void TcpMgr::readPackets()
@@ -258,10 +289,7 @@ void TcpMgr::stopRequestTimer(ReqId request)
     _requestTimers.value(request)->stop();
   _pendingRequests.remove(request);
 }
-void TcpMgr::CancelRequest(ReqId request)
-{
-  stopRequestTimer(request);
-}
+void TcpMgr::CancelRequest(ReqId request) { stopRequestTimer(request); }
 void TcpMgr::failRequest(ReqId request, const QString &message)
 {
   stopRequestTimer(request);
@@ -290,7 +318,8 @@ void TcpMgr::slot_send_data(ReqId id, QByteArray body)
     body = QJsonDocument(request).toJson(QJsonDocument::Compact);
   }
   const int maxBody = id == ID_UPDATE_PROFILE_REQ ? 16000 : 2048;
-  if (body.size() > maxBody || _socket.state() != QAbstractSocket::ConnectedState) {
+  if (body.size() > maxBody || _socket.state() != QAbstractSocket::ConnectedState ||
+      (_tlsEnabled && !_socket.isEncrypted())) {
     emit sig_send_failed(id);
     failRequest(id, tr("消息过大或聊天连接已断开"));
     return;

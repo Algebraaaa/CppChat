@@ -12,8 +12,7 @@ class ResetDialog;
 }
 class FormFeedback;
 
-class ResetDialog : public QDialog
-{
+class ResetDialog : public QDialog {
   Q_OBJECT
 
 public:

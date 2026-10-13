@@ -1,11 +1,11 @@
 #include "friendinfopage.h"
 #include "applyfriend.h"
-#include "ui_friendinfopage.h"
-#include "network/usermgr.h"
 #include "network/tcpmgr.h"
+#include "network/usermgr.h"
+#include "ui_friendinfopage.h"
 #include <QJsonDocument>
-#include <QMessageBox>
 #include <QMenu>
+#include <QMessageBox>
 #include <QResizeEvent>
 #include <QToolButton>
 
@@ -89,10 +89,7 @@ FriendInfoPage::FriendInfoPage(QWidget *parent)
           });
 }
 
-FriendInfoPage::~FriendInfoPage()
-{
-  delete ui;
-}
+FriendInfoPage::~FriendInfoPage() { delete ui; }
 
 bool FriendInfoPage::eventFilter(QObject *watched, QEvent *event)
 {
@@ -132,7 +129,8 @@ void FriendInfoPage::SetInfo(std::shared_ptr<UserInfo> user_info)
       tr("昵称：%1").arg(user_info->_nick.trimmed().isEmpty() ? tr("未设置") : user_info->_nick));
   ui->account_lb->setText(tr("账号：%1").arg(user_info->_name));
   ui->bak_lb->setText(user_info->_back.trimmed().isEmpty() ? tr("未设置") : user_info->_back);
-  ui->tags_lb->setText(user_info->_tags.isEmpty() ? tr("未设置") : user_info->_tags.join(QStringLiteral("、")));
+  ui->tags_lb->setText(user_info->_tags.isEmpty() ? tr("未设置")
+                                                  : user_info->_tags.join(QStringLiteral("、")));
   ui->desc_lb->setText(user_info->_desc.trimmed().isEmpty() ? tr("暂无个人描述")
                                                             : user_info->_desc);
   const QString sexText =

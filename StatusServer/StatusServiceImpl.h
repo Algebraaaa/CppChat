@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstddef>
 #include "message.grpc.pb.h"
+#include <cstddef>
 #include <grpcpp/grpcpp.h>
 #include <mutex>
 #include <string>
@@ -28,8 +28,7 @@ public:
   StatusServiceImpl();
   Status GetChatServer(ServerContext *context, const GetChatServerReq *request,
                        GetChatServerRsp *reply) override;
-  Status Login(ServerContext *context, const LoginReq *request,
-               LoginRsp *reply) override;
+  Status Login(ServerContext *context, const LoginReq *request, LoginRsp *reply) override;
 
 private:
   ChatServer getChatServer(int &error);

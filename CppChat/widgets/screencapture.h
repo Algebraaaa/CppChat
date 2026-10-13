@@ -9,8 +9,7 @@
 class QWidget;
 
 // 管理一次截屏的窗口隐藏、各显示器框选和结束后的窗口恢复。
-class ScreenCapture : public QObject
-{
+class ScreenCapture : public QObject {
   Q_OBJECT
 public:
   explicit ScreenCapture(QWidget *windowToHide, QObject *parent = nullptr);

@@ -15,13 +15,12 @@
 
 CServer::CServer(boost::asio::io_context &io_context, unsigned short port)
     : io_context_(io_context), port_(port),
-      acceptor_(io_context, boost::asio::ip::tcp::endpoint(
-                                boost::asio::ip::tcp::v4(), port)),
-      heartbeat_timer_(io_context), instance_id_(boost::uuids::to_string(
-                                        boost::uuids::random_generator()())) {
+      acceptor_(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)),
+      heartbeat_timer_(io_context),
+      instance_id_(boost::uuids::to_string(boost::uuids::random_generator()()))
+{
   try {
-    const auto text =
-        ConfigMgr::GetInstance()["Business"].GetValue("MaxConnections", "4096");
+    const auto text = ConfigMgr::GetInstance()["Business"].GetValue("MaxConnections", "4096");
     std::size_t consumed = 0;
     const auto limit = std::stoul(text, &consumed);
     if (consumed != text.size() || limit < 1 || limit > 100000)
@@ -33,12 +32,14 @@ CServer::CServer(boost::asio::io_context &io_context, unsigned short port)
   LOG_INFO("TCP acceptor started on port ", port_, '.');
 }
 
-void CServer::Start() {
+void CServer::Start()
+{
   StartAccept();
   StartTimer();
 }
 
-void CServer::StopAccepting() {
+void CServer::StopAccepting()
+{
   stopping_ = true;
   boost::system::error_code ignored;
   acceptor_.cancel(ignored);
@@ -46,7 +47,8 @@ void CServer::StopAccepting() {
   heartbeat_timer_.cancel();
 }
 
-CServer::~CServer() {
+CServer::~CServer()
+{
   maintenance_.Stop();
   cleanup_.Stop();
   boost::system::error_code error;
@@ -60,7 +62,8 @@ CServer::~CServer() {
 }
 
 void CServer::HandleAccept(std::shared_ptr<CSession> new_session,
-                           const boost::system::error_code &error) {
+                           const boost::system::error_code &error)
+{
   if (!error) {
     bool admitted = false;
     {
@@ -86,19 +89,20 @@ void CServer::HandleAccept(std::shared_ptr<CSession> new_session,
   }
 }
 
-void CServer::StartAccept() {
+void CServer::StartAccept()
+{
   auto &io_context = AsioIOServicePool::GetInstance()->GetIOService();
   auto new_session = std::make_shared<CSession>(io_context, weak_from_this());
   auto owner = weak_from_this();
-  acceptor_.async_accept(
-      new_session->GetSocket(),
-      [owner, new_session](const boost::system::error_code &error) {
-        if (auto self = owner.lock())
-          self->HandleAccept(new_session, error);
-      });
+  acceptor_.async_accept(new_session->GetSocket(),
+                         [owner, new_session](const boost::system::error_code &error) {
+                           if (auto self = owner.lock())
+                             self->HandleAccept(new_session, error);
+                         });
 }
 
-void CServer::CleanupSession(const std::string &uuid, int uid) {
+void CServer::CleanupSession(const std::string &uuid, int uid)
+{
   if (uid > 0)
     UserMgr::GetInstance()->RmvUserSession(uid, uuid);
   if (uid <= 0) {
@@ -110,14 +114,12 @@ void CServer::CleanupSession(const std::string &uuid, int uid) {
         // relogin.
         try {
           if (!RedisMgr::GetInstance()->ReleaseSession(uid, uuid))
-            LOG_WARNING("Credential cleanup failed; lease will expire: uid=",
-                        uid);
+            LOG_WARNING("Credential cleanup failed; lease will expire: uid=", uid);
         } catch (const std::exception &error) {
-          LOG_WARNING("Credential cleanup exception; lease will expire: uid=",
-                      uid, ", error=", error.what());
+          LOG_WARNING("Credential cleanup exception; lease will expire: uid=", uid,
+                      ", error=", error.what());
         } catch (...) {
-          LOG_WARNING("Credential cleanup exception; lease will expire: uid=",
-                      uid);
+          LOG_WARNING("Credential cleanup exception; lease will expire: uid=", uid);
         }
         // Even a failed Redis operation must release this closed admission
         // slot.
@@ -128,19 +130,19 @@ void CServer::CleanupSession(const std::string &uuid, int uid) {
   }
 }
 
-void CServer::StopCleanup(std::chrono::seconds timeout) {
+void CServer::StopCleanup(std::chrono::seconds timeout)
+{
   cleanup_.BeginStop();
-  const bool drained =
-      cleanup_.WaitIdleUntil(std::chrono::steady_clock::now() + timeout);
+  const bool drained = cleanup_.WaitIdleUntil(std::chrono::steady_clock::now() + timeout);
   const auto discarded = cleanup_.Stop(drained);
-  LOG_INFO("Credential cleanup stopped: drained=", drained,
-           ", deferred_to_lease=", discarded);
+  LOG_INFO("Credential cleanup stopped: drained=", drained, ", deferred_to_lease=", discarded);
   // Active Redis calls have finite command/borrow timeouts and are joined.
   std::lock_guard<std::mutex> lock(mutex_);
   sessions_.clear();
 }
 
-void CServer::ClearSession(const std::string &uuid) {
+void CServer::ClearSession(const std::string &uuid)
+{
   int uid = 0;
   bool erased = false;
   {
@@ -161,18 +163,21 @@ void CServer::ClearSession(const std::string &uuid) {
   }
 }
 
-std::shared_ptr<CSession> CServer::GetSession(const std::string &uuid) {
+std::shared_ptr<CSession> CServer::GetSession(const std::string &uuid)
+{
   std::lock_guard<std::mutex> lock(mutex_);
   const auto session = sessions_.find(uuid);
   return session == sessions_.end() ? nullptr : session->second;
 }
 
-bool CServer::CheckValid(const std::string &uuid) {
+bool CServer::CheckValid(const std::string &uuid)
+{
   std::lock_guard<std::mutex> lock(mutex_);
   return sessions_.find(uuid) != sessions_.end();
 }
 
-void CServer::StartTimer() {
+void CServer::StartTimer()
+{
   heartbeat_timer_.expires_after(std::chrono::seconds(HEARTBEAT_SCAN_SECONDS));
   auto owner = weak_from_this();
   heartbeat_timer_.async_wait([owner](const boost::system::error_code &error) {
@@ -181,12 +186,14 @@ void CServer::StartTimer() {
   });
 }
 
-void CServer::StopTimer() {
+void CServer::StopTimer()
+{
   heartbeat_timer_.cancel();
   maintenance_.Stop();
 }
 
-void CServer::HandleTimer(const boost::system::error_code &error) {
+void CServer::HandleTimer(const boost::system::error_code &error)
+{
   if (stopping_ || error == boost::asio::error::operation_aborted) {
     return;
   }
@@ -206,26 +213,22 @@ void CServer::HandleTimer(const boost::system::error_code &error) {
   // Redis must not block the acceptor/timer I/O loop. At most one snapshot can
   // wait behind the maintenance task already running.
   if (!maintenance_.Submit("maintenance",
-                           [this, sessions = std::move(sessions)] {
-                             MaintainSessions(sessions);
-                           }))
+                           [this, sessions = std::move(sessions)] { MaintainSessions(sessions); }))
     LOG_WARNING("Session maintenance is behind; skipping duplicate snapshot.");
   LogicSystem::GetInstance()->ReportMetrics();
   StartTimer();
 }
 
-void CServer::MaintainSessions(
-    const std::vector<std::shared_ptr<CSession>> &sessions) {
+void CServer::MaintainSessions(const std::vector<std::shared_ptr<CSession>> &sessions)
+{
   if (stopping_)
     return;
   const std::time_t now = std::time(nullptr);
   std::size_t online_count = 0;
   for (const auto &session : sessions)
-    if (!session->IsClosed() && !session->IsHeartbeatExpired(now) &&
-        session->GetUserId() > 0)
+    if (!session->IsClosed() && !session->IsHeartbeatExpired(now) && session->GetUserId() > 0)
       ++online_count;
-  LOG_INFO("Heartbeat scan: sessions=", sessions.size(),
-           ", online=", online_count, '.');
+  LOG_INFO("Heartbeat scan: sessions=", sessions.size(), ", online=", online_count, '.');
   if (stopping_)
     return;
   if (!PublishHealth(online_count))
@@ -240,8 +243,8 @@ void CServer::MaintainSessions(
       LOG_WARNING("Heartbeat expired: uuid=", session->GetUuid(), '.');
       session->Close();
     } else if (session->GetUserId() > 0) {
-      const int refreshed = RedisMgr::GetInstance()->RefreshSession(
-          session->GetUserId(), session->GetSessionId());
+      const int refreshed =
+          RedisMgr::GetInstance()->RefreshSession(session->GetUserId(), session->GetSessionId());
       if (refreshed == 0) {
         session->Close();
         continue;
@@ -250,18 +253,19 @@ void CServer::MaintainSessions(
   }
 }
 
-bool CServer::PublishHealth(std::size_t online_count) {
+bool CServer::PublishHealth(std::size_t online_count)
+{
   const auto name = ConfigMgr::GetInstance()["SelfServer"]["Name"];
-  return !name.empty() &&
-         RedisMgr::GetInstance()->PublishNode(name, instance_id_, online_count);
+  return !name.empty() && RedisMgr::GetInstance()->PublishNode(name, instance_id_, online_count);
 }
 
-void CServer::RemoveHealth() {
-  RedisMgr::GetInstance()->RemoveNode(
-      ConfigMgr::GetInstance()["SelfServer"]["Name"], instance_id_);
+void CServer::RemoveHealth()
+{
+  RedisMgr::GetInstance()->RemoveNode(ConfigMgr::GetInstance()["SelfServer"]["Name"], instance_id_);
 }
 
-void CServer::CloseSessions(std::chrono::seconds timeout) {
+void CServer::CloseSessions(std::chrono::seconds timeout)
+{
   std::vector<std::shared_ptr<CSession>> sessions;
   {
     std::lock_guard<std::mutex> lock(mutex_);

@@ -4,6 +4,7 @@
 本轮优化与清理记录见 [性能优化进度](performance-improvements.md)。
 2026-10-06 按用户要求删除客户端 `scripts/` 和 `tests/`，工程不再登记这些文件。
 性能文档中的测试结果与旧路径作为历史验证记录保留，不是当前可运行入口。
+2026-10-12：图片后端已移至仓库根目录 `ResourceServer/`，客户端目录只保留图片传输客户端；下文清理记录中的 `resource_server` 路径为历史位置。
 
 这里汇总源码目录与历史迁移记录。界面使用见 [界面功能](ui-features.md)，本地消息存储见 [本地聊天记录](local-chat-history.md)。
 
@@ -26,13 +27,13 @@
 | `style/` | 主题清单、公共参数、控件和页面 QSS |
 | `Resources/` | 程序内置图片、SVG、字体及其来源许可 |
 | `static/` | 现有运行时兼容资源，构建后复制到程序目录 |
-| `resource_server/` | 图片资源服务，使用自己的 CMake 工程 |
+| `../../ResourceServer/` | 根目录的独立图片后端，使用服务端公共 CMake 配置；客户端只通过网络访问 |
 | `third_party/` | 第三方依赖原始源码、版本说明和许可证，目前包含 spdlog |
 | `docs/` | 项目说明、界面功能、本地聊天记录和面试资料 |
 
-`CppChat.pro` 管理构建选项、入口和运行时文件复制；`client.pri` 统一登记
-客户端的源码、头文件、UI 和资源。清单按模块分组，模块内按文件名排序。
-文档由 `CppChat.pro` 的 `DISTFILES` 自动登记；
+`CMakeLists.txt` 管理构建选项、入口和 Qt 运行时部署，并收集
+`app/common/network/services/dialogs/widgets` 内的源码、头文件和 UI；资源登记在 `rc.qrc`。
+`CMakePresets.json` 提供独立的 Debug / Release 构建目录；
 Qt Creator 可按实际目录查看 `app/common/network/services/dialogs/widgets/docs/third_party`。
 
 服务端沿用 Visual Studio 的虚拟分类：启动入口和服务接口放在 `Application`，
@@ -54,12 +55,12 @@ Qt Creator 可按实际目录查看 `app/common/network/services/dialogs/widgets
 ### 新增文件
 
 1. 将客户端代码放到对应模块；有关联 UI 时，将三个文件放在一起。
-2. 在 `client.pri` 的 `SOURCES`、`HEADERS` 或 `FORMS` 中登记文件。
+2. 客户端已有模块内的新 `.cpp/.h/.ui` 会由 CMake 自动收集；新模块须更新 `CMakeLists.txt` 的源文件目录。
 3. 新增内置资源时登记到 `rc.qrc`；新增 QSS 模块时还要登记 `style/theme.json`。
-4. 在 Qt Creator 运行 qmake 后重新构建。
+4. 在 Qt Creator 重新运行 CMake 后构建。
 
 日常资源检查：在 `rc.qrc` 核对资源路径，在 `style/theme.json` 核对主题模块，
-重新运行 qmake 并构建客户端，再检查对应页面。
+重新运行 CMake 并构建客户端，再检查对应页面。
 
 构建产物放在 `build/`；本机 Qt Creator 配置、日志和迁移备份由 `.gitignore`
 排除。此前专项验证用的四个测试源码与工程文件已删除。2026-10-02 清理了空的 `tests/` 目录；三个旧测试构建目录从 `build/` 移入 `.migration-backup/obsolete-test-builds-20261002/`，需要时可以恢复。后续优化增加的客户端测试及维护脚本于 2026-10-06 按用户要求删除。
@@ -104,7 +105,7 @@ Qt Creator 索引缓存和旧日志移入 Windows 回收站。
 | 登录生命周期 | `app/mainwindow.cpp` | 主动退出、连接断开或异地登录后回到登录页，清理会话和弹窗并恢复登录按钮 |
 | 心跳 | `network/tcpmgr.cpp` | TCP 登录成功后每 10 秒发送 1023，收到 1024 更新计时；客户端 30 秒无有效回包关闭连接；服务端 20 秒无数据视为超时并每 10 秒扫描；退出和断线停止计时 |
 
-`SmoothScrollList` 的滚动实现保持原样，三个业务列表继续复用它。原有标题栏、窗口动画与认证页样式保留。新页面样式已加入 `style/stylesheet.qss`，`.pro` 已收录新增源码和界面文件。
+`SmoothScrollList` 的滚动实现保持原样，三个业务列表继续复用它。原有标题栏、窗口动画与认证页样式保留。新页面样式已加入 `style/stylesheet.qss`，CMake 已收录新增源码和界面文件。
 
 ### 参考项目中的未完成功能
 
@@ -142,7 +143,7 @@ Qt Creator 索引缓存和旧日志移入 Windows 回收站。
 
 ### 编译与人工验证顺序
 
-1. Qt Creator 先执行“运行 qmake”，再重新构建，以收录新增 `.cpp/.h/.ui` 文件。
+1. Qt Creator 打开客户端 `CMakeLists.txt`，运行 CMake 并重新构建，以收录新增 `.cpp/.h/.ui` 文件。
 2. 登录一个没有好友的新账号：应显示真实空列表，不再出现测试用户；搜索自己、不存在用户均可正常退出弹窗。
 3. 用 A/B 两个账号登录：A 申请添加 B；B 收到红点，在“新的朋友”接受；双方联系人应更新，不出现重复行。
 4. 分别让两个账号连接 ChatServer1 和 ChatServer2，双向发送中文、emoji、多行和长文本；接收端应立即出现气泡，检查预览、回执及切换会话后的顺序。

@@ -32,8 +32,7 @@ public:
   void CloseSessions(std::chrono::seconds timeout = std::chrono::seconds(5));
 
 private:
-  void HandleAccept(std::shared_ptr<CSession> session,
-                    const boost::system::error_code &error);
+  void HandleAccept(std::shared_ptr<CSession> session, const boost::system::error_code &error);
   void StartAccept();
   void HandleTimer(const boost::system::error_code &error);
   void MaintainSessions(const std::vector<std::shared_ptr<CSession>> &sessions);

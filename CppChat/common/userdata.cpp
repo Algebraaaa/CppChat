@@ -35,15 +35,9 @@ ChatDataBase::ChatDataBase(int msg_id, QString unique_id, int thread_id, ChatFor
 {
 }
 
-void ChatDataBase::SetUniqueId(const QString &unique_id)
-{
-  _unique_id = unique_id;
-}
+void ChatDataBase::SetUniqueId(const QString &unique_id) { _unique_id = unique_id; }
 
-QString ChatDataBase::GetUniqueId()
-{
-  return _unique_id;
-}
+QString ChatDataBase::GetUniqueId() { return _unique_id; }
 
 void ChatThreadData::AddMsg(std::shared_ptr<ChatDataBase> msg)
 {
@@ -75,10 +69,7 @@ void ChatThreadData::MoveMsg(std::shared_ptr<ChatDataBase> msg)
   _pendingOrder.removeAll(msg->GetUniqueId());
 }
 
-void ChatThreadData::SetLastMsgId(int msg_id)
-{
-  _last_msg_id = msg_id;
-}
+void ChatThreadData::SetLastMsgId(int msg_id) { _last_msg_id = msg_id; }
 
 void ChatThreadData::SetLastChatSummary(int msg_id, const QString &chat_time)
 {
@@ -89,35 +80,17 @@ void ChatThreadData::SetLastChatSummary(int msg_id, const QString &chat_time)
     _last_chat_time = chat_time;
 }
 
-void ChatThreadData::SetOtherId(int other_id)
-{
-  _other_id = other_id;
-}
+void ChatThreadData::SetOtherId(int other_id) { _other_id = other_id; }
 
-int ChatThreadData::GetOtherId()
-{
-  return _other_id;
-}
+int ChatThreadData::GetOtherId() { return _other_id; }
 
-QString ChatThreadData::GetGroupName()
-{
-  return _group_name;
-}
+QString ChatThreadData::GetGroupName() { return _group_name; }
 
-QMap<int, std::shared_ptr<ChatDataBase>> ChatThreadData::GetMsgMap()
-{
-  return _msg_map;
-}
+QMap<int, std::shared_ptr<ChatDataBase>> ChatThreadData::GetMsgMap() { return _msg_map; }
 
-int ChatThreadData::GetThreadId()
-{
-  return _thread_id;
-}
+int ChatThreadData::GetThreadId() { return _thread_id; }
 
-QMap<int, std::shared_ptr<ChatDataBase>> &ChatThreadData::GetMsgMapRef()
-{
-  return _msg_map;
-}
+QMap<int, std::shared_ptr<ChatDataBase>> &ChatThreadData::GetMsgMapRef() { return _msg_map; }
 
 void ChatThreadData::AppendMsg(int msg_id, std::shared_ptr<ChatDataBase> base_msg)
 {
@@ -141,10 +114,7 @@ QString ChatThreadData::GetLastMsg()
   return _last_msg;
 }
 
-int ChatThreadData::GetLastMsgId()
-{
-  return _last_msg_id;
-}
+int ChatThreadData::GetLastMsgId() { return _last_msg_id; }
 
 QString ChatThreadData::GetLastChatTime() const
 {

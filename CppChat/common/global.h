@@ -1,8 +1,8 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
-#include <QString>
 #include <QPixmap>
+#include <QString>
 #include <QStyle>
 #include <QWidget>
 #include <memory>
@@ -15,8 +15,7 @@ inline void repolish(QWidget *widget)
   widget->style()->polish(widget);
 }
 
-enum ReqId
-{
+enum ReqId {
   // 1001～1004是客户端 HTTP 回调标签，不会发送给服务端
   // 其中客户端和服务端需要一致的是：
   // - URL：/get_verifycode、/user_register、/reset_pwd、/user_login
@@ -27,10 +26,11 @@ enum ReqId
   ID_REG_USER = 1002,        // 注册用户
   ID_RESET_PWD = 1003,       // 重置密码
   ID_LOGIN_USER = 1004,      // 用户登录
-  ID_CHAT_LOGIN = 1005,      // 登陆聊天服务器
-  // 1005 以后会写入 TCP 包头，发送到服务端
-  // 两端必须统一的有：消息编号（枚举名称可以不同，客户端与服务端的线上真正传输的只有数值）、
-  // 包头长度、大小端、JSON 格式
+  ID_CHAT_LOGIN =
+      1005, // 登陆聊天服务器
+            // 1005 以后会写入 TCP 包头，发送到服务端
+            // 两端必须统一的有：消息编号（枚举名称可以不同，客户端与服务端的线上真正传输的只有数值）、
+            // 包头长度、大小端、JSON 格式
   ID_CHAT_LOGIN_RSP = 1006,           // 登陆聊天服务器回包
   ID_SEARCH_USER_REQ = 1007,          // 用户搜索请求
   ID_SEARCH_USER_RSP = 1008,          // 搜索用户回包
@@ -62,14 +62,8 @@ enum ReqId
   ID_SET_CONTACT_TAGS_REQ = 1038, // 保存当前用户对好友设置的标签
   ID_SET_CONTACT_TAGS_RSP = 1039,
 };
-enum Modules
-{
-  REGISTERMOD = 0,
-  RESETMOD = 1,
-  LOGINMOD = 2
-};
-enum ErrorCodes
-{
+enum Modules { REGISTERMOD = 0, RESETMOD = 1, LOGINMOD = 2 };
+enum ErrorCodes {
   // 客户端本地网络错误，不会由服务端通过协议返回
   NetworkError = -1,
   Success = 0,
@@ -139,16 +133,14 @@ inline QString errorCodeMessage(int errorCode)
   }
 }
 
-struct ServerInfo
-{
+struct ServerInfo {
   QString Host;
   QString Port;
   QString Token;
   int Uid;
 };
 // 自定义QListWidgetItem的几种类型
-enum ListItemType
-{
+enum ListItemType {
   CHAT_USER_ITEM,    // 聊天用户
   CONTACT_USER_ITEM, // 联系人用户
   SEARCH_USER_ITEM,  // 搜索到的用户
@@ -158,25 +150,19 @@ enum ListItemType
   LINE_ITEM,         // 分割线
   APPLY_FRIEND_ITEM, // 好友申请
 };
-enum class ChatRole
-{
+enum class ChatRole {
 
   Self,
   Other
 };
 struct PreparedAttachment;
-struct MsgInfo
-{
+struct MsgInfo {
   QString msgFlag;                                 //"text,image,file"
   QString content;                                 // 表示文件和图像的url,文本信息
   QByteArray imageData;                            // 图片原始编码数据，上传时不使用缩略图。
   std::shared_ptr<PreparedAttachment> preparation; // 本次登录的异步图片状态，不写入数据库。
 };
-enum ClickLbState
-{
-  Normal = 0,
-  Selected = 1
-};
+enum ClickLbState { Normal = 0, Selected = 1 };
 
 // 申请好友标签输入框最低长度
 const int MIN_APPLY_LABEL_ED_LEN = 40;
@@ -188,23 +174,9 @@ const int tip_offset = 5;
 inline QString gate_url_prefix;
 
 // 协议状态沿用参考项目；服务端回执只代表服务器已接收，不能据此声称对方已读。
-enum MsgStatus
-{
-  UN_READ = 0,
-  SEND_FAILED = 1,
-  READED = 2
-};
-enum class ChatFormType
-{
-  PRIVATE = 0,
-  GROUP = 1
-};
-enum class ChatMsgType
-{
-  TEXT = 0,
-  PIC = 1,
-  FILE = 2
-};
+enum MsgStatus { UN_READ = 0, SEND_FAILED = 1, READED = 2 };
+enum class ChatFormType { PRIVATE = 0, GROUP = 1 };
+enum class ChatMsgType { TEXT = 0, PIC = 1, FILE = 2 };
 inline constexpr int CHAT_COUNT_PER_PAGE = 13;
 
 #endif // GLOBAL_H

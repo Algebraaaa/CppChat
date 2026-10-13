@@ -44,16 +44,17 @@ using message::TextChatMsgRsp;
 // Stub 是 gRPC 远程代理对象，不是普通 TCP 或数据库连接。
 class ChatStubPool {
 public:
-  ChatStubPool(std::size_t pool_size, std::string host, std::string port)
-      : stopped_(false) {
+  ChatStubPool(std::size_t pool_size, std::string host, std::string port) : stopped_(false)
+  {
     for (std::size_t index = 0; index < pool_size; ++index) {
-      std::shared_ptr<Channel> channel = grpc::CreateChannel(
-          host + ":" + port, grpc::InsecureChannelCredentials());
+      std::shared_ptr<Channel> channel =
+          grpc::CreateChannel(host + ":" + port, grpc::InsecureChannelCredentials());
       available_stubs_.push(ChatService::NewStub(channel));
     }
   }
 
-  ~ChatStubPool() {
+  ~ChatStubPool()
+  {
     std::lock_guard<std::mutex> lock(mutex_);
     Close();
     while (!available_stubs_.empty()) {
@@ -62,11 +63,11 @@ public:
   }
 
   // 借出一个空闲 Stub；没有空闲 Stub 时等待，连接池关闭时返回 nullptr。
-  std::unique_ptr<ChatService::Stub> BorrowStub() {
+  std::unique_ptr<ChatService::Stub> BorrowStub()
+  {
     std::unique_lock<std::mutex> lock(mutex_);
-    if (!condition_.wait_for(lock, std::chrono::seconds(3), [this] {
-          return stopped_ || !available_stubs_.empty();
-        }))
+    if (!condition_.wait_for(lock, std::chrono::seconds(3),
+                             [this] { return stopped_ || !available_stubs_.empty(); }))
       return nullptr;
 
     if (stopped_) {
@@ -79,7 +80,8 @@ public:
   }
 
   // 把使用完的 Stub 放回空闲队列，并唤醒一个等待者。
-  void ReturnStub(std::unique_ptr<ChatService::Stub> stub) {
+  void ReturnStub(std::unique_ptr<ChatService::Stub> stub)
+  {
     if (!stub) {
       return;
     }
@@ -94,7 +96,8 @@ public:
   }
 
   // 关闭后不再借出或回收 Stub，并唤醒所有等待线程。
-  void Close() {
+  void Close()
+  {
     stopped_ = true;
     condition_.notify_all();
   }
@@ -112,21 +115,15 @@ class ChatGrpcClient : public Singleton<ChatGrpcClient> {
 public:
   ~ChatGrpcClient() {}
 
-  AddFriendRsp NotifyAddFriend(std::string server_name,
-                               const AddFriendReq &req);
-  AuthFriendRsp NotifyAuthFriend(std::string server_name,
-                                 const AuthFriendReq &req);
-  TextChatMsgRsp NotifyTextChatMsg(std::string server_name,
-                                   const TextChatMsgReq &req,
+  AddFriendRsp NotifyAddFriend(std::string server_name, const AddFriendReq &req);
+  AuthFriendRsp NotifyAuthFriend(std::string server_name, const AuthFriendReq &req);
+  TextChatMsgRsp NotifyTextChatMsg(std::string server_name, const TextChatMsgReq &req,
                                    const Json::Value &rtvalue);
-  KickUserRsp NotifyKickUser(const std::string &server_name,
-                             const KickUserReq &request);
-  message::DeleteFriendRsp
-  NotifyDeleteFriend(const std::string &server_name,
-                     const message::DeleteFriendReq &request);
+  KickUserRsp NotifyKickUser(const std::string &server_name, const KickUserReq &request);
+  message::DeleteFriendRsp NotifyDeleteFriend(const std::string &server_name,
+                                              const message::DeleteFriendReq &request);
 
 private:
   ChatGrpcClient();
-  std::unordered_map<std::string, std::unique_ptr<ChatStubPool>>
-      chat_stub_pools_;
+  std::unordered_map<std::string, std::unique_ptr<ChatStubPool>> chat_stub_pools_;
 };

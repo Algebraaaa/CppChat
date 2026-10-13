@@ -4,9 +4,9 @@
 #include "ui_applyfriend.h"
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QScrollBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScrollBar>
 #include <algorithm>
 
 namespace {
@@ -268,10 +268,7 @@ void ApplyFriend::selectLabel(const QString &text)
   ui->input_tip_wid->hide();
 }
 
-void ApplyFriend::SlotLabelEnter()
-{
-  selectLabel(ui->lb_ed->text());
-}
+void ApplyFriend::SlotLabelEnter() { selectLabel(ui->lb_ed->text()); }
 
 void ApplyFriend::SlotRemoveFriendLabel(QString name)
 {
@@ -343,10 +340,7 @@ void ApplyFriend::SlotLabelTextChange(const QString &text)
   ui->tip_lb->setText(text);
   ui->input_tip_wid->show();
 }
-void ApplyFriend::SlotLabelEditFinished()
-{
-  ui->input_tip_wid->hide();
-}
+void ApplyFriend::SlotLabelEditFinished() { ui->input_tip_wid->hide(); }
 void ApplyFriend::SlotAddFirendLabelByClickTip(QString text)
 {
   int index = text.indexOf(add_prefix);

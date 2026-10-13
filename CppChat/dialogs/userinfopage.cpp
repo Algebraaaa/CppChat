@@ -1,14 +1,14 @@
 #include "userinfopage.h"
-#include "ui_userinfopage.h"
-#include "network/usermgr.h"
-#include "network/tcpmgr.h"
-#include "common/inputvalidator.h"
 #include "common/avatarimage.h"
+#include "common/inputvalidator.h"
+#include "network/tcpmgr.h"
+#include "network/usermgr.h"
+#include "ui_userinfopage.h"
 #include "widgets/imagecropperdialog.h"
-#include <QFileDialog>
-#include <QMessageBox>
 #include <QBuffer>
+#include <QFileDialog>
 #include <QJsonDocument>
+#include <QMessageBox>
 #include <QPainter>
 
 UserInfoPage::UserInfoPage(QWidget *parent) : QWidget(parent), ui(new Ui::UserInfoPage)
@@ -71,10 +71,7 @@ UserInfoPage::UserInfoPage(QWidget *parent) : QWidget(parent), ui(new Ui::UserIn
     ui->head_lb->setPixmap(roundedAvatarPixmap(image, ui->head_lb->size()));
   });
 }
-UserInfoPage::~UserInfoPage()
-{
-  delete ui;
-}
+UserInfoPage::~UserInfoPage() { delete ui; }
 void UserInfoPage::Reset()
 {
   // 会话结束后，旧保存响应不得继续作用于下一次登录的资料窗口。

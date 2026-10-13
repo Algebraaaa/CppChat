@@ -15,10 +15,7 @@ FindSuccessDlg::FindSuccessDlg(QWidget *parent)
   ui->add_friend_btn->SetState("normal", "hover", "press");
   connect(ui->close_btn, &QPushButton::clicked, this, &QDialog::reject);
 }
-FindSuccessDlg::~FindSuccessDlg()
-{
-  delete ui;
-}
+FindSuccessDlg::~FindSuccessDlg() { delete ui; }
 void FindSuccessDlg::SetSearchInfo(std::shared_ptr<SearchInfo> info)
 {
   if (!info)

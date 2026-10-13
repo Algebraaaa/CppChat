@@ -2,11 +2,14 @@
 #include "app/thememanager.h"
 #include "common/global.h"
 #include "common/logger.h"
+#include "common/runtimepaths.h"
 #include <QApplication>
+#include <QCommandLineParser>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
 #include <QSettings>
+#include <QSslSocket>
 #include <QUrl>
 
 #include <cstdlib>
@@ -16,6 +19,14 @@ int main(int argc, char *argv[])
   QApplication a(argc, argv);
   QCoreApplication::setOrganizationName(QStringLiteral("Algebra"));
   QCoreApplication::setApplicationName(QStringLiteral("CppChat"));
+  QCommandLineParser arguments;
+  arguments.addHelpOption();
+  arguments.addOptions({{"config", "Runtime configuration file", "file"},
+                        {"data-dir", "Private data and preferences directory", "directory"},
+                        {"log-dir", "Log directory", "directory"}});
+  arguments.process(a);
+  RuntimePaths::configure(arguments.value("config"), arguments.value("data-dir"),
+                          arguments.value("log-dir"));
 
   if (Logger::install()) {
     qInfo() << "Log directory:" << Logger::logDirectory();
@@ -31,10 +42,9 @@ int main(int argc, char *argv[])
   qInfo() << "UI theme loaded";
 
   // 返回当前可执行程序所在的文件夹，不包含 exe 文件名
-  const QString configDir = QCoreApplication::applicationDirPath();
 
   // 在配置目录后拼接文件名，得到运行时配置文件的完整路径
-  const QString configPath = QDir(configDir).filePath("config.ini");
+  const QString configPath = RuntimePaths::configFile();
 
   if (!QFile::exists(configPath)) {
     qCritical() << "Config file not found:" << configPath;
@@ -50,6 +60,7 @@ int main(int argc, char *argv[])
   // portOk 用于接收“端口能否成功转换成整数”的结果
   bool portOk = false;
   const int gatePort = settings.value("port", 8090).toInt(&portOk);
+  const QString gateScheme = settings.value("scheme", "http").toString().trimmed().toLower();
   settings.endGroup();
   // 检查读取配置文件的过程中是否发生访问或格式错误
   if (settings.status() != QSettings::NoError) {
@@ -68,8 +79,19 @@ int main(int argc, char *argv[])
     return EXIT_FAILURE;
   }
 
+  if (gateScheme != QStringLiteral("http") && gateScheme != QStringLiteral("https")) {
+    qCritical() << "GateServer/scheme must be http or https. Config:" << configPath;
+    return EXIT_FAILURE;
+  }
+  if ((gateScheme == QStringLiteral("https") || settings.value("ChatServer/tls", false).toBool() ||
+       settings.value("ResourceServer/tls", false).toBool()) &&
+      !QSslSocket::supportsSsl()) {
+    qCritical() << "TLS is unavailable. Check the Qt TLS plugins beside the client executable.";
+    return EXIT_FAILURE;
+  }
+
   QUrl gateUrl;
-  gateUrl.setScheme("http");
+  gateUrl.setScheme(gateScheme);
   gateUrl.setHost(gateHost);
   gateUrl.setPort(gatePort);
   // 检查组合后的 URL 是否有效，并确认其中确实包含主机地址

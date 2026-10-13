@@ -1,4 +1,5 @@
 #include "screencapture.h"
+#include "capturegeometry.h"
 #include <QApplication>
 #include <QCloseEvent>
 #include <QCursor>
@@ -17,25 +18,9 @@
 #include <utility>
 
 namespace {
-// 框选坐标是逻辑像素，原图是物理像素；不要用缩略图或逻辑坐标直接裁剪原图。
-QRect capturePixelRect(const QRectF &selection, const QSize &logicalSize, const QSize &pixelSize)
-{
-  if (logicalSize.isEmpty() || pixelSize.isEmpty())
-    return {};
-  const QRectF clipped = selection.normalized().intersected(QRectF(QPointF(), logicalSize));
-  if (clipped.isEmpty())
-    return {};
-  const qreal scaleX = qreal(pixelSize.width()) / logicalSize.width();
-  const qreal scaleY = qreal(pixelSize.height()) / logicalSize.height();
-  const int left = qFloor(clipped.left() * scaleX);
-  const int top = qFloor(clipped.top() * scaleY);
-  const int right = qCeil(clipped.right() * scaleX);
-  const int bottom = qCeil(clipped.bottom() * scaleY);
-  return QRect(left, top, right - left, bottom - top).intersected(QRect(QPoint(), pixelSize));
-}
+using CaptureGeometry::pixelRect;
 
-class CaptureOverlay : public QWidget
-{
+class CaptureOverlay : public QWidget {
 public:
   CaptureOverlay(QImage image, std::function<void(const QImage &)> accept,
                  std::function<void()> cancel, std::function<void(CaptureOverlay *)> beginSelection)
@@ -100,7 +85,7 @@ protected:
     }
     painter.setPen(QPen(QColor("#07c160"), 1.5));
     painter.drawRect(_selection);
-    const QSize pixels = capturePixelRect(_selection, size(), _image.size()).size();
+    const QSize pixels = pixelRect(_selection, size(), _image.size()).size();
     const QString dimensions = tr("%1 × %2 px").arg(pixels.width()).arg(pixels.height());
     const int labelWidth = painter.fontMetrics().horizontalAdvance(dimensions) + 20;
     const int labelX = qBound(4, qRound(_selection.left()), qMax(4, width() - labelWidth - 4));
@@ -217,7 +202,7 @@ private:
   {
     if (_dragging || _selection.width() < 2 || _selection.height() < 2)
       return;
-    const QRect pixels = capturePixelRect(_selection, size(), _image.size());
+    const QRect pixels = pixelRect(_selection, size(), _image.size());
     if (!pixels.isEmpty())
       _accept(_image.copy(pixels));
   }
@@ -245,10 +230,7 @@ ScreenCapture::ScreenCapture(QWidget *windowToHide, QObject *parent)
   });
 }
 
-ScreenCapture::~ScreenCapture()
-{
-  clearOverlays();
-}
+ScreenCapture::~ScreenCapture() { clearOverlays(); }
 
 void ScreenCapture::start()
 {
@@ -319,10 +301,7 @@ void ScreenCapture::captureScreens()
   focusedOverlay->setFocus();
 }
 
-void ScreenCapture::cancel()
-{
-  finish();
-}
+void ScreenCapture::cancel() { finish(); }
 
 void ScreenCapture::clearOverlays()
 {

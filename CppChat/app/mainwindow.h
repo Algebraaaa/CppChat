@@ -26,8 +26,7 @@ class LoginDialog;
 class RegisterDialog;
 class ResetDialog;
 
-class MainWindow : public QMainWindow
-{
+class MainWindow : public QMainWindow {
   Q_OBJECT
 
 public:

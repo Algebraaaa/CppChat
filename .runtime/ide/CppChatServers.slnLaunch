@@ -1,0 +1,18 @@
+[
+  {
+    "Name": "CppChat - GateServer",
+    "Projects": [
+      {"Path": "GateServer/GateServer.vcxproj", "Action": "Start"}
+    ]
+  },
+  {
+    "Name": "CppChat - All Servers",
+    "Projects": [
+      {"Path": "StatusServer/StatusServer.vcxproj", "Action": "Start"},
+      {"Path": "ChatServer/ChatServer.vcxproj", "Action": "Start"},
+      {"Path": "ChatServer2/ChatServer2.vcxproj", "Action": "Start"},
+      {"Path": "ResourceServer/ResourceServer.vcxproj", "Action": "Start"},
+      {"Path": "GateServer/GateServer.vcxproj", "Action": "Start"}
+    ]
+  }
+]

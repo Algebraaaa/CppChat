@@ -1,0 +1,31 @@
+{
+  "version": 5,
+  "cmakeMinimumRequired": {"major": 3, "minor": 24, "patch": 0},
+  "configurePresets": [
+    {
+      "name": "client-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {"CMAKE_EXPORT_COMPILE_COMMANDS": true},
+      "vendor": {"qt.io/QtCreator/1.0": {"PackageManagerAutoSetup": false}}
+    },
+    {
+      "name": "debug",
+      "displayName": "Client Debug",
+      "inherits": "client-base",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Debug"}
+    },
+    {
+      "name": "release",
+      "displayName": "Client Release",
+      "inherits": "client-base",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {"CMAKE_BUILD_TYPE": "Release"}
+    }
+  ],
+  "buildPresets": [
+    {"name": "debug", "configurePreset": "debug"},
+    {"name": "release", "configurePreset": "release"}
+  ]
+}

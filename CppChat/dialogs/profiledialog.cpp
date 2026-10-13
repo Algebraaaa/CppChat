@@ -12,15 +12,6 @@ ProfileDialog::ProfileDialog(QWidget *parent) : QDialog(parent), ui(new Ui::Prof
     emit sig_logout();
   });
 }
-ProfileDialog::~ProfileDialog()
-{
-  delete ui;
-}
-void ProfileDialog::Refresh()
-{
-  ui->user_info_page->Refresh();
-}
-void ProfileDialog::Reset()
-{
-  ui->user_info_page->Reset();
-}
+ProfileDialog::~ProfileDialog() { delete ui; }
+void ProfileDialog::Refresh() { ui->user_info_page->Refresh(); }
+void ProfileDialog::Reset() { ui->user_info_page->Reset(); }

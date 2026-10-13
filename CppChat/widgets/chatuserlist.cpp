@@ -7,10 +7,7 @@ ChatUserList::ChatUserList(QWidget *parent) : SmoothScrollList(parent)
   setResizeMode(QListView::Adjust);
 }
 
-void ChatUserList::onReachedBottom()
-{
-  emit sig_loading_chat_user();
-}
+void ChatUserList::onReachedBottom() { emit sig_loading_chat_user(); }
 
 void ChatUserList::mousePressEvent(QMouseEvent *event)
 {

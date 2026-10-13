@@ -15,7 +15,8 @@
 #include "StatusGrpcClient.h"
 #include "UserMgr.h"
 
-int RunChatServer() {
+int RunChatServer()
+{
   // Owners survive both normal exit and partially completed startup.
   boost::asio::io_context io_context{1};
   std::shared_ptr<AsioIOServicePool> pool;
@@ -32,8 +33,7 @@ int RunChatServer() {
     if (tcp_server)
       tcp_server->StopAccepting();
     io_context.restart();
-    io_context
-        .poll(); // Retire canceled accepts before destroying worker contexts.
+    io_context.poll(); // Retire canceled accepts before destroying worker contexts.
     if (logic_system)
       logic_system->BeginStop();
     if (tcp_server) {
@@ -72,13 +72,11 @@ int RunChatServer() {
     const auto rpc_port = config["SelfServer"]["RPCPort"];
     const auto host = config["SelfServer"]["Host"];
     if (server_name.empty() || rpc_port.empty() || host.empty())
-      throw std::runtime_error(
-          "SelfServer.Name, Host and RPCPort are required");
+      throw std::runtime_error("SelfServer.Name, Host and RPCPort are required");
 
     pool = AsioIOServicePool::GetInstance();
     logic_system = LogicSystem::GetInstance();
-    tcp_server = std::make_shared<CServer>(
-        io_context, static_cast<unsigned short>(port_value));
+    tcp_server = std::make_shared<CServer>(io_context, static_cast<unsigned short>(port_value));
     logic_system->SetServer(tcp_server);
     tcp_server->Start();
     chat_service = std::make_unique<ChatServiceImpl>();
@@ -88,16 +86,13 @@ int RunChatServer() {
     builder.RegisterService(chat_service.get());
     grpc_server = builder.BuildAndStart();
     if (!grpc_server)
-      throw std::runtime_error("Unable to start ChatServer gRPC service at " +
-                               rpc_address);
+      throw std::runtime_error("Unable to start ChatServer gRPC service at " + rpc_address);
     if (!tcp_server->PublishHealth())
-      throw std::runtime_error(
-          "Cannot register chat node; check Redis or duplicate node name.");
+      throw std::runtime_error("Cannot register chat node; check Redis or duplicate node name.");
     LOG_INFO("ChatServer gRPC service listening at ", rpc_address, '.');
 
     boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
-    signals.async_wait([&](const boost::system::error_code &error,
-                           int signal_number) {
+    signals.async_wait([&](const boost::system::error_code &error, int signal_number) {
       if (error)
         return;
       LOG_INFO("Received signal ", signal_number, ", stopping ChatServer...");

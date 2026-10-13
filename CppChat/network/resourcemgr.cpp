@@ -1,18 +1,20 @@
 #include "resourcemgr.h"
-#include "usermgr.h"
 #include "common/chatstore.h"
+#include "common/runtimepaths.h"
+#include "usermgr.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDebug>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMetaObject>
-#include <QSettings>
-#include <QTcpSocket>
-#include <QThread>
-#include <QElapsedTimer>
 #include <QRunnable>
+#include <QSettings>
+#include <QSslError>
+#include <QSslSocket>
+#include <QThread>
 #include <QTimer>
 
 namespace {
@@ -24,20 +26,21 @@ constexpr int kMaxUploadTasks = 8;
 constexpr qint64 kPartialCacheLimit = 32 * 1024 * 1024;
 constexpr int kProgressIntervalMs = 100;
 
-struct ConnectionInfo
-{
+struct ConnectionInfo {
   QString host;
   quint16 port;
+  bool tls;
   int uid;
   QString token;
 };
 
 ConnectionInfo connectionInfo()
 {
-  QSettings settings(QCoreApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+  QSettings settings(RuntimePaths::configFile(), QSettings::IniFormat);
   return {settings.value("ResourceServer/host", "127.0.0.1").toString(),
           quint16(settings.value("ResourceServer/port", 8093).toUInt()),
-          UserMgr::GetInstance()->GetUid(), UserMgr::GetInstance()->GetToken()};
+          settings.value("ResourceServer/tls", false).toBool(), UserMgr::GetInstance()->GetUid(),
+          UserMgr::GetInstance()->GetToken()};
 }
 
 bool readExactly(QTcpSocket &socket, QByteArray &bytes, int length,
@@ -130,7 +133,7 @@ bool exchange(QTcpSocket &socket, quint16 id, const QJsonObject &request, QJsonO
          receiveResponse(socket, id, response, error, cancelled);
 }
 
-bool connectSocket(QTcpSocket &socket, const ConnectionInfo &info, QString &error,
+bool connectSocket(QSslSocket &socket, const ConnectionInfo &info, QString &error,
                    const std::shared_ptr<std::atomic_bool> &cancelled)
 {
   if (cancelled->load())
@@ -139,10 +142,28 @@ bool connectSocket(QTcpSocket &socket, const ConnectionInfo &info, QString &erro
     error = QObject::tr("请先登录");
     return false;
   }
-  socket.connectToHost(info.host, info.port);
-  if (!socket.waitForConnected(10000)) {
-    error = QObject::tr("无法连接资源服务：%1").arg(socket.errorString());
-    return false;
+  if (info.tls) {
+    if (!QSslSocket::supportsSsl()) {
+      error = QObject::tr("TLS 不可用，请检查客户端的 Qt TLS 插件");
+      return false;
+    }
+    socket.setPeerVerifyMode(QSslSocket::VerifyPeer);
+    socket.setProtocol(QSsl::TlsV1_2OrLater);
+    QObject::connect(&socket, &QSslSocket::sslErrors, &socket, [](const QList<QSslError> &errors) {
+      for (const auto &sslError : errors)
+        qWarning() << "Resource TLS certificate verification failed:" << sslError.errorString();
+    });
+    socket.connectToHostEncrypted(info.host, info.port);
+    if (!socket.waitForEncrypted(10000)) {
+      error = QObject::tr("无法建立资源服务 TLS 连接：%1").arg(socket.errorString());
+      return false;
+    }
+  } else {
+    socket.connectToHost(info.host, info.port);
+    if (!socket.waitForConnected(10000)) {
+      error = QObject::tr("无法连接资源服务：%1").arg(socket.errorString());
+      return false;
+    }
   }
   socket.setSocketOption(QAbstractSocket::LowDelayOption, 1);
   return !cancelled->load();
@@ -269,7 +290,7 @@ void ResourceMgr::startUpload(const QString &path, const QByteArray &bytes, int 
         if (cancelled->load())
           return;
         if (error.isEmpty()) {
-          QTcpSocket socket;
+          QSslSocket socket;
           if (connectSocket(socket, info, error, cancelled)) {
             auto init = baseRequest(info, fileId);
             init.insert("recipient", recipient);
@@ -411,7 +432,7 @@ void ResourceMgr::downloadImage(const QString &fileId)
       return;
     QString error;
     QByteArray image = partial;
-    QTcpSocket socket;
+    QSslSocket socket;
     if (connectSocket(socket, info, error, cancelled)) {
       qint64 offset = image.size();
       qint64 size = -1;

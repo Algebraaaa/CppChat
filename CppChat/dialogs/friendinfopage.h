@@ -1,16 +1,15 @@
 #ifndef FRIENDINFOPAGE_H
 #define FRIENDINFOPAGE_H
 
-#include <QWidget>
 #include "common/userdata.h"
+#include <QWidget>
 
 namespace Ui {
 class FriendInfoPage;
 }
 class QAction;
 
-class FriendInfoPage : public QWidget
-{
+class FriendInfoPage : public QWidget {
   Q_OBJECT
 
 public:
@@ -18,10 +17,7 @@ public:
   ~FriendInfoPage();
   void SetInfo(std::shared_ptr<UserInfo> ui);
   void Reset();
-  int UserId() const
-  {
-    return _user_info ? _user_info->_uid : 0;
-  }
+  int UserId() const { return _user_info ? _user_info->_uid : 0; }
 
 protected:
   bool eventFilter(QObject *watched, QEvent *event) override;

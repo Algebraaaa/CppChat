@@ -3,16 +3,15 @@
  *  author:         github@Leopard-C
  *  email:          leopard.c@outlook.com
  *  last change:    2020-03-06
-*************************************************************************/
+ *************************************************************************/
 #ifndef IMAGECROPPERLABEL_H
 #define IMAGECROPPERLABEL_H
 
 #include <QLabel>
-#include <QPixmap>
 #include <QPen>
+#include <QPixmap>
 
-enum class CropperShape
-{
+enum class CropperShape {
   UNDEFINED = 0,
   RECT = 1,
   SQUARE = 2,
@@ -22,37 +21,28 @@ enum class CropperShape
   FIXED_ELLIPSE = 6
 };
 
-enum class OutputShape
-{
-  RECT = 0,
-  ELLIPSE = 1
-};
+enum class OutputShape { RECT = 0, ELLIPSE = 1 };
 
-enum class SizeType
-{
+enum class SizeType {
   fixedSize = 0,
   fitToMaxWidth = 1,
   fitToMaxHeight = 2,
   fitToMaxWidthHeight = 3,
 };
 
-class ImageCropperLabel : public QLabel
-{
+class ImageCropperLabel : public QLabel {
   Q_OBJECT
 public:
   ImageCropperLabel(int width, int height, QWidget *parent);
 
   void setOriginalImage(const QPixmap &pixmap);
-  void setOutputShape(OutputShape shape)
-  {
-    outputShape = shape;
-  }
+  void setOutputShape(OutputShape shape) { outputShape = shape; }
   QPixmap getCroppedImage();
   QPixmap getCroppedImage(OutputShape shape);
 
   /*****************************************
-     * Set cropper's shape
-    *****************************************/
+   * Set cropper's shape
+   *****************************************/
   void setRectCropper();
   void setSquareCropper();
   void setEllipseCropper();
@@ -62,81 +52,51 @@ public:
   void setCropper(CropperShape shape, QSize size); // not recommended
 
   /*****************************************************************************
-     * Set cropper's fixed size
-    *****************************************************************************/
+   * Set cropper's fixed size
+   *****************************************************************************/
   void setCropperFixedSize(int fixedWidth, int fixedHeight);
   void setCropperFixedWidth(int fixedWidht);
   void setCropperFixedHeight(int fixedHeight);
 
   /*****************************************************************************
-     * Set cropper's minimum size
-     * default: the twice of minimum of the edge lenght of drag square
-    *****************************************************************************/
+   * Set cropper's minimum size
+   * default: the twice of minimum of the edge lenght of drag square
+   *****************************************************************************/
   void setCropperMinimumSize(int minWidth, int minHeight)
   {
     cropperMinimumWidth = minWidth;
     cropperMinimumHeight = minHeight;
   }
-  void setCropperMinimumWidth(int minWidth)
-  {
-    cropperMinimumWidth = minWidth;
-  }
-  void setCropperMinimumHeight(int minHeight)
-  {
-    cropperMinimumHeight = minHeight;
-  }
+  void setCropperMinimumWidth(int minWidth) { cropperMinimumWidth = minWidth; }
+  void setCropperMinimumHeight(int minHeight) { cropperMinimumHeight = minHeight; }
 
   /*************************************************
-     * Set the size, color, visibility of rectangular border
-    *************************************************/
-  void setShowRectBorder(bool show)
-  {
-    isShowRectBorder = show;
-  }
-  QPen getBorderPen()
-  {
-    return borderPen;
-  }
-  void setBorderPen(const QPen &pen)
-  {
-    borderPen = pen;
-  }
+   * Set the size, color, visibility of rectangular border
+   *************************************************/
+  void setShowRectBorder(bool show) { isShowRectBorder = show; }
+  QPen getBorderPen() { return borderPen; }
+  void setBorderPen(const QPen &pen) { borderPen = pen; }
 
   /*************************************************
-     * Set the size, color of drag square
-    *************************************************/
-  void setShowDragSquare(bool show)
-  {
-    isShowDragSquare = show;
-  }
-  void setDragSquareEdge(int edge)
-  {
-    dragSquareEdge = (edge >= 3 ? edge : 3);
-  }
-  void setDragSquareColor(const QColor &color)
-  {
-    dragSquareColor = color;
-  }
+   * Set the size, color of drag square
+   *************************************************/
+  void setShowDragSquare(bool show) { isShowDragSquare = show; }
+  void setDragSquareEdge(int edge) { dragSquareEdge = (edge >= 3 ? edge : 3); }
+  void setDragSquareColor(const QColor &color) { dragSquareColor = color; }
 
   /*****************************************
-     *  Opacity Effect
-    *****************************************/
-  void enableOpacity(bool b = true)
-  {
-    isShowOpacityEffect = b;
-  }
-  void setOpacity(double newOpacity)
-  {
-    opacity = newOpacity;
-  }
+   *  Opacity Effect
+   *****************************************/
+  void enableOpacity(bool b = true) { isShowOpacityEffect = b; }
+  void setOpacity(double newOpacity) { opacity = newOpacity; }
 
 signals:
   void croppedImageChanged();
 
 protected:
   /*****************************************
-     * Event
-    *****************************************/
+   * Event
+   *****************************************/
   virtual void paintEvent(QPaintEvent *event) override;
   virtual void mousePressEvent(QMouseEvent *e) override;
   virtual void mouseMoveEvent(QMouseEvent *e) override;
@@ -144,8 +104,8 @@ protected:
 
 private:
   /***************************************
-     * Draw shapes
-    ***************************************/
+   * Draw shapes
+   ***************************************/
   void drawFillRect(QPoint centralPoint, int edge, QColor color);
   void drawRectOpacity();
   void drawEllipseOpacity();
@@ -153,15 +113,14 @@ private:
   void drawSquareEdge(bool onlyFourCorners);
 
   /***************************************
-     * Other utility methods
-    ***************************************/
+   * Other utility methods
+   ***************************************/
   int getPosInCropperRect(const QPoint &pt);
   bool isPosNearDragSquare(const QPoint &pt1, const QPoint &pt2);
   void resetCropperPos();
   void changeCursor();
 
-  enum
-  {
+  enum {
     RECT_OUTSIZD = 0,
     RECT_INSIDE = 1,
     RECT_TOP_LEFT,

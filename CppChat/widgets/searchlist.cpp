@@ -116,10 +116,7 @@ void SearchList::Search(const QString &keyword, Scope scope)
     addEmptyTip(scope);
 }
 
-void SearchList::ClearResults()
-{
-  clear();
-}
+void SearchList::ClearResults() { clear(); }
 
 void SearchList::addSection(const QString &title)
 {

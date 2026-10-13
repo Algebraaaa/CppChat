@@ -1,6 +1,3 @@
 #include "ChatServerApp.h"
 
-int main()
-{
-    return RunChatServer();
-}
+int main() { return RunChatServer(); }

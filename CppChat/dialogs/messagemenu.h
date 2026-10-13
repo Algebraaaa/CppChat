@@ -7,11 +7,12 @@
 class QHideEvent;
 class QKeyEvent;
 class QPushButton;
-namespace Ui { class MessageMenu; }
+namespace Ui {
+class MessageMenu;
+}
 
 // 每次右键时创建，关闭后释放；菜单项与尺寸在 .ui 中定义。
-class MessageMenu : public QWidget
-{
+class MessageMenu : public QWidget {
   Q_OBJECT
 public:
   explicit MessageMenu(QWidget *parent = nullptr);

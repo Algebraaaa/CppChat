@@ -67,10 +67,7 @@ void ChatSettingsPanel::SetPinned(bool pinned)
   ui->pin_switch->setChecked(pinned);
 }
 
-void ChatSettingsPanel::SetToggleButton(QWidget *button)
-{
-  _toggleButton = button;
-}
+void ChatSettingsPanel::SetToggleButton(QWidget *button) { _toggleButton = button; }
 
 void ChatSettingsPanel::SetAvailableRect(const QRect &rect)
 {
@@ -78,10 +75,7 @@ void ChatSettingsPanel::SetAvailableRect(const QRect &rect)
   setRevealProgress(_progress);
 }
 
-qreal ChatSettingsPanel::revealProgress() const
-{
-  return _progress;
-}
+qreal ChatSettingsPanel::revealProgress() const { return _progress; }
 
 void ChatSettingsPanel::setRevealProgress(qreal progress)
 {

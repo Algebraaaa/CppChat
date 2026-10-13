@@ -1,10 +1,10 @@
 #include "conversationmenu.h"
 #include "ui_conversationmenu.h"
 #include <QColor>
-#include <QGuiApplication>
 #include <QGraphicsDropShadowEffect>
-#include <QKeyEvent>
+#include <QGuiApplication>
 #include <QIcon>
+#include <QKeyEvent>
 #include <QScreen>
 
 ConversationMenu::ConversationMenu(QWidget *parent)
@@ -34,10 +34,7 @@ ConversationMenu::ConversationMenu(QWidget *parent)
   }
 }
 
-ConversationMenu::~ConversationMenu()
-{
-  delete ui;
-}
+ConversationMenu::~ConversationMenu() { delete ui; }
 
 void ConversationMenu::Popup(int threadId, bool pinned, bool unread, const QPoint &position)
 {

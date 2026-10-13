@@ -5,8 +5,7 @@
 #include <QLabel>
 #include <QString>
 
-class ClickedLabel : public QLabel
-{
+class ClickedLabel : public QLabel {
   Q_OBJECT
 
 public:

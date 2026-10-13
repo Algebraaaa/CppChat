@@ -9,25 +9,25 @@
 #include "const.h"
 
 StatusStubPool::StatusStubPool(std::size_t pool_size, const std::string &host,
-                               const std::string &port) {
+                               const std::string &port)
+{
   if (pool_size == 0) {
     throw std::invalid_argument("Status gRPC pool size must be positive");
   }
 
   for (std::size_t index = 0; index < pool_size; ++index) {
-    auto channel = grpc::CreateChannel(host + ':' + port,
-                                       grpc::InsecureChannelCredentials());
+    auto channel = grpc::CreateChannel(host + ':' + port, grpc::InsecureChannelCredentials());
     available_stubs_.push(message::StatusService::NewStub(channel));
   }
 }
 
 StatusStubPool::~StatusStubPool() { Close(); }
 
-std::unique_ptr<message::StatusService::Stub> StatusStubPool::BorrowStub() {
+std::unique_ptr<message::StatusService::Stub> StatusStubPool::BorrowStub()
+{
   std::unique_lock<std::mutex> lock(mutex_);
-  if (!condition_.wait_for(lock, std::chrono::seconds(3), [this]() {
-        return stopped_ || !available_stubs_.empty();
-      }))
+  if (!condition_.wait_for(lock, std::chrono::seconds(3),
+                           [this]() { return stopped_ || !available_stubs_.empty(); }))
     return nullptr;
 
   if (stopped_) {
@@ -39,8 +39,8 @@ std::unique_ptr<message::StatusService::Stub> StatusStubPool::BorrowStub() {
   return stub;
 }
 
-void StatusStubPool::ReturnStub(
-    std::unique_ptr<message::StatusService::Stub> stub) {
+void StatusStubPool::ReturnStub(std::unique_ptr<message::StatusService::Stub> stub)
+{
   if (!stub) {
     return;
   }
@@ -55,7 +55,8 @@ void StatusStubPool::ReturnStub(
   condition_.notify_one();
 }
 
-void StatusStubPool::Close() {
+void StatusStubPool::Close()
+{
   {
     std::lock_guard<std::mutex> lock(mutex_);
     if (stopped_) {
@@ -69,7 +70,8 @@ void StatusStubPool::Close() {
   condition_.notify_all();
 }
 
-StatusGrpcClient::StatusGrpcClient() {
+StatusGrpcClient::StatusGrpcClient()
+{
   const auto &config = ConfigMgr::GetInstance();
   const SectionInfo status_server = config["StatusServer"];
   const std::string host = status_server["Host"];
@@ -77,17 +79,17 @@ StatusGrpcClient::StatusGrpcClient() {
   const std::string pool_size_text = status_server.GetValue("PoolSize", "5");
 
   if (host.empty() || port.empty()) {
-    throw std::runtime_error(
-        "StatusServer.Host or StatusServer.Port is missing in config.ini");
+    throw std::runtime_error("StatusServer.Host or StatusServer.Port is missing in config.ini");
   }
 
   const std::size_t pool_size = std::stoul(pool_size_text);
   status_stub_pool_ = std::make_unique<StatusStubPool>(pool_size, host, port);
-  LOG_INFO("StatusGrpcClient initialized: endpoint=", host, ':', port,
-           ", pool size=", pool_size, '.');
+  LOG_INFO("StatusGrpcClient initialized: endpoint=", host, ':', port, ", pool size=", pool_size,
+           '.');
 }
 
-message::LoginRsp StatusGrpcClient::Login(int uid, const std::string &token) {
+message::LoginRsp StatusGrpcClient::Login(int uid, const std::string &token)
+{
   message::LoginRsp reply;
   message::LoginReq request;
   request.set_uid(uid);
@@ -100,17 +102,14 @@ message::LoginRsp StatusGrpcClient::Login(int uid, const std::string &token) {
     return reply;
   }
 
-  Defer return_stub_after_call(
-      [this, &stub]() { status_stub_pool_->ReturnStub(std::move(stub)); });
+  Defer return_stub_after_call([this, &stub]() { status_stub_pool_->ReturnStub(std::move(stub)); });
 
   grpc::ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() +
-                       std::chrono::seconds(5));
+  context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(5));
 
   const grpc::Status status = stub->Login(&context, request, &reply);
   if (status.ok()) {
-    LOG_DEBUG("StatusServer Login completed: uid=", uid,
-              ", business error=", reply.error(), '.');
+    LOG_DEBUG("StatusServer Login completed: uid=", uid, ", business error=", reply.error(), '.');
     return reply;
   }
 

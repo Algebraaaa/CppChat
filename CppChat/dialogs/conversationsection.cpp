@@ -1,8 +1,8 @@
 #include "conversationsection.h"
 #include "chatpage.h"
 #include "chatuserwid.h"
-#include "conversationmenu.h"
 #include "common/conversationpreferences.h"
+#include "conversationmenu.h"
 #include "network/usermgr.h"
 #include "ui_conversationsection.h"
 #include <QAction>
@@ -13,8 +13,7 @@
 #include <vector>
 
 namespace {
-enum ThreadRole
-{
+enum ThreadRole {
   ThreadIdRole = Qt::UserRole,
   LastChatTimeRole,
   LastMessageIdRole,
@@ -22,8 +21,7 @@ enum ThreadRole
   UnreadRole
 };
 
-class ChatThreadItem : public QListWidgetItem
-{
+class ChatThreadItem : public QListWidgetItem {
 public:
   bool operator<(const QListWidgetItem &other) const override
   {
@@ -132,18 +130,9 @@ ConversationSection::~ConversationSection()
   delete ui;
 }
 
-ChatPage *ConversationSection::Chat() const
-{
-  return ui->chat_page;
-}
-bool ConversationSection::HasSearch() const
-{
-  return !ui->search_edit->text().trimmed().isEmpty();
-}
-void ConversationSection::ClearSearch()
-{
-  ui->search_edit->clear();
-}
+ChatPage *ConversationSection::Chat() const { return ui->chat_page; }
+bool ConversationSection::HasSearch() const { return !ui->search_edit->text().trimmed().isEmpty(); }
+void ConversationSection::ClearSearch() { ui->search_edit->clear(); }
 void ConversationSection::RefreshSearch()
 {
   // 数据更新只合并刷新，不打断正在等待的输入防抖。
@@ -323,10 +312,7 @@ void ConversationSection::RemoveThread(int threadId)
   RefreshSearch();
 }
 
-int ConversationSection::ThreadCount() const
-{
-  return ui->chat_user_list->count();
-}
+int ConversationSection::ThreadCount() const { return ui->chat_user_list->count(); }
 int ConversationSection::FirstThreadId()
 {
   // 登录后选择第一条会话前，必须应用本轮更新的时间和置顶排序。

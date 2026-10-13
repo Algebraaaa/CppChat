@@ -4,10 +4,11 @@
 #include <QWidget>
 
 class QKeyEvent;
-namespace Ui { class QuickActionMenu; }
+namespace Ui {
+class QuickActionMenu;
+}
 
-class QuickActionMenu : public QWidget
-{
+class QuickActionMenu : public QWidget {
   Q_OBJECT
 public:
   explicit QuickActionMenu(QWidget *parent = nullptr);

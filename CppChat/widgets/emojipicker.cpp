@@ -1,12 +1,12 @@
 #include "emojipicker.h"
 #include "common/emojicatalog.h"
-#include <QDir>
+#include "common/runtimepaths.h"
 #include <QButtonGroup>
-#include <QHideEvent>
-#include <QShowEvent>
+#include <QDir>
 #include <QGraphicsDropShadowEffect>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QHideEvent>
 #include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
@@ -15,17 +15,17 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSettings>
+#include <QShowEvent>
 #include <QStandardPaths>
-#include <QToolButton>
 #include <QTimer>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <algorithm>
 
 namespace {
 QString preferencesPath()
 {
-  const QString directory =
-      QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/CppChat";
+  const QString directory = RuntimePaths::preferencesDirectory();
   QDir().mkpath(directory);
   return directory + "/emojis.ini";
 }

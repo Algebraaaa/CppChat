@@ -1,4 +1,4 @@
-# Local configuration and secrets: commit examples only.
+# Local configuration and secrets.
 config.ini
 config.json
 .env
@@ -22,13 +22,19 @@ config.json
 *.suo
 package.json
 package-lock.json
-CMakeLists.txt
+!/VerifyServer/package.json
+!/VerifyServer/package-lock.json
+# CMake source definitions are versioned; generated IDE files remain ignored.
 CMakePresets.json
 CMakeUserPresets.json
+!/CppChat/CMakeLists.txt
+!/CppChat/CMakePresets.json
 Makefile*
 .vs/
 .vscode/
 .idea/
+.qtcreator/
+.qtc_clangd/
 .codex/
 .agents/
 
@@ -41,6 +47,13 @@ Debug/
 Release/
 node_modules/
 .runtime/
+# Publish the launcher implementation and shared VS launch profiles only.
+!/.runtime/
+/.runtime/*
+!/.runtime/cppchat.ps1
+!/.runtime/ide/
+/.runtime/ide/*
+!/.runtime/ide/CppChatServers.slnLaunch
 logs/
 *.log
 *.exe
@@ -49,6 +62,9 @@ logs/
 *.pdb
 *.obj
 *.o
+*.gcda
+*.gcno
+*.gcov
 *.a
 *.ilk
 *.tlog
@@ -71,3 +87,6 @@ __pycache__/
 *.sqlite-*
 *.db
 *.db-*
+.pytest_cache/
+.hypothesis/
+.ruff_cache/

@@ -8,8 +8,7 @@ class ConversationMenu;
 }
 
 // Qt::Popup 自动处理外部点击关闭；尺寸、菜单项和分隔线由 .ui 定义。
-class ConversationMenu : public QWidget
-{
+class ConversationMenu : public QWidget {
   Q_OBJECT
 public:
   explicit ConversationMenu(QWidget *parent = nullptr);

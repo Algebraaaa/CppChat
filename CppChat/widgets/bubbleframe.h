@@ -4,8 +4,7 @@
 #include "common/global.h"
 #include <QFrame>
 #include <QHBoxLayout>
-class BubbleFrame : public QFrame
-{
+class BubbleFrame : public QFrame {
   Q_OBJECT
 public:
   BubbleFrame(ChatRole role, QWidget *parent = nullptr);

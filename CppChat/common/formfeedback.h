@@ -11,18 +11,15 @@ class QLineEdit;
 
 // 复用 Telegram 的输入变化/提交校验时机和 Element Plus 的字段状态模型。
 // 参考源码和本项目的适配规则见 docs/ui-features.md 的“表单校验”。
-class FormFeedback : public QObject
-{
+class FormFeedback : public QObject {
 public:
   using Validator = std::function<QString()>;
 
   explicit FormFeedback(QLabel *label, QObject *parent);
-  void addField(QLineEdit *input, Validator validator,
-                const QList<QLineEdit *> &dependencies = {});
+  void addField(QLineEdit *input, Validator validator, const QList<QLineEdit *> &dependencies = {});
   bool validateField(QLineEdit *input, bool focusOnError = false);
   bool validateAll();
-  void showStatus(const QString &message, bool ok,
-                  const QList<QLineEdit *> &relatedInputs = {});
+  void showStatus(const QString &message, bool ok, const QList<QLineEdit *> &relatedInputs = {});
   void clearStatus();
   void reset();
 

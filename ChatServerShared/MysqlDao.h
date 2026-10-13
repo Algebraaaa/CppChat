@@ -1,9 +1,9 @@
 #pragma once
+#include "data.h"
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
-#include "data.h"
 class MySqlPool;
 
 /*
@@ -11,8 +11,7 @@ class MySqlPool;
  * 对外保持原接口；实现按用户、好友和消息领域分组，共用唯一连接池。
  * 跨领域的加好友/初始消息必须继续在同一连接、同一事务中完成。
  */
-class MysqlDao
-{
+class MysqlDao {
 public:
   MysqlDao();
   ~MysqlDao();

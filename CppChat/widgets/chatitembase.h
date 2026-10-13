@@ -7,8 +7,7 @@
 #include <QWidget>
 class BubbleFrame;
 
-class ChatItemBase : public QWidget
-{
+class ChatItemBase : public QWidget {
   Q_OBJECT
 public:
   explicit ChatItemBase(ChatRole role, QWidget *parent = nullptr);

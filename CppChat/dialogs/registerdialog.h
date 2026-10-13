@@ -14,8 +14,7 @@ class RegisterDialog;
 }
 class FormFeedback;
 
-class RegisterDialog : public QDialog
-{
+class RegisterDialog : public QDialog {
   Q_OBJECT
 
 public:

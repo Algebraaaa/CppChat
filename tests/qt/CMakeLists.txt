@@ -1,0 +1,15 @@
+find_package(Qt6 REQUIRED COMPONENTS Test)
+qt_add_executable(client_tests client_tests.cpp)
+target_link_libraries(client_tests PRIVATE CppChatCore Qt6::Test)
+qt_add_executable(tls_probe tls_probe.cpp)
+target_link_libraries(tls_probe PRIVATE CppChatCore)
+add_test(NAME client.regression COMMAND client_tests
+  -o "${CMAKE_BINARY_DIR}/client-junit.xml,junitxml")
+set_tests_properties(client.regression PROPERTIES TIMEOUT 90 LABELS "qt;smoke")
+if(WIN32)
+  get_filename_component(qt_test_bin "${Qt6_DIR}/../../../bin" ABSOLUTE)
+  set_tests_properties(client.regression PROPERTIES ENVIRONMENT_MODIFICATION
+    "PATH=path_list_prepend:${qt_test_bin}")
+else()
+  set_tests_properties(client.regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()

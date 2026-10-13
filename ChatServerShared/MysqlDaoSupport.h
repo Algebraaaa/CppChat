@@ -1,8 +1,8 @@
 #pragma once
 // Internal SQL tools shared by domain implementation units; not a service API.
-#include "MysqlDao.h"
-#include "MySqlPool.h"
 #include "Logger.h"
+#include "MySqlPool.h"
+#include "MysqlDao.h"
 #include <cppconn/exception.h>
 #include <cppconn/prepared_statement.h>
 #include <cppconn/resultset.h>
@@ -16,8 +16,7 @@ namespace MysqlDaoDetail {
  * 因此 RegUser 中无论正常 return，还是 SQL 抛出异常，都不需要手写多次
  * ReturnConnection，也不会因为遗漏某个 return 分支而永久丢失连接。
  */
-class MySqlConnectionGuard
-{
+class MySqlConnectionGuard {
 public:
   MySqlConnectionGuard(MySqlPool *pool, std::unique_ptr<sql::Connection> connection)
       : _pool(pool), _connection(std::move(connection))
@@ -33,18 +32,14 @@ public:
   }
 
   // 对外返回普通指针只是为了调用 Connection 方法，所有权仍属于守卫。
-  sql::Connection *Get() const
-  {
-    return _connection.get();
-  }
+  sql::Connection *Get() const { return _connection.get(); }
 
 private:
   MySqlPool *_pool;
   std::unique_ptr<sql::Connection> _connection;
 };
 
-class MySqlTransaction
-{
+class MySqlTransaction {
 public:
   explicit MySqlTransaction(sql::Connection *connection) : _connection(connection)
   {

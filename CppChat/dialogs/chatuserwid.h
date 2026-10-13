@@ -2,15 +2,14 @@
 #define CHATUSERWID_H
 
 #include "common/listitembase.h"
-#include <QWidget>
 #include "common/userdata.h"
+#include <QWidget>
 class QEvent;
 namespace Ui {
 class ChatUserWid;
 }
 
-class ChatUserWid : public ListItemBase
-{
+class ChatUserWid : public ListItemBase {
   Q_OBJECT
 
 public:

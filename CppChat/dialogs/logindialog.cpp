@@ -13,12 +13,10 @@ LoginDialog::LoginDialog(QWidget *parent) : QDialog(parent), ui(new Ui::LoginDia
   ui->setupUi(this);
   ui->pass_edit->setEchoMode(QLineEdit::Password);
   _feedback = new FormFeedback(ui->err_tip, this);
-  _feedback->addField(ui->email_edit, [this]() {
-    return InputValidator::emailError(ui->email_edit->text());
-  });
-  _feedback->addField(ui->pass_edit, [this]() {
-    return InputValidator::passwordError(ui->pass_edit->text());
-  });
+  _feedback->addField(ui->email_edit,
+                      [this]() { return InputValidator::emailError(ui->email_edit->text()); });
+  _feedback->addField(ui->pass_edit,
+                      [this]() { return InputValidator::passwordError(ui->pass_edit->text()); });
   ui->forget_label->SetState("normal", "hover", "hover", "normal", "hover", "hover");
   ui->forget_label->setCursor(Qt::PointingHandCursor);
   connect(ui->forget_label, &ClickedLabel::clicked, this, &LoginDialog::slot_forget_pwd);
@@ -39,10 +37,7 @@ LoginDialog::LoginDialog(QWidget *parent) : QDialog(parent), ui(new Ui::LoginDia
           &LoginDialog::slot_login_failed);
 }
 
-LoginDialog::~LoginDialog()
-{
-  delete ui;
-}
+LoginDialog::~LoginDialog() { delete ui; }
 
 void LoginDialog::initHttpHandlers()
 { // 注册获取登录回包逻辑
@@ -126,10 +121,7 @@ void LoginDialog::initHead()
   ui->head_label->setPixmap(roundedPixmap);
 }
 
-void LoginDialog::showTip(QString str, bool b_ok)
-{
-  _feedback->showStatus(str, b_ok);
-}
+void LoginDialog::showTip(QString str, bool b_ok) { _feedback->showStatus(str, b_ok); }
 bool LoginDialog::enableBtn(bool enabled)
 {
   ui->login_btn->setEnabled(enabled);

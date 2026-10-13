@@ -613,7 +613,7 @@
         <file alias="1f4ad.png">Resources/emojis/telegram/1f4ad.png</file>
     </qresource>
     <qresource prefix="/storage">
-        <file alias="chatstore-schema.sql">common/chatstore-schema.sql</file>
+        <file alias="chatstore-schema.sql">../database/sqlite/chatstore-schema.sql</file>
     </qresource>
 </RCC>
 

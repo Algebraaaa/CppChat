@@ -1,0 +1,183 @@
+name: CppChat regression
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: '15 18 * * *'
+    - cron: '15 17 * * 0'
+  workflow_dispatch:
+    inputs:
+      suite:
+        type: choice
+        options: [smoke, full, nightly, release]
+        default: full
+permissions:
+  contents: read
+concurrency:
+  group: regression-${{ github.workflow }}-${{ github.ref }}-${{ github.event.schedule }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  regression:
+    if: github.event.schedule != '15 17 * * 0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: VerifyServer/package-lock.json
+      - name: Native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config libboost-all-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc libgrpc++-dev libjsoncpp-dev libhiredis-dev libmysqlcppconn-dev libssl-dev qt6-base-dev qt6-svg-dev qt6-tools-dev-tools
+          python -m pip install cmake==3.31.6 -r tests/requirements.lock
+          npm ci --prefix VerifyServer --ignore-scripts
+          mkdir -p build
+          dpkg-query -W > build/linux-dependency-versions.txt
+      - name: Build real sources
+        run: bash tests/ci/build-linux.sh Debug build/linux
+      - name: Run isolated regression in normal and optimized modes
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          suite='${{ inputs.suite }}'
+          if [ -z "$suite" ]; then
+            if [ '${{ github.event_name }}' = schedule ]; then suite=nightly;
+            elif [ '${{ github.event_name }}' = pull_request ]; then suite=smoke;
+            else suite=full; fi
+          fi
+          python tests/run.py --suite "$suite" --no-build --server-build build/linux --qt-build build/qt-linux
+      - name: Nightly performance baseline
+        if: github.event_name == 'schedule' && github.event.schedule == '15 18 * * *'
+        run: python tests/performance/run.py --profile baseline --server-build build/linux --artifacts build/performance
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: regression-${{ github.run_id }}
+          path: |
+            build/regression/
+            build/performance/
+            build/linux-dependency-versions.txt
+          retention-days: 14
+  sanitizers:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, undefined, thread]
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config libboost-all-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc libgrpc++-dev libjsoncpp-dev libhiredis-dev libmysqlcppconn-dev libssl-dev
+          python -m pip install cmake==3.31.6 -r tests/requirements.lock
+          npm ci --prefix VerifyServer --ignore-scripts
+      - name: Separate sanitizer build
+        run: |
+          cmake -S . -B build/sanitizer -G Ninja -DCPPCHAT_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCPPCHAT_SANITIZER=${{ matrix.sanitizer }}
+          cmake --build build/sanitizer --parallel 2
+      - name: TSan on dependency-free concurrency tests
+        if: matrix.sanitizer == 'thread'
+        run: ctest --test-dir build/sanitizer -R core.regression --output-on-failure --output-junit build/sanitizer-junit.xml
+      - name: ASan or UBSan real service integration
+        if: matrix.sanitizer != 'thread'
+        run: |
+          ctest --test-dir build/sanitizer --output-on-failure --output-junit build/sanitizer-junit.xml
+          python -m pytest -c tests/pytest.ini tests/integration/test_journey.py tests/integration/test_resources.py --server-build build/sanitizer --artifacts build/sanitizer-artifacts --junitxml build/sanitizer-integration-junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sanitizer-${{ matrix.sanitizer }}
+          path: |
+            build/*junit.xml
+            build/sanitizer-artifacts/
+  coverage:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config libboost-all-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc libgrpc++-dev libjsoncpp-dev libhiredis-dev libmysqlcppconn-dev libssl-dev
+          python -m pip install cmake==3.31.6 -r tests/requirements.lock
+          npm ci --prefix VerifyServer --ignore-scripts
+      - name: Instrument core logic and enforce agreed targets
+        run: |
+          cmake -S . -B build/coverage -G Ninja -DCPPCHAT_BUILD_TESTS=ON -DCPPCHAT_COVERAGE=ON -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build/coverage --parallel 2
+          ctest --test-dir build/coverage --output-on-failure
+          python -m pytest -c tests/pytest.ini tests/unit tests/integration -m 'not release' --server-build build/coverage --artifacts build/coverage-artifacts --junitxml build/coverage-junit.xml
+          gcovr --root . --object-directory build/coverage --filter ChatServerShared/ --filter GateServer/ --exclude '.*message\.(grpc\.)?pb\..*' --xml build/coverage-raw.xml --html-details build/coverage-raw.html
+          gcovr --root . --object-directory build/coverage --filter ChatServerShared/ --filter GateServer/ --exclude '.*message\.(grpc\.)?pb\..*' --exclude-throw-branches --exclude-unreachable-branches --fail-under-line 80 --fail-under-branch 70 --xml build/coverage.xml --html-details build/coverage.html
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: |
+            build/coverage*.xml
+            build/coverage*.html
+            build/coverage-artifacts/
+  weekly-soak:
+    if: github.event_name == 'schedule' && github.event.schedule == '15 17 * * 0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 155
+    strategy:
+      fail-fast: false
+      matrix:
+        round: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build and run two-hour measurement
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config libboost-all-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc libgrpc++-dev libjsoncpp-dev libhiredis-dev libmysqlcppconn-dev libssl-dev
+          python -m pip install cmake==3.31.6 -r tests/requirements.lock
+          npm ci --prefix VerifyServer --ignore-scripts
+          cmake -S . -B build/soak-server -G Ninja -DCPPCHAT_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/soak-server --parallel 2
+          python tests/performance/run.py --profile soak --runs 1 --configuration Release --server-build build/soak-server --artifacts build/soak
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: soak-${{ matrix.round }}
+          path: build/soak/
+          retention-days: 30
+  soak-median:
+    if: always() && github.event_name == 'schedule' && github.event.schedule == '15 17 * * 0'
+    needs: weekly-soak
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: soak-*
+          path: build/soak-runs
+      - run: python tests/performance/aggregate.py build/soak-runs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: soak-median
+          path: build/soak-runs/soak-candidate.json

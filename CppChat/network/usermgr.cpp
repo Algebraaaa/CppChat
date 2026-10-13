@@ -1,10 +1,10 @@
 #include "usermgr.h"
 #include "common/avatarimage.h"
-#include <QLabel>
+#include "network/tcpmgr.h"
 #include <QJsonDocument>
+#include <QLabel>
 #include <QTimer>
 #include <algorithm>
-#include "network/tcpmgr.h"
 
 UserMgr::UserMgr()
 {
@@ -34,31 +34,13 @@ void UserMgr::Reset()
   _avatarRequestGeneration.clear();
 }
 
-void UserMgr::SetUserInfo(std::shared_ptr<UserInfo> user)
-{
-  _user_info = user;
-}
+void UserMgr::SetUserInfo(std::shared_ptr<UserInfo> user) { _user_info = user; }
 
-int UserMgr::GetUid() const
-{
-  return _user_info ? _user_info->_uid : 0;
-}
-QString UserMgr::GetName() const
-{
-  return _user_info ? _user_info->_name : QString();
-}
-QString UserMgr::GetNick() const
-{
-  return _user_info ? _user_info->_nick : QString();
-}
-QString UserMgr::GetIcon() const
-{
-  return _user_info ? _user_info->_icon : QString();
-}
-QString UserMgr::GetDesc() const
-{
-  return _user_info ? _user_info->_desc : QString();
-}
+int UserMgr::GetUid() const { return _user_info ? _user_info->_uid : 0; }
+QString UserMgr::GetName() const { return _user_info ? _user_info->_name : QString(); }
+QString UserMgr::GetNick() const { return _user_info ? _user_info->_nick : QString(); }
+QString UserMgr::GetIcon() const { return _user_info ? _user_info->_icon : QString(); }
+QString UserMgr::GetDesc() const { return _user_info ? _user_info->_desc : QString(); }
 
 void UserMgr::RequestAvatar(int uid)
 {
@@ -262,10 +244,7 @@ void UserMgr::AddFriend(std::shared_ptr<AuthInfo> auth)
 {
   AddFriend(std::make_shared<UserInfo>(auth));
 }
-std::shared_ptr<UserInfo> UserMgr::GetFriendById(int uid) const
-{
-  return _friend_map.value(uid);
-}
+std::shared_ptr<UserInfo> UserMgr::GetFriendById(int uid) const { return _friend_map.value(uid); }
 
 int UserMgr::RemoveFriend(int uid)
 {

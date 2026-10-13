@@ -1,9 +1,9 @@
 #include "messagesender.h"
 #include "common/chatstore.h"
 #include "common/emojicatalog.h"
+#include "network/resourcemgr.h"
 #include "network/tcpmgr.h"
 #include "network/usermgr.h"
-#include "network/resourcemgr.h"
 #include <QDateTime>
 #include <QJsonDocument>
 #include <QPointer>

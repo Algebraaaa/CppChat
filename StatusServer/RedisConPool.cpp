@@ -11,17 +11,18 @@
 namespace {
 // AUTH、SET 等命令成功时，Redis 通常返回类型为 STATUS、内容为 "OK" 的 reply。
 // 这个小函数集中完成空指针、回复类型、字符串指针和具体内容四层检查。
-bool IsStatusOk(const redisReply *reply) {
-  return reply != nullptr && reply->type == REDIS_REPLY_STATUS &&
-         reply->str != nullptr && std::string(reply->str, reply->len) == "OK";
+bool IsStatusOk(const redisReply *reply)
+{
+  return reply != nullptr && reply->type == REDIS_REPLY_STATUS && reply->str != nullptr &&
+         std::string(reply->str, reply->len) == "OK";
 }
 } // namespace
 
-RedisConPool::RedisConPool(std::size_t pool_size, std::string host, int port,
-                           std::string password)
+RedisConPool::RedisConPool(std::size_t pool_size, std::string host, int port, std::string password)
     // host 和 password 传值进入构造函数，再 move 到成员中，避免额外复制字符串。
     // _port 是整数，直接复制即可。
-    : _host(std::move(host)), _port(port), _password(std::move(password)) {
+    : _host(std::move(host)), _port(port), _password(std::move(password))
+{
   // 尝试创建 pool_size 条连接。单条连接失败不会马上中断，剩余连接仍会继续创建。
   // 因此配置为 5 条时，即使只成功 3 条，服务器仍能使用这 3 条连接工作。
   for (std::size_t index = 0; index < pool_size; ++index) {
@@ -40,23 +41,24 @@ RedisConPool::RedisConPool(std::size_t pool_size, std::string host, int port,
     _stopped = true;
     LOG_ERROR("Redis connection pool has no available connections.");
   } else {
-    LOG_INFO("Redis connection pool initialized successfully: endpoint=", _host,
-             ":", _port, ", connections=", _live_connections.load());
+    LOG_INFO("Redis connection pool initialized successfully: endpoint=", _host, ":", _port,
+             ", connections=", _live_connections.load());
   }
 }
 
-RedisConPool::~RedisConPool() {
+RedisConPool::~RedisConPool()
+{
   // Close 可以重复调用，所以即使外部已经主动关闭，这里再次调用也安全。
   Close();
   LOG_INFO("Redis connection pool destroyed successfully.");
 }
 
-redisContext *RedisConPool::CreateConnection() const {
+redisContext *RedisConPool::CreateConnection() const
+{
   // redisConnect 同步建立到 host:port 的 TCP 连接。
   // 返回的 redisContext 由本连接池负责，最终必须使用 redisFree 释放。
   const timeval timeout{3, 0};
-  redisContext *context =
-      redisConnectWithTimeout(_host.c_str(), _port, timeout);
+  redisContext *context = redisConnectWithTimeout(_host.c_str(), _port, timeout);
   if (context == nullptr) {
     LOG_ERROR("Unable to allocate a Redis connection.");
     return nullptr;
@@ -96,15 +98,15 @@ redisContext *RedisConPool::CreateConnection() const {
   return context;
 }
 
-redisContext *RedisConPool::GetConnection() {
+redisContext *RedisConPool::GetConnection()
+{
   // unique_lock 可以在 condition_variable::wait 内部临时解锁。
   // 等待期间不占用 _mutex，其他线程才能进入 ReturnConnection 归还连接。
   std::unique_lock<std::mutex> lock(_mutex);
   // 使用带谓词的 wait 可以正确处理“虚假唤醒”：
   // 只有连接池关闭，或者队列中真的出现连接时，线程才继续执行。
-  if (!_condition.wait_for(lock, std::chrono::seconds(3), [this]() {
-        return _stopped || !_connections.empty();
-      }))
+  if (!_condition.wait_for(lock, std::chrono::seconds(3),
+                           [this]() { return _stopped || !_connections.empty(); }))
     return nullptr;
 
   // Close 会把 _stopped 设为 true 并唤醒全部等待者；此时不能再借出连接。
@@ -119,7 +121,8 @@ redisContext *RedisConPool::GetConnection() {
   return context;
 }
 
-void RedisConPool::ReturnConnection(redisContext *context) {
+void RedisConPool::ReturnConnection(redisContext *context)
+{
   // 空连接没有可归还内容，直接结束。
   if (context == nullptr) {
     return;
@@ -165,7 +168,8 @@ void RedisConPool::ReturnConnection(redisContext *context) {
   _condition.notify_one();
 }
 
-void RedisConPool::Close() {
+void RedisConPool::Close()
+{
   // 2026-08-12 对比：
   // 旧写法：Close() 只把 _stopped 设为 true，空闲连接必须等析构才释放。
   // 新写法：Close() 立即释放队列中的空闲连接；已借出的连接归还时再释放。
@@ -193,7 +197,8 @@ void RedisConPool::Close() {
   _condition.notify_all();
 }
 
-bool RedisConPool::IsAvailable() const {
+bool RedisConPool::IsAvailable() const
+{
   // _live_connections 包含“空闲 + 已借出”连接，所以它大于 0
   // 代表至少还有一条活连接。
   return !_stopped && _live_connections > 0;

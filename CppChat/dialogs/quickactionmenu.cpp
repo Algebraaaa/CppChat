@@ -28,10 +28,7 @@ QuickActionMenu::QuickActionMenu(QWidget *parent)
     });
 }
 
-QuickActionMenu::~QuickActionMenu()
-{
-  delete ui;
-}
+QuickActionMenu::~QuickActionMenu() { delete ui; }
 
 void QuickActionMenu::Popup(const QPoint &position)
 {

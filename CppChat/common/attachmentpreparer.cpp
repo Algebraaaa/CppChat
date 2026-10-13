@@ -17,8 +17,7 @@ constexpr int kMaximumTasks = 16;
 const QSize kPreviewSize(120, 80);
 
 // PNG 输出边写边限制，不能先生成无限大的 QByteArray 再检查大小。
-class LimitedBuffer : public QBuffer
-{
+class LimitedBuffer : public QBuffer {
 public:
   explicit LimitedBuffer(QByteArray *bytes) : QBuffer(bytes) {}
 
@@ -60,10 +59,7 @@ AttachmentPreparer::AttachmentPreparer(QObject *parent) : QObject(parent)
   _pool.setMaxThreadCount(2);
 }
 
-AttachmentPreparer::~AttachmentPreparer()
-{
-  _pool.waitForDone();
-}
+AttachmentPreparer::~AttachmentPreparer() { _pool.waitForDone(); }
 
 std::shared_ptr<PreparedAttachment> AttachmentPreparer::Start(std::function<Result()> work,
                                                               qint64 cost)

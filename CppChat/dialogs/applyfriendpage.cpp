@@ -1,8 +1,8 @@
 #include "applyfriendpage.h"
 #include "applyfriend.h"
-#include "ui_applyfriendpage.h"
 #include "network/tcpmgr.h"
 #include "network/usermgr.h"
+#include "ui_applyfriendpage.h"
 #include <QPainter>
 #include <QStyleOption>
 
@@ -14,10 +14,7 @@ ApplyFriendPage::ApplyFriendPage(QWidget *parent) : QWidget(parent), ui(new Ui::
   connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_auth_rsp, this,
           &ApplyFriendPage::slot_auth_rsp);
 }
-ApplyFriendPage::~ApplyFriendPage()
-{
-  delete ui;
-}
+ApplyFriendPage::~ApplyFriendPage() { delete ui; }
 void ApplyFriendPage::Reload()
 {
   _unauth_items.clear();
@@ -61,10 +58,7 @@ void ApplyFriendPage::loadSelectedApply()
   }
   ui->apply_hint->setVisible(ui->apply_friend_list->count() == 0);
 }
-void ApplyFriendPage::AddNewApply(std::shared_ptr<AddFriendApply>)
-{
-  Reload();
-}
+void ApplyFriendPage::AddNewApply(std::shared_ptr<AddFriendApply>) { Reload(); }
 void ApplyFriendPage::slot_auth_rsp(std::shared_ptr<AuthRsp> auth)
 {
   if (!auth)

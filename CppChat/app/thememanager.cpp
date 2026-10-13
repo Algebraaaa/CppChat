@@ -2,34 +2,33 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QEvent>
 #include <QFile>
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QPointer>
 #include <QRegularExpression>
 #include <QSet>
-#include <QEvent>
-#include <QPointer>
 #include <QTimer>
 #include <QWidget>
 
 #ifdef Q_OS_WIN
-#include <qt_windows.h>
 #include <dwmapi.h>
+#include <qt_windows.h>
 #endif
 
 namespace {
 #ifdef Q_OS_WIN
 // QSS 只能绘制客户区，Windows 的外框与原生标题栏需要通过 DWM 单独设置。
 // 统一监听顶层窗口，聊天记录、个人资料、图片预览和 Qt 提示框无需逐个复制代码。
-class WindowFrameFilter final : public QObject
-{
+class WindowFrameFilter final : public QObject {
 public:
   WindowFrameFilter(QApplication &application, const UiTheme &theme)
-      : QObject(&application), _border(theme.windowBorderColor),
-        _caption(theme.windowCaptionColor), _text(theme.windowTextColor)
+      : QObject(&application), _border(theme.windowBorderColor), _caption(theme.windowCaptionColor),
+        _text(theme.windowTextColor)
   {
     setObjectName(QStringLiteral("cppchat_window_frame_filter"));
     application.installEventFilter(this);
@@ -208,12 +207,14 @@ bool ThemeManager::load(const QString &manifestPath, UiTheme *theme, QString *er
 
   UiTheme loaded;
   loaded.windowBorderColor = QColor(tokens.value(QStringLiteral("color.border.window")).toString());
-  loaded.windowCaptionColor = QColor(tokens.value(QStringLiteral("color.surface.subtle")).toString());
+  loaded.windowCaptionColor =
+      QColor(tokens.value(QStringLiteral("color.surface.subtle")).toString());
   loaded.windowTextColor = QColor(tokens.value(QStringLiteral("color.text.primary")).toString());
   if (!loaded.windowBorderColor.isValid() || !loaded.windowCaptionColor.isValid() ||
       !loaded.windowTextColor.isValid()) {
-    return fail(error, QStringLiteral("Invalid window frame color in %1")
-                           .arg(directory.filePath(tokenFile)));
+    return fail(
+        error,
+        QStringLiteral("Invalid window frame color in %1").arg(directory.filePath(tokenFile)));
   }
   loaded.name = manifest.value(QStringLiteral("name")).toString();
   if (loaded.name.trimmed().isEmpty()) {

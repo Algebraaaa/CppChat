@@ -8,8 +8,7 @@ namespace Ui {
 class ApplyFriendItem;
 }
 
-class ApplyFriendItem : public ListItemBase
-{
+class ApplyFriendItem : public ListItemBase {
   Q_OBJECT
 
 public:

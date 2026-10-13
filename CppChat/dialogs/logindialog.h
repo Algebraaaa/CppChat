@@ -12,8 +12,7 @@ class LoginDialog;
 }
 class FormFeedback;
 
-class LoginDialog : public QDialog
-{
+class LoginDialog : public QDialog {
   Q_OBJECT
 
 public:

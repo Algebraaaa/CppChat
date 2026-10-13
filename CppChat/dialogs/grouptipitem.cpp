@@ -8,17 +8,8 @@ GroupTipItem::GroupTipItem(QWidget *parent)
   SetItemType(ListItemType::GROUP_TIP_ITEM);
 }
 
-GroupTipItem::~GroupTipItem()
-{
-  delete ui;
-}
+GroupTipItem::~GroupTipItem() { delete ui; }
 
-QSize GroupTipItem::sizeHint() const
-{
-  return QSize(0, 25);
-}
+QSize GroupTipItem::sizeHint() const { return QSize(0, 25); }
 
-void GroupTipItem::SetGroupTip(QString str)
-{
-  ui->label->setText(str);
-}
+void GroupTipItem::SetGroupTip(QString str) { ui->label->setText(str); }

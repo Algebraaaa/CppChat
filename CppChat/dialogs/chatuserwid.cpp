@@ -1,10 +1,10 @@
 #include "chatuserwid.h"
+#include "network/usermgr.h"
 #include "ui_chatuserwid.h"
 #include <QDateTime>
-#include "network/usermgr.h"
-#include <QLabel>
 #include <QEvent>
 #include <QFontMetrics>
+#include <QLabel>
 #include <QStyle>
 
 ChatUserWid::ChatUserWid(QWidget *parent) : ListItemBase(parent), ui(new Ui::ChatUserWid)
@@ -22,10 +22,7 @@ ChatUserWid::ChatUserWid(QWidget *parent) : ListItemBase(parent), ui(new Ui::Cha
   ui->user_chat_lb->installEventFilter(this);
 }
 
-ChatUserWid::~ChatUserWid()
-{
-  delete ui;
-}
+ChatUserWid::~ChatUserWid() { delete ui; }
 
 QSize ChatUserWid::sizeHint() const
 {

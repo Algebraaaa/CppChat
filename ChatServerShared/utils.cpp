@@ -5,7 +5,8 @@
 #include <iomanip>
 #include <sstream>
 
-std::string GetCurrentTimestamp() {
+std::string GetCurrentTimestamp()
+{
   const auto now = std::chrono::system_clock::now();
   const std::time_t value = std::chrono::system_clock::to_time_t(now);
   std::tm local_time{};

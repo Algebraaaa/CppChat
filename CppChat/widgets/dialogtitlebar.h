@@ -6,8 +6,7 @@
 
 // 可以在 Designer 中作为 QWidget 的提升控件使用。
 // 在标题栏上按住左键，移动它所在的顶层窗口。
-class DialogTitleBar : public QWidget
-{
+class DialogTitleBar : public QWidget {
   Q_OBJECT
 
 public:

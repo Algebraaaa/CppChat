@@ -1,4 +1,5 @@
 #include "common/logger.h"
+#include "common/runtimepaths.h"
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -8,8 +9,8 @@
 #include <QMutexLocker>
 #include <QThread>
 
-#include <cstdio>
 #include <chrono>
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <vector>
@@ -38,8 +39,7 @@ void reportLoggingError(const std::string &message)
   std::fflush(stderr);
 }
 
-class LogBackend
-{
+class LogBackend {
 public:
   explicit LogBackend(const QString &directory)
   {
@@ -111,12 +111,13 @@ QString findLogBasePath()
 
   // 开发环境中从 build/.../debug 逐级向上寻找项目文件。
   do {
-    if (QFileInfo(directory.filePath(QStringLiteral("CppChat.pro"))).isFile()) {
+    if (QFileInfo(directory.filePath(QStringLiteral("CMakeLists.txt"))).isFile() &&
+        QFileInfo(directory.filePath(QStringLiteral("app/main.cpp"))).isFile()) {
       return directory.absolutePath();
     }
   } while (directory.cdUp());
 
-  // 发布后的目录中通常没有 .pro 文件，此时日志放在 EXE 同级目录。
+  // 发布后的目录中通常没有客户端源码，此时日志放在 EXE 同级目录。
   return executablePath;
 }
 
@@ -165,7 +166,9 @@ bool Logger::install()
     return true;
   }
 
-  logsPath = QDir(findLogBasePath()).filePath(QStringLiteral("logs"));
+  logsPath = RuntimePaths::logDirectory().isEmpty()
+                 ? QDir(findLogBasePath()).filePath(QStringLiteral("logs"))
+                 : RuntimePaths::logDirectory();
   if (!QDir().mkpath(logsPath)) {
     logsPath.clear();
     return false;

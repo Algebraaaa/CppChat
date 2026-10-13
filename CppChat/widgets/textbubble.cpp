@@ -1,12 +1,12 @@
 ﻿#include "textbubble.h"
-#include "common/global.h"
 #include "common/emojicatalog.h"
+#include "common/global.h"
 #include <QAbstractTextDocumentLayout>
 #include <QDebug>
 #include <QFontMetricsF>
 #include <QTextBlock>
-#include <QTextDocument>
 #include <QTextCursor>
+#include <QTextDocument>
 #include <QTextFragment>
 #include <QTextImageFormat>
 #include <QTextLayout>
@@ -58,15 +58,15 @@ void TextBubble::setPlainText(const QString &text)
   auto cursor = m_pTextEdit->textCursor();
   EmojiCatalog::InsertText(cursor, text);
   m_pTextEdit->setTextCursor(cursor);
-  //找到段落中最大宽度
+  // 找到段落中最大宽度
   qreal doc_margin = m_pTextEdit->document()->documentMargin();
   int margin_left = this->layout()->contentsMargins().left();
   int margin_right = this->layout()->contentsMargins().right();
   QFontMetricsF fm(m_pTextEdit->font());
   QTextDocument *doc = m_pTextEdit->document();
   qreal max_width = 0.0;
-  //遍历每一段找到 最宽的那一段
-  for (QTextBlock it = doc->begin(); it != doc->end(); it = it.next()) //字体总长
+  // 遍历每一段找到 最宽的那一段
+  for (QTextBlock it = doc->begin(); it != doc->end(); it = it.next()) // 字体总长
   {
     qreal txtW = 0;
     for (auto fragment = it.begin(); !fragment.atEnd(); ++fragment) {
@@ -79,7 +79,7 @@ void TextBubble::setPlainText(const QString &text)
     }
     max_width = max_width < txtW ? txtW : max_width; // 找到最长的那段
   }
-  //设置这个气泡的最大宽度 只需要设置一次
+  // 设置这个气泡的最大宽度 只需要设置一次
   const int bubbleWidth =
       qCeil(max_width + doc_margin * 2) + margin_left + margin_right + kTextWidthSafetyPadding;
   setMaximumWidth(bubbleWidth);
@@ -102,7 +102,7 @@ void TextBubble::adjustTextHeight()
   const qreal documentHeight = m_pTextEdit->document()->documentLayout()->documentSize().height();
   const auto margins = layout()->contentsMargins();
   const int desiredHeight = qMax(1, qCeil(documentHeight) + margins.top() + margins.bottom() +
-                                      m_pTextEdit->frameWidth() * 2);
+                                        m_pTextEdit->frameWidth() * 2);
   if (minimumHeight() != desiredHeight || maximumHeight() != desiredHeight)
     setFixedHeight(desiredHeight);
 }

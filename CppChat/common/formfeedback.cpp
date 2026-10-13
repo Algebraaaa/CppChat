@@ -10,12 +10,11 @@ FormFeedback::FormFeedback(QLabel *label, QObject *parent) : QObject(parent), _l
 }
 
 void FormFeedback::addField(QLineEdit *input, Validator validator,
-                           const QList<QLineEdit *> &dependencies)
+                            const QList<QLineEdit *> &dependencies)
 {
   _fields.append({input, std::move(validator), dependencies, false, {}});
   connect(input, &QLineEdit::textChanged, this, [this, input]() { inputChanged(input); });
-  connect(input, &QLineEdit::editingFinished, this,
-          [this, input]() { validateField(input); });
+  connect(input, &QLineEdit::editingFinished, this, [this, input]() { validateField(input); });
 }
 
 void FormFeedback::updateField(Field &field)
@@ -83,7 +82,7 @@ bool FormFeedback::validateAll()
 }
 
 void FormFeedback::showStatus(const QString &message, bool ok,
-                             const QList<QLineEdit *> &relatedInputs)
+                              const QList<QLineEdit *> &relatedInputs)
 {
   _statusMessage = message;
   _statusOk = ok;

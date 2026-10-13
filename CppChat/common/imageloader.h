@@ -11,15 +11,13 @@
 #include <QThreadPool>
 #include <functional>
 
-struct LoadedImage
-{
+struct LoadedImage {
   QImage image;
   QString error;
 };
 
 // GUI 线程调度与缓存；工作线程只处理字节和 QImage，不访问 QWidget / UserMgr。
-class ImageLoader : public QObject
-{
+class ImageLoader : public QObject {
 public:
   using Callback = std::function<void(const LoadedImage &)>;
   static ImageLoader *instance();
@@ -30,13 +28,11 @@ public:
 
 private:
   explicit ImageLoader(QObject *parent);
-  struct Listener
-  {
+  struct Listener {
     QPointer<QObject> receiver;
     Callback callback;
   };
-  struct Task
-  {
+  struct Task {
     QString key;
     QByteArray bytes;
     QSize bounds;

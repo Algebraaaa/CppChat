@@ -10,8 +10,7 @@
 class QDialog;
 class QLabel;
 class QMouseEvent;
-class PictureBubble : public BubbleFrame
-{
+class PictureBubble : public BubbleFrame {
   Q_OBJECT
 public:
   explicit PictureBubble(ChatRole role, QWidget *parent = nullptr);
@@ -19,10 +18,7 @@ public:
   void copyOriginal();
   void setError(const QString &message);
   void setProgress(qint64 done, qint64 total);
-  bool hasImage() const
-  {
-    return !_preview.isNull();
-  }
+  bool hasImage() const { return !_preview.isNull(); }
 signals:
   void retryRequested();
 

@@ -1,18 +1,17 @@
 #pragma once
 
 #include <QByteArray>
-#include <QObject>
-#include <QString>
-#include <QHash>
 #include <QCache>
+#include <QHash>
+#include <QObject>
 #include <QSet>
+#include <QString>
 #include <QThreadPool>
 #include <atomic>
 #include <memory>
 
 // 图片数据走独立 TCP 连接，聊天 TCP 只传文件 ID；所有阻塞 I/O 均在工作线程中运行。
-class ResourceMgr : public QObject
-{
+class ResourceMgr : public QObject {
   Q_OBJECT
 public:
   static ResourceMgr *instance();

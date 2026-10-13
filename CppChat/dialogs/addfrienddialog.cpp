@@ -13,8 +13,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 
-AddFriendDialog::AddFriendDialog(QWidget *parent)
-    : QDialog(parent), ui(new Ui::AddFriendDialog)
+AddFriendDialog::AddFriendDialog(QWidget *parent) : QDialog(parent), ui(new Ui::AddFriendDialog)
 {
   ui->setupUi(this);
   setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
@@ -26,7 +25,7 @@ AddFriendDialog::AddFriendDialog(QWidget *parent)
   ui->add_friend_title->setAttribute(Qt::WA_TransparentForMouseEvents);
   ui->add_friend_search_edit->SetMaxLength(27);
   ui->add_friend_search_edit->addAction(QIcon(":/icons/action-search.svg"),
-                                      QLineEdit::LeadingPosition);
+                                        QLineEdit::LeadingPosition);
   if (parent)
     move(parent->window()->frameGeometry().center() - rect().center());
 
@@ -34,10 +33,9 @@ AddFriendDialog::AddFriendDialog(QWidget *parent)
   connect(ui->add_friend_search_btn, &QPushButton::clicked, this, &AddFriendDialog::searchUser);
   connect(ui->add_friend_search_edit, &QLineEdit::returnPressed, this,
           &AddFriendDialog::searchUser);
-  connect(ui->add_friend_search_edit, &QLineEdit::textChanged, this,
-          [this](const QString &text) {
-            ui->add_friend_search_btn->setEnabled(!_sendPending && !text.trimmed().isEmpty());
-          });
+  connect(ui->add_friend_search_edit, &QLineEdit::textChanged, this, [this](const QString &text) {
+    ui->add_friend_search_btn->setEnabled(!_sendPending && !text.trimmed().isEmpty());
+  });
 
   const auto tcp = TcpMgr::GetInstance();
   connect(tcp.get(), &TcpMgr::sig_user_search, this,
@@ -96,9 +94,9 @@ void AddFriendDialog::searchUser()
 
   closeResultDialog();
   setPending(true);
-  emit TcpMgr::GetInstance()->sig_send_data(
-      ID_SEARCH_USER_REQ,
-      QJsonDocument(QJsonObject{{"uid", query}}).toJson(QJsonDocument::Compact));
+  emit TcpMgr::GetInstance()
+      -> sig_send_data(ID_SEARCH_USER_REQ,
+                       QJsonDocument(QJsonObject{{"uid", query}}).toJson(QJsonDocument::Compact));
 }
 
 void AddFriendDialog::handleSearchResult(const std::shared_ptr<SearchInfo> &info)
@@ -127,8 +125,8 @@ void AddFriendDialog::setPending(bool pending)
 {
   _sendPending = pending;
   ui->add_friend_search_edit->setEnabled(!pending);
-  ui->add_friend_search_btn->setEnabled(
-      !pending && !ui->add_friend_search_edit->text().trimmed().isEmpty());
+  ui->add_friend_search_btn->setEnabled(!pending &&
+                                        !ui->add_friend_search_edit->text().trimmed().isEmpty());
 
   if (!pending) {
     if (_loadingDialog) {

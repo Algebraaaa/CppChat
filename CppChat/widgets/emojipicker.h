@@ -2,9 +2,9 @@
 #define EMOJIPICKER_H
 
 #include <QFrame>
+#include <QHash>
 #include <QStringList>
 #include <QVector>
-#include <QHash>
 
 class QLineEdit;
 class QScrollArea;
@@ -15,8 +15,7 @@ class QShowEvent;
 class QTimer;
 struct EmojiEntry;
 
-class EmojiPicker : public QFrame
-{
+class EmojiPicker : public QFrame {
   Q_OBJECT
 public:
   explicit EmojiPicker(QWidget *parent = nullptr);

@@ -1,10 +1,10 @@
 #include "imagecropperlabel.h"
 
+#include <QBitmap>
+#include <QDebug>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
-#include <QMouseEvent>
-#include <QDebug>
-#include <QBitmap>
 
 ImageCropperLabel::ImageCropperLabel(int width, int height, QWidget *parent) : QLabel(parent)
 {
@@ -53,7 +53,7 @@ void ImageCropperLabel::setOriginalImage(const QPixmap &pixmap)
 
 /*****************************************
  * set cropper's shape (and size)
-*****************************************/
+ *****************************************/
 void ImageCropperLabel::setRectCropper()
 {
   cropperShape = CropperShape::RECT;
@@ -101,8 +101,8 @@ void ImageCropperLabel::setCropper(CropperShape shape, QSize size)
 }
 
 /*****************************************************************************
-     * Set cropper's fixed size
-    *****************************************************************************/
+ * Set cropper's fixed size
+ *****************************************************************************/
 void ImageCropperLabel::setCropperFixedSize(int fixedWidth, int fixedHeight)
 {
   cropperRect_.setSize(QSize(fixedWidth, fixedHeight));
@@ -124,7 +124,7 @@ void ImageCropperLabel::setCropperFixedHeight(int fixedHeight)
 /**********************************************
  * Move cropper to the center of the image
  * And resize to default
-**********************************************/
+ **********************************************/
 void ImageCropperLabel::resetCropperPos()
 {
   int labelWidth = this->width();
@@ -158,10 +158,7 @@ void ImageCropperLabel::resetCropperPos()
   }
 }
 
-QPixmap ImageCropperLabel::getCroppedImage()
-{
-  return getCroppedImage(this->outputShape);
-}
+QPixmap ImageCropperLabel::getCroppedImage() { return getCroppedImage(this->outputShape); }
 
 QPixmap ImageCropperLabel::getCroppedImage(OutputShape shape)
 {
@@ -323,7 +320,7 @@ int ImageCropperLabel::getPosInCropperRect(const QPoint &pt)
  *  Change mouse cursor type
  *      Arrow, SizeHor, SizeVer, etc...
  *
-*************************************************/
+ *************************************************/
 
 void ImageCropperLabel::changeCursor()
 {
@@ -438,7 +435,7 @@ void ImageCropperLabel::changeCursor()
  *
  *  Mouse Events
  *
-*****************************************************/
+ *****************************************************/
 
 void ImageCropperLabel::mousePressEvent(QMouseEvent *e)
 {

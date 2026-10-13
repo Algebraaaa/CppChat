@@ -5,10 +5,10 @@
 #include <array>
 #include <climits>
 #include <iomanip>
-#include <sstream>
 #include <openssl/crypto.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+#include <sstream>
 using MysqlDaoDetail::LogSqlError;
 using MysqlDaoDetail::MySqlConnectionGuard;
 using MysqlDaoDetail::MySqlTransaction;

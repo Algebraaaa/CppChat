@@ -14,18 +14,18 @@ RegisterDialog::RegisterDialog(QWidget *parent) : QDialog(parent), ui(new Ui::Re
   ui->confirm_edit->setEchoMode(QLineEdit::Password);
 
   _feedback = new FormFeedback(ui->err_tip, this);
-  _feedback->addField(ui->user_edit, [this]() {
-    return InputValidator::userError(ui->user_edit->text());
-  });
-  _feedback->addField(ui->email_edit, [this]() {
-    return InputValidator::emailError(ui->email_edit->text());
-  });
-  _feedback->addField(ui->pass_edit, [this]() {
-    return InputValidator::passwordError(ui->pass_edit->text());
-  });
-  _feedback->addField(ui->confirm_edit, [this]() {
-    return InputValidator::confirmPasswordError(ui->pass_edit->text(), ui->confirm_edit->text());
-  }, {ui->pass_edit});
+  _feedback->addField(ui->user_edit,
+                      [this]() { return InputValidator::userError(ui->user_edit->text()); });
+  _feedback->addField(ui->email_edit,
+                      [this]() { return InputValidator::emailError(ui->email_edit->text()); });
+  _feedback->addField(ui->pass_edit,
+                      [this]() { return InputValidator::passwordError(ui->pass_edit->text()); });
+  _feedback->addField(ui->confirm_edit,
+                      [this]() {
+                        return InputValidator::confirmPasswordError(ui->pass_edit->text(),
+                                                                    ui->confirm_edit->text());
+                      },
+                      {ui->pass_edit});
   _feedback->addField(ui->verify_edit, [this]() {
     return InputValidator::verifyCodeError(ui->verify_edit->text());
   });
@@ -65,10 +65,7 @@ RegisterDialog::RegisterDialog(QWidget *parent) : QDialog(parent), ui(new Ui::Re
   resetRegistrationPage();
 }
 
-RegisterDialog::~RegisterDialog()
-{
-  delete ui;
-}
+RegisterDialog::~RegisterDialog() { delete ui; }
 void RegisterDialog::on_get_code_clicked()
 {
   qDebug() << "Registration verification button clicked"
@@ -96,10 +93,7 @@ void RegisterDialog::showTip(const QString &message, bool ok, ReqId id)
   }
 }
 
-void RegisterDialog::on_cancel_btn_clicked()
-{
-  returnToLogin();
-}
+void RegisterDialog::on_cancel_btn_clicked() { returnToLogin(); }
 
 void RegisterDialog::slot_reg_mod_finish(ReqId id, QByteArray data, ErrorCodes err)
 {
@@ -236,7 +230,4 @@ void RegisterDialog::returnToLogin()
   emit switchLogin();
 }
 
-void RegisterDialog::on_return_btn_clicked()
-{
-  returnToLogin();
-}
+void RegisterDialog::on_return_btn_clicked() { returnToLogin(); }

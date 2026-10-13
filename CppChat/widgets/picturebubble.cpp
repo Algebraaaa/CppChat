@@ -2,8 +2,8 @@
 #include "common/imageloader.h"
 #include "network/resourcemgr.h"
 #include <QClipboard>
-#include <QGuiApplication>
 #include <QDialog>
+#include <QGuiApplication>
 #include <QLabel>
 #include <QMouseEvent>
 #include <QPainter>
@@ -46,8 +46,7 @@ void loadOriginal(const QString &fileId, QObject *receiver, ImageLoader::Callbac
 }
 
 // 缩放查看时直接绘制原图，避免反复放大已经缩小的预览。
-class ImageCanvas : public QWidget
-{
+class ImageCanvas : public QWidget {
 public:
   explicit ImageCanvas(const QPixmap &picture) : _picture(picture)
   {
@@ -72,8 +71,7 @@ private:
   QPixmap _picture;
 };
 
-class ImagePreviewDialog : public QDialog
-{
+class ImagePreviewDialog : public QDialog {
 public:
   ImagePreviewDialog(const QPixmap &picture, QWidget *parent)
       : QDialog(parent), _size(picture.size())

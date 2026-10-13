@@ -12,8 +12,7 @@ class ChatSettingsPanel;
 }
 
 // 不参与聊天页布局：浮在内容上，通过动画改变露出的比例。
-class ChatSettingsPanel : public QWidget
-{
+class ChatSettingsPanel : public QWidget {
   Q_OBJECT
   Q_PROPERTY(qreal revealProgress READ revealProgress WRITE setRevealProgress)
 public:

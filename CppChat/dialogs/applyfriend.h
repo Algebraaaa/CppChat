@@ -8,8 +8,7 @@
 namespace Ui {
 class ApplyFriend;
 }
-class ApplyFriend : public QDialog
-{
+class ApplyFriend : public QDialog {
   Q_OBJECT
 
 public:

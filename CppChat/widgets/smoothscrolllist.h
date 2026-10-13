@@ -13,8 +13,7 @@ class QWheelEvent;
 
 // 为 QListWidget 提供悬浮滚动条和平滑滚轮动画。
 // 业务列表只需要继承该类，并按需重写 onReachedBottom()。
-class SmoothScrollList : public QListWidget
-{
+class SmoothScrollList : public QListWidget {
 public:
   explicit SmoothScrollList(QWidget *parent = nullptr);
 

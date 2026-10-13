@@ -4,8 +4,7 @@
 #include "widgets/smoothscrolllist.h"
 class QContextMenuEvent;
 
-class ChatUserList : public SmoothScrollList
-{
+class ChatUserList : public SmoothScrollList {
   Q_OBJECT
 public:
   explicit ChatUserList(QWidget *parent = nullptr);

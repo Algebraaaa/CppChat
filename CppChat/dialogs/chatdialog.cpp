@@ -1,23 +1,23 @@
 #include "chatdialog.h"
-#include "services/chatsyncservice.h"
 #include "addfrienddialog.h"
 #include "chatpage.h"
-#include "profiledialog.h"
-#include "sidemenupopup.h"
-#include "quickactionmenu.h"
 #include "common/avatarimage.h"
 #include "common/chatstore.h"
 #include "common/conversationpreferences.h"
-#include "network/tcpmgr.h"
 #include "network/resourcemgr.h"
+#include "network/tcpmgr.h"
 #include "network/usermgr.h"
+#include "profiledialog.h"
+#include "quickactionmenu.h"
+#include "services/chatsyncservice.h"
+#include "sidemenupopup.h"
 #include "ui_chatdialog.h"
 #include <QApplication>
 #include <QButtonGroup>
+#include <QEvent>
 #include <QJsonDocument>
 #include <QLabel>
 #include <QMessageBox>
-#include <QEvent>
 #include <QPushButton>
 #include <QTimer>
 #include <QToolTip>
@@ -303,18 +303,9 @@ void ChatDialog::ShowChatPage()
   SwitchSection(Section::Chat);
   MarkCurrentRead();
 }
-void ChatDialog::ShowContactPage()
-{
-  SwitchSection(Section::Contacts);
-}
-void ChatDialog::ShowFavoritesPage()
-{
-  SwitchSection(Section::Favorites);
-}
-void ChatDialog::ShowDiscoverPage()
-{
-  SwitchSection(Section::Discover);
-}
+void ChatDialog::ShowContactPage() { SwitchSection(Section::Contacts); }
+void ChatDialog::ShowFavoritesPage() { SwitchSection(Section::Favorites); }
+void ChatDialog::ShowDiscoverPage() { SwitchSection(Section::Discover); }
 
 bool ChatDialog::eventFilter(QObject *watched, QEvent *event)
 {

@@ -1,6 +1,6 @@
 #include "applyfrienditem.h"
-#include "ui_applyfrienditem.h"
 #include "network/usermgr.h"
+#include "ui_applyfrienditem.h"
 
 ApplyFriendItem::ApplyFriendItem(QWidget *parent)
     : ListItemBase(parent), ui(new Ui::ApplyFriendItem), _added(false)
@@ -11,10 +11,7 @@ ApplyFriendItem::ApplyFriendItem(QWidget *parent)
   ui->addBtn->hide();
 }
 
-ApplyFriendItem::~ApplyFriendItem()
-{
-  delete ui;
-}
+ApplyFriendItem::~ApplyFriendItem() { delete ui; }
 
 void ApplyFriendItem::SetInfo(std::shared_ptr<ApplyInfo> apply_info)
 {
@@ -39,12 +36,6 @@ void ApplyFriendItem::ShowAddBtn(bool bshow)
   }
 }
 
-int ApplyFriendItem::GetUid()
-{
-  return _apply_info->_uid;
-}
+int ApplyFriendItem::GetUid() { return _apply_info->_uid; }
 
-void ApplyFriendItem::on_addBtn_clicked()
-{
-  emit this->sig_auth_friend(_apply_info);
-}
+void ApplyFriendItem::on_addBtn_clicked() { emit this->sig_auth_friend(_apply_info); }

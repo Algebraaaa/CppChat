@@ -6,12 +6,11 @@
 #include <QElapsedTimer>
 #include <QJsonObject>
 #include <QMap>
-#include <QTcpSocket>
+#include <QSslSocket>
 #include <QTimer>
 #include <functional>
 
-class TcpMgr : public QObject, public Singleton<TcpMgr>
-{
+class TcpMgr : public QObject, public Singleton<TcpMgr> {
   Q_OBJECT
   friend class Singleton<TcpMgr>;
 
@@ -19,10 +18,7 @@ public:
   ~TcpMgr() override = default;
   void CloseConnection();
   bool IsConnected() const;
-  bool SupportsMessageDedup() const
-  {
-    return _messageDedup;
-  }
+  bool SupportsMessageDedup() const { return _messageDedup; }
   void CancelRequest(ReqId request);
 public slots:
   void slot_tcp_connect(ServerInfo server);
@@ -64,7 +60,8 @@ private:
   void startRequestTimer(ReqId request);
   void stopRequestTimer(ReqId request);
   void resetConnectionState();
-  QTcpSocket _socket;
+  QSslSocket _socket;
+  bool _tlsEnabled = false;
   QByteArray _buffer;
   bool _readingPackets = false;
   bool _readScheduled = false;

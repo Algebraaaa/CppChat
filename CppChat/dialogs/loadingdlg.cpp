@@ -20,7 +20,4 @@ LoadingDlg::LoadingDlg(QWidget *parent) : QDialog(parent), ui(new Ui::LoadingDlg
   movie->start();
 }
 
-LoadingDlg::~LoadingDlg()
-{
-  delete ui;
-}
+LoadingDlg::~LoadingDlg() { delete ui; }

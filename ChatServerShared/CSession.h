@@ -39,30 +39,25 @@ public:
   void Send(const std::string &message, short message_id);
   // on_closed runs on the connection strand after the socket has closed.
   void Close(std::function<void()> on_closed = {});
-  void DrainAndClose(std::chrono::seconds timeout,
-                     std::function<void()> on_closed);
+  void DrainAndClose(std::chrono::seconds timeout, std::function<void()> on_closed);
   void NotifyOffline(int uid);
   bool IsHeartbeatExpired(std::time_t now) const;
   void UpdateHeartbeat();
 
 private:
-  void
-  DealExceptionSession(); // Only after physical close on the owning strand.
-  using ReadHandler =
-      std::function<void(const boost::system::error_code &, std::size_t)>;
+  void DealExceptionSession(); // Only after physical close on the owning strand.
+  using ReadHandler = std::function<void(const boost::system::error_code &, std::size_t)>;
 
   void AsyncReadBody(std::size_t total_length);
   void AsyncReadHead();
   void AsyncReadFull(std::size_t total_length, ReadHandler handler);
-  void AsyncReadLength(std::size_t read_length, std::size_t total_length,
-                       ReadHandler handler);
+  void AsyncReadLength(std::size_t read_length, std::size_t total_length, ReadHandler handler);
   void HandleWrite(const boost::system::error_code &error);
   bool QueueSend(std::shared_ptr<SendNode> message, bool close_after_write);
   void StartWrite();
   void CloseOnExecutor();
   void ArmDrainDeadline(std::chrono::seconds timeout);
-  void HandleReadFailure(const char *stage,
-                         const boost::system::error_code &error);
+  void HandleReadFailure(const char *stage, const boost::system::error_code &error);
 
   boost::asio::strand<boost::asio::io_context::executor_type> strand_;
   boost::asio::ip::tcp::socket socket_;
@@ -95,8 +90,7 @@ class LogicNode {
   friend class LogicSystem;
 
 public:
-  LogicNode(std::shared_ptr<CSession> session,
-            std::shared_ptr<RecvNode> receive_node);
+  LogicNode(std::shared_ptr<CSession> session, std::shared_ptr<RecvNode> receive_node);
 
 private:
   std::shared_ptr<CSession> _session;

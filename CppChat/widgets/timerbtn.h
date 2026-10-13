@@ -5,8 +5,7 @@
 #include <QTimer>
 
 // TimerBtn 在普通按钮上增加“获取验证码后倒计时”的能力
-class TimerBtn : public QPushButton
-{
+class TimerBtn : public QPushButton {
 public:
   // explicit 避免 QWidget* 到 TimerBtn 的意外隐式转换。
   explicit TimerBtn(QWidget *parent = nullptr);

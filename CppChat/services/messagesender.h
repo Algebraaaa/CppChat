@@ -1,15 +1,14 @@
 #pragma once
 
 #include "common/userdata.h"
-#include <QObject>
 #include <QHash>
+#include <QObject>
 #include <QQueue>
 #include <QSet>
 
 // GUI-thread application service: persist -> upload if needed -> send -> confirm/timeout.
 // No widgets, editor state or navigation are owned here.
-class MessageSender : public QObject
-{
+class MessageSender : public QObject {
   Q_OBJECT
 public:
   explicit MessageSender(QObject *parent = nullptr);
@@ -18,10 +17,7 @@ public:
                     const std::shared_ptr<ChatThreadData> &data);
   void Reset();
   void RemoveThread(int threadId);
-  bool SavingMessages() const
-  {
-    return _saving;
-  }
+  bool SavingMessages() const { return _saving; }
   bool CanRetry() const;
   static QStringList SplitText(const QString &text, const std::shared_ptr<ChatThreadData> &data);
 
@@ -33,8 +29,7 @@ signals:
   void status(int threadId, const QString &message);
 
 private:
-  struct OutgoingMessage
-  {
+  struct OutgoingMessage {
     MsgInfo content;
     std::shared_ptr<ChatThreadData> chat;
     std::shared_ptr<TextChatData> message;

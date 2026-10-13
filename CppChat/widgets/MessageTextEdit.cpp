@@ -1,6 +1,6 @@
 #include "messagetextedit.h"
-#include "common/emojicatalog.h"
 #include "common/attachmentpreparer.h"
+#include "common/emojicatalog.h"
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QKeyEvent>

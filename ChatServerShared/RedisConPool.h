@@ -29,8 +29,7 @@ class RedisConPool {
 public:
   // pool_size：计划创建的连接数量。
   // host/port：Redis 服务地址；password：AUTH 使用的密码，可以为空。
-  RedisConPool(std::size_t pool_size, std::string host, int port,
-               std::string password);
+  RedisConPool(std::size_t pool_size, std::string host, int port, std::string password);
   // 析构时调用 Close，释放所有仍在连接池中的空闲连接。
   ~RedisConPool();
 

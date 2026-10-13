@@ -12,8 +12,7 @@ namespace Ui {
 class ApplyFriendPage;
 }
 
-class ApplyFriendPage : public QWidget
-{
+class ApplyFriendPage : public QWidget {
   Q_OBJECT
 
 public:

@@ -28,10 +28,10 @@ enum ErrorCodes {
 
 class Defer {
 public:
-  explicit Defer(std::function<void()> function)
-      : function_(std::move(function)) {}
+  explicit Defer(std::function<void()> function) : function_(std::move(function)) {}
 
-  ~Defer() {
+  ~Defer()
+  {
     if (function_) {
       function_();
     }

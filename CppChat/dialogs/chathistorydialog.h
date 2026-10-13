@@ -1,8 +1,8 @@
 #ifndef CHATHISTORYDIALOG_H
 #define CHATHISTORYDIALOG_H
 
-#include <QDialog>
 #include "common/chatstore.h"
+#include <QDialog>
 
 class QButtonGroup;
 class QTimer;
@@ -11,8 +11,7 @@ class ChatHistoryDialog;
 }
 
 // 独立聊天记录窗口，每页从当前账号本地数据库查询 50 条。
-class ChatHistoryDialog : public QDialog
-{
+class ChatHistoryDialog : public QDialog {
   Q_OBJECT
 public:
   explicit ChatHistoryDialog(QWidget *parent = nullptr);

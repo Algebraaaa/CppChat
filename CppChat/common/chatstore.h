@@ -2,24 +2,23 @@
 #define CHATSTORE_H
 
 #include "userdata.h"
-#include <QObject>
+#include <QByteArray>
 #include <QHash>
-#include <QSet>
+#include <QObject>
 #include <QPointer>
+#include <QSet>
 #include <QThread>
 #include <QThreadPool>
 #include <QVector>
-#include <QByteArray>
-#include <functional>
 #include <atomic>
-#include <memory>
+#include <functional>
 #include <limits>
+#include <memory>
 
 class QSqlDatabase;
 
 // 工作线程只接收值快照，不读取 GUI 线程的 UserMgr 或共享消息对象。
-struct StoredMessage
-{
+struct StoredMessage {
   int threadId = 0;
   int senderUid = 0;
   int serverId = 0;
@@ -34,8 +33,7 @@ struct StoredMessage
   std::shared_ptr<TextChatData> ToMessage() const;
 };
 
-struct StoredConversation
-{
+struct StoredConversation {
   int threadId = 0;
   int otherUid = 0;
   int lastServerId = 0;
@@ -43,16 +41,13 @@ struct StoredConversation
   QString summary;
 };
 
-struct HistoryCursor
-{
+struct HistoryCursor {
   int serverId = std::numeric_limits<int>::max();
   qint64 localId = std::numeric_limits<qint64>::max();
 };
 
-struct ChatStoreResult
-{
-  struct Attachment
-  {
+struct ChatStoreResult {
+  struct Attachment {
     QString path;
     QString checksum;
     qint64 size = 0;
@@ -68,8 +63,7 @@ struct ChatStoreResult
   HistoryCursor nextCursor;
 };
 
-class ChatStore : public QObject
-{
+class ChatStore : public QObject {
   Q_OBJECT
 public:
   using Callback = std::function<void(const ChatStoreResult &)>;
@@ -78,18 +72,9 @@ public:
   void OpenAccount(int uid, const QString &server, Callback callback);
   void CloseAccount();
   void Shutdown();
-  bool IsReady() const
-  {
-    return _ready;
-  }
-  quint64 Generation() const
-  {
-    return _generation;
-  }
-  QString AccountDirectory() const
-  {
-    return _directory;
-  }
+  bool IsReady() const { return _ready; }
+  quint64 Generation() const { return _generation; }
+  QString AccountDirectory() const { return _directory; }
   void SaveConversations(const QVector<StoredConversation> &conversations, Callback callback = {});
   void SaveMessages(const QVector<StoredMessage> &messages, int syncThread = 0, int cursor = -1,
                     Callback callback = {}, int clearDraftThread = 0);

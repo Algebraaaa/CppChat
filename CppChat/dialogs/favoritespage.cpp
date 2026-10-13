@@ -15,10 +15,7 @@ FavoritesPage::FavoritesPage(QWidget *parent) : QWidget(parent), ui(new Ui::Favo
   Reset();
 }
 
-FavoritesPage::~FavoritesPage()
-{
-  delete ui;
-}
+FavoritesPage::~FavoritesPage() { delete ui; }
 
 void FavoritesPage::Reset()
 {

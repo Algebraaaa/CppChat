@@ -2,8 +2,7 @@
 #define CLICKEDONCELABEL_H
 #include <QLabel>
 #include <QMouseEvent>
-class ClickedOnceLabel : public QLabel
-{
+class ClickedOnceLabel : public QLabel {
   Q_OBJECT
 public:
   ClickedOnceLabel(QWidget *parent = nullptr);

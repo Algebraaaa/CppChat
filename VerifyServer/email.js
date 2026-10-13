@@ -5,16 +5,16 @@ const serverConfig = require('./config');
  * 创建发送邮件的代理
  */
 const emailTransporter = nodemailer.createTransport({
-  host: 'smtp.163.com',
-  port: 465,
-  secure: true,
+  host: serverConfig.smtpHost,
+  port: serverConfig.smtpPort,
+  secure: serverConfig.smtpSecure,
   connectionTimeout: 10000,
   greetingTimeout: 10000,
   socketTimeout: 15000,
-  auth: {
+  auth: serverConfig.smtpAuth ? {
     user: serverConfig.emailUser, // 发送方邮箱地址
     pass: serverConfig.emailAuthorizationCode, // 邮箱授权码
-  },
+  } : undefined,
 });
 
 emailTransporter.verify(function (verificationError) {

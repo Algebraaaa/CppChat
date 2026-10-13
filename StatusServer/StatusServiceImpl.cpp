@@ -1,8 +1,8 @@
 #include "StatusServiceImpl.h"
-#include "../ChatServerShared/ServicePolicy.h"
 #include "ConfigMgr.h"
 #include "Logger.h"
 #include "RedisMgr.h"
+#include "ServicePolicy.h"
 #include "const.h"
 #include <algorithm>
 #include <boost/uuid/uuid_generators.hpp>
@@ -11,7 +11,8 @@
 #include <limits>
 #include <vector>
 
-StatusServiceImpl::StatusServiceImpl() {
+StatusServiceImpl::StatusServiceImpl()
+{
   auto &config = ConfigMgr::GetInstance();
   for (const char *section_name : {"ChatServer1", "ChatServer2"}) {
     const auto section = config[section_name];
@@ -29,7 +30,8 @@ StatusServiceImpl::StatusServiceImpl() {
   }
 }
 
-ChatServer StatusServiceImpl::getChatServer(int &error) {
+ChatServer StatusServiceImpl::getChatServer(int &error)
+{
   std::lock_guard<std::mutex> guard(_server_mtx);
   std::vector<ChatServer> candidates;
   int minimum = std::numeric_limits<int>::max();
@@ -46,12 +48,9 @@ ChatServer StatusServiceImpl::getChatServer(int &error) {
       continue;
     Json::Value health;
     Json::Reader reader;
-    if (!reader.parse(value, health) || !health.isObject() ||
-        !health["instance_id"].isString() ||
-        health["instance_id"].asString().empty() ||
-        !health["online"].isUInt64() ||
-        health["online"].asUInt64() >
-            static_cast<Json::UInt64>(std::numeric_limits<int>::max()))
+    if (!reader.parse(value, health) || !health.isObject() || !health["instance_id"].isString() ||
+        health["instance_id"].asString().empty() || !health["online"].isUInt64() ||
+        health["online"].asUInt64() > static_cast<Json::UInt64>(std::numeric_limits<int>::max()))
       continue;
     auto server = entry.second;
     server.con_count = static_cast<int>(health["online"].asUInt64());
@@ -65,17 +64,15 @@ ChatServer StatusServiceImpl::getChatServer(int &error) {
   if (candidates.empty())
     return {};
   std::sort(candidates.begin(), candidates.end(),
-            [](const ChatServer &left, const ChatServer &right) {
-              return left.name < right.name;
-            });
+            [](const ChatServer &left, const ChatServer &right) { return left.name < right.name; });
   error = ErrorCodes::Success;
   // Rotate equal measured loads; an allocation is not an online session.
   return candidates[_next_choice++ % candidates.size()];
 }
 
-Status StatusServiceImpl::GetChatServer(ServerContext *,
-                                        const GetChatServerReq *request,
-                                        GetChatServerRsp *reply) {
+Status StatusServiceImpl::GetChatServer(ServerContext *, const GetChatServerReq *request,
+                                        GetChatServerRsp *reply)
+{
   if (!request || !reply || request->uid() <= 0) {
     if (reply)
       reply->set_error(ErrorCodes::UidInvalid);
@@ -86,12 +83,10 @@ Status StatusServiceImpl::GetChatServer(ServerContext *,
   reply->set_error(error);
   if (error != ErrorCodes::Success)
     return Status::OK;
-  const std::string token =
-      boost::uuids::to_string(boost::uuids::random_generator()());
-  if (!RedisMgr::GetInstance()->SetEx(
-          std::string(ServicePolicy::PendingTokenPrefix) +
-              std::to_string(request->uid()),
-          token, ServicePolicy::PendingTokenSeconds)) {
+  const std::string token = boost::uuids::to_string(boost::uuids::random_generator()());
+  if (!RedisMgr::GetInstance()->SetEx(std::string(ServicePolicy::PendingTokenPrefix) +
+                                          std::to_string(request->uid()),
+                                      token, ServicePolicy::PendingTokenSeconds)) {
     reply->set_error(ErrorCodes::RedisError);
     return Status::OK;
   }
@@ -103,8 +98,8 @@ Status StatusServiceImpl::GetChatServer(ServerContext *,
   return Status::OK;
 }
 
-Status StatusServiceImpl::Login(ServerContext *, const LoginReq *request,
-                                LoginRsp *reply) {
+Status StatusServiceImpl::Login(ServerContext *, const LoginReq *request, LoginRsp *reply)
+{
   if (!request || !reply || request->uid() <= 0) {
     if (reply)
       reply->set_error(ErrorCodes::UidInvalid);
@@ -115,15 +110,15 @@ Status StatusServiceImpl::Login(ServerContext *, const LoginReq *request,
     return Status::OK;
   const std::string uid = std::to_string(request->uid());
   std::string token;
-  auto read = RedisMgr::GetInstance()->Read(
-      std::string(ServicePolicy::PendingTokenPrefix) + uid, token, true);
+  auto read = RedisMgr::GetInstance()->Read(std::string(ServicePolicy::PendingTokenPrefix) + uid,
+                                            token, true);
   if (read == RedisReadStatus::Error) {
     reply->set_error(ErrorCodes::RedisError);
     return Status::OK;
   }
   if (read != RedisReadStatus::Found || token != request->token()) {
-    read = RedisMgr::GetInstance()->Read(
-        std::string(ServicePolicy::ActiveTokenPrefix) + uid, token, true);
+    read = RedisMgr::GetInstance()->Read(std::string(ServicePolicy::ActiveTokenPrefix) + uid, token,
+                                         true);
     if (read == RedisReadStatus::Error) {
       reply->set_error(ErrorCodes::RedisError);
       return Status::OK;

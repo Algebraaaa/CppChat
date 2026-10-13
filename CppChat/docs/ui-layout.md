@@ -8,8 +8,8 @@
 - QSS：颜色、边框、字体、圆角，以及悬停、按下、选中和焦点的样式。
 
 不在构造函数里重复创建 `.ui` 已经定义的固定控件，也不额外保存同一个控件指针，
-直接通过 `ui->控件名` 访问。新增 `.ui` 时在 `client.pri` 的 FORMS 中注册，
-新增类同时注册 SOURCES 和 HEADERS。
+直接通过 `ui->控件名` 访问。现有模块目录中的 `.cpp/.h/.ui` 由客户端 CMake 自动收录；
+新增模块目录时更新 `CMakeLists.txt`，界面文件由 AUTOUIC 处理。
 
 快捷操作菜单使用 `quickactionmenu.ui`；消息右键菜单使用 `messagemenu.ui`。
 聊天记录的分类、结果列表和分页按钮在 `chathistorydialog.ui`；

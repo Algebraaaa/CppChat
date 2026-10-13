@@ -1,10 +1,9 @@
 #ifndef CONTACTUSERLIST_H
 #define CONTACTUSERLIST_H
-#include "smoothscrolllist.h"
 #include "common/userdata.h"
+#include "smoothscrolllist.h"
 #include <QColor>
-class ContactUserList : public SmoothScrollList
-{
+class ContactUserList : public SmoothScrollList {
   Q_OBJECT
   Q_PROPERTY(QColor secondaryColor MEMBER _secondaryColor)
   Q_PROPERTY(QColor dividerColor MEMBER _dividerColor)

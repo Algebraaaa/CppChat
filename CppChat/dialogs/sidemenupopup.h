@@ -10,8 +10,7 @@ class SideMenuPopup;
 }
 
 // 全局工具入口；不属于四个业务模块，也不直接执行业务操作。
-class SideMenuPopup : public QDialog
-{
+class SideMenuPopup : public QDialog {
   Q_OBJECT
 public:
   explicit SideMenuPopup(QWidget *parent = nullptr);
