@@ -6,6 +6,7 @@ B站恋恋风辰大佬的C++全栈即时通讯项目，我在辰哥的基础上�
 
 ## 2026-10-13 更新
 
+- **Linux 编译修复**：Designer 自定义控件和 C++ 源码中的头文件引用统一为实际文件名 `widgets/MessageTextEdit.h`，修复 Ubuntu CI 找不到头文件的问题，相关文档路径同步更正。沿用 [Qt Designer 自定义控件的头文件配置](https://doc.qt.io/qt-6/designer-using-custom-widgets.html)，无需新增依赖或修改构建架构。本次修复已通过客户端本机头文件、UI 和资源引用大小写检查，以及 Windows Debug / Release 编译和 Qt 原生回归；Ubuntu 结果以对应提交的 GitHub Actions 为准。
 - **构建与工程**：Qt 客户端由 qmake 迁移到 CMake；服务端保留总解决方案，每个服务单独维护 `CMakeLists.txt`，公共依赖、协议生成和调试配置集中在 `cmake/`。支持单独编译一个服务，VS 将服务、测试、第三方测试依赖和构建辅助目标分组显示。
 - **图片服务拆分**：`ResourceServer/` 从客户端目录迁至仓库根目录，与其他后端服务并列；构建、测试和文档引用同步更新，客户端通过网络访问图片服务。
 - **云端加密连接**：客户端支持 HTTPS 网关及 TLS 聊天、图片传输，校验服务器证书；通过配置切换本机 HTTP/TCP 与云端 HTTPS/TLS。聊天节点由登录接口分配。

@@ -1,4 +1,4 @@
-#include "messagetextedit.h"
+#include "MessageTextEdit.h"
 #include "common/attachmentpreparer.h"
 #include "common/emojicatalog.h"
 #include <QDragEnterEvent>

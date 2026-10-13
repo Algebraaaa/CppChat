@@ -362,7 +362,7 @@ Telegram 分类直接显示图片网格，不显示文字标题或悬停描述�
 
 - `widgets/emojipicker.*`：弹窗、网格、搜索、分类以及最近使用和收藏。
 - `common/emojicatalog.*`：资源清单、表情识别和内联图片插入。
-- `widgets/messagetextedit.*`：将内联表情还原为 `[微笑]` 等文字标记；草稿恢复时再显示成图片。
+- `widgets/MessageTextEdit.*`：将内联表情还原为 `[微笑]` 等文字标记；草稿恢复时再显示成图片。
 - `widgets/textbubble.cpp`：收发和历史消息中的标记显示为相同图片，计入实际气泡宽度。
 - `dialogs/chatpage.cpp`：按钮入口和选择回调；长消息分包保留完整表情标记。
 - `style/pages/dialogs.qss`：圆角、阴影面板配色、悬停效果、分类栏和滚动条。
@@ -392,7 +392,7 @@ Telegram 分类直接显示图片网格，不显示文字标题或悬停描述�
 
 - `widgets/screencapture`：隐藏/恢复聊天窗口、获取各屏幕原图、框选遮罩及确认/取消。
 - `dialogs/chatpage`：检查当前会话，调用截屏，将确认结果插入草稿；退出登录或切换会话时取消截屏。
-- `widgets/messagetextedit`：将截图编码为 PNG，复用图片草稿、撤销和附件校验。
+- `widgets/MessageTextEdit`：将截图编码为 PNG，复用图片草稿、撤销和附件校验。
 - `style/pages/dialogs.qss`：截屏确认工具栏的样式，随现有主题一起加载。
 
 每个显示器使用独立遮罩窗口，按原图尺寸与逻辑坐标的比例裁剪，保留实际像素。

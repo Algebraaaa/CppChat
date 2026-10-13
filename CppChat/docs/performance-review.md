@@ -49,7 +49,7 @@ ResourceMgr 的 `waitForConnected`、`waitForReadyRead` 等等待发生在传输
 
 ### P1：粘贴图片和输入内容整理占用主线程
 
-入口：`widgets/messagetextedit.cpp` 的 `insertFileFromUrl`、`insertImage`、`insertImageData`、`messages`；`dialogs/chatpage.cpp` 的 textChanged 回调、`SaveCurrentDraft`。
+入口：`widgets/MessageTextEdit.cpp` 的 `insertFileFromUrl`、`insertImage`、`insertImageData`、`messages`；`dialogs/chatpage.cpp` 的 textChanged 回调、`SaveCurrentDraft`。
 
 确定的工作：文件读取、粘贴图片 PNG 编码、解码、缩略图生成在输入处理路径同步执行。每次 textChanged 都调用 `messages()` 扫描文档；500 ms 草稿保存定时器已经存在，但它没有延迟这一轮文档扫描。
 
