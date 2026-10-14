@@ -1,11 +1,12 @@
 ﻿param(
-  [ValidatePattern('^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$')][string]$Version = '0.1.2',
-  [ValidateLength(0,8000)][string]$ReleaseNotes = '正式版强制 TLS，保护本地权限并加密聊天数据，增加备份恢复。',
+  [ValidatePattern('^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$')][string]$Version = '0.1.3',
+  [ValidateLength(0,8000)][string]$ReleaseNotes = '修复 Windows 暗色系统下的聊天配色，保留 TLS、本地加密和备份恢复。',
   [string]$SigningConfig,
   [switch]$RequireSigning,
   [string]$BuildDirectory,
   [string]$ConfigFile,
   [string]$IsccPath,
+  [string]$QtLicenseDirectory,
   [ValidateRange(1,64)][int]$Jobs = 4
 )
 $ErrorActionPreference = 'Stop'
@@ -143,7 +144,7 @@ try {
   foreach ($file in @('OFL.txt','SourceHanSans-LICENSE.txt')) {
     Copy-Item -LiteralPath (Join-Path $clientRoot "Resources\fonts\$file") -Destination $licenses
   }
-  $qtLicenses = [IO.Path]::GetFullPath((Join-Path $qtRoot '..\..\Licenses'))
+  $qtLicenses = if ($QtLicenseDirectory) { (Resolve-Path -LiteralPath $QtLicenseDirectory).Path } else { [IO.Path]::GetFullPath((Join-Path $qtRoot '..\..\Licenses')) }
   Copy-Item -LiteralPath $qtLicenses -Destination (Join-Path $licenses 'Qt') -Recurse
   foreach ($component in @('gcc','mingw-w64','winpthreads')) {
     Copy-Item -LiteralPath (Join-Path $compilerRoot "licenses\$component") -Destination (Join-Path $licenses "MinGW-$component") -Recurse

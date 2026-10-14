@@ -1,0 +1,143 @@
+name: Release and deploy
+on:
+  push:
+    tags: ['v[0-9]*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to release or retry (v0.1.3)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: cppchat-production-release
+  cancel-in-progress: false
+jobs:
+  identity:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+      commit: ${{ steps.identity.outputs.commit }}
+      tag: ${{ steps.identity.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: identity
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$ ]]
+          commit=$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")
+          test "$commit" = "$(git rev-parse HEAD)"
+          git merge-base --is-ancestor "$commit" origin/main
+          printf 'version=%s\ncommit=%s\ntag=%s\n' "${RELEASE_TAG#v}" "$commit" "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+  windows:
+    needs: identity
+    uses: ./.github/workflows/windows-client.yml
+    with:
+      version: ${{ needs.identity.outputs.version }}
+      commit: ${{ needs.identity.outputs.commit }}
+      package: true
+    secrets:
+      CPPCHAT_CLIENT_CONFIG: ${{ secrets.CPPCHAT_CLIENT_CONFIG }}
+  linux:
+    needs: identity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.identity.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: VerifyServer/package-lock.json
+      - name: Install locked test and native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config libboost-all-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc libgrpc++-dev libjsoncpp-dev libhiredis-dev libmysqlcppconn-dev libssl-dev
+          python -m pip install cmake==3.31.6 -r tests/requirements.lock
+          npm ci --prefix VerifyServer --ignore-scripts
+      - name: Build and run isolated server regression
+        run: |
+          cmake -S . -B build/linux-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS_RELEASE='-O1 -DNDEBUG' -DCPPCHAT_BUILD_TESTS=ON
+          cmake --build build/linux-release --parallel 2
+          ctest --test-dir build/linux-release --no-tests=error --output-on-failure
+          node --test tests/node/verify.test.cjs
+          python -B -m unittest discover -s tests/deployment
+          python -m pytest -c tests/pytest.ini tests/unit tests/integration/test_journey.py tests/integration/test_resources.py --server-build build/linux-release --configuration Release --artifacts build/release-tests --junitxml build/release-tests.xml
+      - name: Export the tested server artifact
+        env:
+          RELEASE_VERSION: ${{ needs.identity.outputs.version }}
+        run: python deploy/linux/package-release.py --build build/linux-release --version "$RELEASE_VERSION" --output build/packages
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: linux-${{ needs.identity.outputs.version }}
+          path: build/packages/CppChat-Server-*
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: linux-validation-${{ github.run_id }}
+          path: |
+            build/*junit.xml
+            build/release-tests.xml
+            build/release-tests/
+          retention-days: 14
+  publish:
+    needs: [identity, windows, linux]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.identity.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: '*-${{ needs.identity.outputs.version }}'
+          merge-multiple: true
+          path: build/release-assets
+      - name: Publish immutable GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.identity.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.identity.outputs.version }}
+        run: python deploy/publish-github.py --tag "$RELEASE_TAG" --version "$RELEASE_VERSION" --assets build/release-assets --repo "$GITHUB_REPOSITORY"
+  deploy:
+    needs: [identity, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.identity.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: '*-${{ needs.identity.outputs.version }}'
+          merge-multiple: true
+          path: build/release-assets
+      - name: Deploy to the protected production environment
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          CLIENT_CONFIG: ${{ secrets.CPPCHAT_CLIENT_CONFIG }}
+          RELEASE_VERSION: ${{ needs.identity.outputs.version }}
+          RELEASE_COMMIT: ${{ needs.identity.outputs.commit }}
+        run: python deploy/run-deployment.py --assets build/release-assets --version "$RELEASE_VERSION" --commit "$RELEASE_COMMIT"

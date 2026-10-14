@@ -1,0 +1,95 @@
+name: Windows client validation
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      commit:
+        required: true
+        type: string
+      package:
+        default: false
+        type: boolean
+    secrets:
+      CPPCHAT_CLIENT_CONFIG:
+        required: false
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
+        with:
+          version: '6.12.0'
+          arch: win64_mingw
+          tools: 'tools_mingw1310,qt.tools.win64_mingw1310'
+          aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@076e1659807d0b362a3ed684d54c2e9c775eb9c7'
+          cache: true
+      - name: Configure and build the Windows client
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          $arguments=@('-S','CppChat','-B','CppChat/build/release','-G','Ninja','-DCMAKE_BUILD_TYPE=Release','-DCPPCHAT_BUILD_TESTS=ON',"-DCMAKE_PREFIX_PATH=$env:QT_ROOT_DIR")
+          if($env:RELEASE_VERSION){$arguments+="-DCPPCHAT_APP_VERSION=$env:RELEASE_VERSION"}
+          cmake @arguments
+          if($LASTEXITCODE -ne 0){throw 'Client configuration failed'}
+          cmake --build CppChat/build/release --parallel 2
+          if($LASTEXITCODE -ne 0){throw 'Client build failed'}
+      - name: Test client, updates and Windows data protection
+        shell: pwsh
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ctest --test-dir CppChat/build/release --no-tests=error --output-on-failure
+      - name: Prepare installer tooling and public connection configuration
+        if: inputs.package
+        shell: pwsh
+        env:
+          CLIENT_CONFIG: ${{ secrets.CPPCHAT_CLIENT_CONFIG }}
+        run: |
+          if(-not $env:CLIENT_CONFIG){throw 'CPPCHAT_CLIENT_CONFIG must be configured'}
+          New-Item -ItemType Directory -Path build/packages -Force | Out-Null
+          [IO.File]::WriteAllText((Join-Path $PWD 'build/packages/client.ini'),$env:CLIENT_CONFIG,[Text.UTF8Encoding]::new($false))
+          ./CppChat/packaging/prepare-ci.ps1 -QtRoot $env:QT_ROOT_DIR
+      - name: Build and verify the installation package
+        if: inputs.package
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          ./CppChat/packaging/build-installer.ps1 -Version $env:RELEASE_VERSION -ConfigFile build/packages/client.ini -IsccPath $env:CPPCHAT_ISCC -QtLicenseDirectory $env:CPPCHAT_QT_LICENSES -Jobs 2
+          $payload=Get-ChildItem "build/packaging/$env:RELEASE_VERSION" -Filter payload-manifest.json -Recurse | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          if(-not $payload){throw 'Payload manifest is missing'}
+          ./tests/packaging/verify-installer.ps1 -Installer "build/packages/CppChat-Setup-$env:RELEASE_VERSION-x64.exe" -Manifest $payload.FullName
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: inputs.package
+        with:
+          name: windows-${{ inputs.version }}
+          path: |
+            build/packages/CppChat-Setup-*-x64.exe
+            build/packages/CppChat-Setup-*-x64.exe.sha256
+            build/packages/CppChat-Update-*.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: windows-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            CppChat/build/release/*junit.xml
+            CppChat/build/release/Testing/Temporary/LastTest.log
+            build/packaging/**/*.log
+          retention-days: 14

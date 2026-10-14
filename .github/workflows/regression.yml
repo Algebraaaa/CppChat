@@ -35,11 +35,18 @@ jobs:
       - name: Native dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build pkg-config libboost-all-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc libgrpc++-dev libjsoncpp-dev libhiredis-dev libmysqlcppconn-dev libssl-dev qt6-base-dev qt6-svg-dev qt6-tools-dev-tools
+          sudo apt-get install -y ninja-build pkg-config libboost-all-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc libgrpc++-dev libjsoncpp-dev libhiredis-dev libmysqlcppconn-dev libssl-dev libxkbcommon-dev libgl1-mesa-dev libxcb-cursor0
           python -m pip install cmake==3.31.6 -r tests/requirements.lock
           npm ci --prefix VerifyServer --ignore-scripts
           mkdir -p build
           dpkg-query -W > build/linux-dependency-versions.txt
+      - name: Install the Qt Kit required by the encrypted SQLite driver
+        uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
+        with:
+          version: '6.12.0'
+          arch: linux_gcc_64
+          aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@076e1659807d0b362a3ed684d54c2e9c775eb9c7'
+          cache: true
       - name: Build real sources
         run: bash tests/ci/build-linux.sh Debug build/linux
       - name: Run isolated regression in normal and optimized modes
