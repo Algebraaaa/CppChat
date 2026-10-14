@@ -5,8 +5,8 @@
 ```powershell
 git pull --ff-only
 # 完成本地测试、提交并推送 main 后，选择高于线上版本的标签。
-git tag -a v0.1.3 -m "CppChat 0.1.3"
-git push origin v0.1.3
+git tag -a v0.1.4 -m "CppChat 0.1.4"
+git push origin v0.1.4
 ```
 
 Windows 使用 Qt 6.12.0 / MinGW，运行客户端、更新、安全和安装/升级/卸载验证。
@@ -40,6 +40,8 @@ Actions 可重跑失败 job；完整重跑同一版本产生不同附件时会�
 Inno Setup、安装验证及更新发布事务。Actions 固定完整提交；安装 Action 为 4.4.1（MIT），
 aqtinstall 固定 `076e1659807d0b362a3ed684d54c2e9c775eb9c7`，已核对其 Qt 6.12 按编译器分层仓库解析。
 Inno Setup 6.7.3 从上游下载并验证签名。不复制或修改第三方下载器源码。
+草稿 Release 按 [GitHub Release API](https://docs.github.com/en/rest/releases/releases#list-releases)
+使用有推送权限的分页列表读取；标签查询仅用于已公开的 Release，避免草稿被误判为不存在。
 
 新增脚本只编排版本、归档校验和环境激活，聊天、数据库及 Qt 部署沿用原模块。
 `python -B -m unittest discover -s tests/deployment` 验证损坏文件、身份、路径穿越、

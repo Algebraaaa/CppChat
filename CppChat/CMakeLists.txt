@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(CppChat VERSION 0.1.3 LANGUAGES C CXX)
+project(CppChat VERSION 0.1.4 LANGUAGES C CXX)
 set(CPPCHAT_APP_VERSION "${PROJECT_VERSION}" CACHE STRING "Client and installer release version")
 if(NOT CPPCHAT_APP_VERSION MATCHES "^(0|[1-9][0-9]?[0-9]?[0-9]?[0-9]?)\\.(0|[1-9][0-9]?[0-9]?[0-9]?[0-9]?)\\.(0|[1-9][0-9]?[0-9]?[0-9]?[0-9]?)$")
   message(FATAL_ERROR "CPPCHAT_APP_VERSION must be a three-part numeric version")

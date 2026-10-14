@@ -17,9 +17,21 @@ def release_api(repo, tag):
     result = gh("api", f"repos/{repo}/releases/tags/{tag}")
     value = json.loads(result.stdout)
     if result.returncode:
-        if str(value.get("status")) == "404":
-            return None
-        raise RuntimeError("GitHub release lookup failed")
+        if str(value.get("status")) != "404":
+            raise RuntimeError("GitHub release lookup failed")
+        # The tag endpoint omits drafts. A push-authorized release listing includes them.
+        drafts = gh("api", f"repos/{repo}/releases?per_page=100", "--paginate", "--slurp")
+        if drafts.returncode:
+            raise RuntimeError("GitHub draft release lookup failed")
+        matches = [
+            release
+            for page in json.loads(drafts.stdout)
+            for release in page
+            if release["tag_name"] == tag
+        ]
+        if len(matches) > 1:
+            raise RuntimeError("Multiple releases use the same version tag")
+        return matches[0] if matches else None
     return value
 
 
@@ -70,6 +82,8 @@ def publish(repo, tag, version, assets):
             check=True,
         )
         release = release_api(repo, tag)
+        if release is None:
+            raise RuntimeError("Created release could not be read")
     existing = {asset["name"]: asset for asset in release["assets"]}
     for name in names:
         local = assets / name
