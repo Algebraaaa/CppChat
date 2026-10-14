@@ -38,6 +38,10 @@ jobs:
           tools: 'tools_mingw1310,qt.tools.win64_mingw1310'
           aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@076e1659807d0b362a3ed684d54c2e9c775eb9c7'
           cache: true
+      - name: Restore the pinned Python environment after Qt installation
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
       - name: Configure and build the Windows client
         shell: pwsh
         env:
