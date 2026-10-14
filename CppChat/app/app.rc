@@ -1,0 +1,2 @@
+// Use the same application icon as the Qt window (:/res/app.ico).
+IDI_APP_ICON ICON "Whatsapp.ico"

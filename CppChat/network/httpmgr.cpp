@@ -1,4 +1,5 @@
 #include "network/httpmgr.h"
+#include "common/securitypolicy.h"
 #include <QByteArray>
 #include <QDebug>
 #include <QJsonDocument>
@@ -12,6 +13,11 @@ HttpMgr::HttpMgr() { connect(this, &HttpMgr::sig_http_finish, this, &HttpMgr::sl
 
 void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
 {
+  if (!SecurityPolicy::transportAllowed(url)) {
+    qWarning() << "Refusing insecure HTTP request";
+    emit sig_http_finish(req_id, {}, ErrorCodes::NetworkError, mod);
+    return;
+  }
   // 测试阶段记录请求去向和字段名称，不输出密码、验证码等字段值。
   qDebug() << "HTTP POST"
            << "url:" << url << "reqId:" << static_cast<int>(req_id)
@@ -19,6 +25,8 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
 
   QByteArray data = QJsonDocument(json).toJson(); // ① 把 JSON 对象转成能发送的字节
   QNetworkRequest request(url);                   // ② 创建一个"请求",指定发到哪个网址
+  request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                       QNetworkRequest::SameOriginRedirectPolicy);
   // 第一行想说"我发的是 JSON 格式
   request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
   // 第二行想说"数据长度是多少"

@@ -17,6 +17,8 @@ echo  5. Build Debug
 echo  6. Debug client (Qt Creator)
 echo  7. Build one server (Release)
 echo  8. Build one server (Debug)
+echo  9. Generate Protobuf and gRPC sources
+echo 10. Build Windows installer
 echo  0. Exit
 set "SELECTION="
 set /p "SELECTION=Select (press Enter): "
@@ -29,11 +31,18 @@ if "!SELECTION!"=="5" goto builddebug
 if "!SELECTION!"=="6" goto clientdebug
 if "!SELECTION!"=="7" goto buildsinglerelease
 if "!SELECTION!"=="8" goto buildsingledebug
-echo Please enter a number from 0 to 8.
+if "!SELECTION!"=="9" goto selectprotocoltarget
+if "!SELECTION!"=="10" goto package
+echo Please enter a number from 0 to 10.
 goto menu
 
 :start
 set "ACTION=start"
+set "CONFIGURATION=Release"
+goto run
+
+:package
+set "ACTION=package"
 set "CONFIGURATION=Release"
 goto run
 
@@ -93,8 +102,31 @@ if defined BUILD_TARGET goto run
 echo Please enter a number from 0 to 5.
 goto selectbuildtarget
 
+:selectprotocoltarget
+set "ACTION=generate-proto"
+echo.
+echo Generate Protobuf and gRPC sources
+echo  1. All
+echo  2. GateServer
+echo  3. StatusServer
+echo  4. ChatServerShared (both chat nodes)
+echo  0. Back
+set "SELECTION="
+set "PROTOCOL_TARGET="
+set /p "SELECTION=Select (press Enter): "
+if "!SELECTION!"=="0" goto menu
+if "!SELECTION!"=="1" set "PROTOCOL_TARGET=All"
+if "!SELECTION!"=="2" set "PROTOCOL_TARGET=GateServer"
+if "!SELECTION!"=="3" set "PROTOCOL_TARGET=StatusServer"
+if "!SELECTION!"=="4" set "PROTOCOL_TARGET=ChatServerShared"
+if defined PROTOCOL_TARGET goto run
+echo Please enter a number from 0 to 4.
+goto selectprotocoltarget
+
 :run
-if "%ACTION%"=="build" (
+if "%ACTION%"=="generate-proto" (
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0.runtime\cppchat.ps1" -Action generate-proto -ProtocolTarget "%PROTOCOL_TARGET%"
+) else if "%ACTION%"=="build" (
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0.runtime\cppchat.ps1" -Action build -Configuration "%CONFIGURATION%" -Target "%BUILD_TARGET%"
 ) else (
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0.runtime\cppchat.ps1" -Action "%ACTION%" -Configuration "%CONFIGURATION%"

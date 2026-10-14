@@ -32,13 +32,19 @@ python tests/run.py --suite release --configuration Release --qt-build CppChat/b
 | `tests/unit`、`cpp`、`qt`、`node` | 单元及组件测试源码，保留 |
 | `tests/integration`、`regression` | 真实服务功能、故障及验收测试源码，保留 |
 | `tests/harness`、`ci`、`performance`、`manual` | 隔离环境、CI、压测及人工验收工具，保留 |
-| `database/` | 初始化和迁移 SQL，独立于业务源码 |
+| `database/` | MySQL / SQLite 完整建表 SQL，独立于业务源码 |
 | `build/regression/` | 最新报告、历史归档、当轮日志与截图 |
 | `build/test-cache/` | pytest、Ruff 可再生缓存，可删除 |
 | `build/test-env/`、`VerifyServer/node_modules/` | 已安装测试及运行依赖，保留以复用 |
 | `build/server/`、`CppChat/build/` | 日常开发构建，保留以复用 |
 
 诊断时请将日志和临时构建放入 `build/`，不要放在源码目录。一次性验证构建用完可删除；删除后再次运行对应 Linux/覆盖率任务需要重新构建。统一入口不在 `tests/` 写 Python 字节码或 pytest 缓存。
+
+Windows 安装包的定向验证入口为 `tests/packaging/verify-installer.ps1 -Installer <安装包> -Manifest <payload-manifest.json>`，先构建 Qt 测试目标 `package_probe`。它在 `build/packaging/` 的独立目录测试安装、文件哈希、快捷方式、剔除开发 PATH 后的 Qt/SQLite/TLS 运行、升级和卸载的数据保留；探测实际 `CppChat.exe --version` 与编译版本一致，不发邮件或访问真实账号。已有 CppChat 安装记录（HKCU/HKLM、32/64 位视图）时拒绝覆盖，请使用干净用户环境；无注册记录时使用随机独立开始菜单组，校验原 CppChat 快捷方式哈希不变。成功后回收自身测试安装和临时数据；失败日志保留，失败安装应核实所属路径后卸载。该验证不替代完整云端业务回归或跨机器验收。
+
+客户端更新的隔离回归目标为 `update_tests`（CTest `client.updates`）：脚本化 HTTPS reply 验证版本、URL 信任边界、重定向/损坏/截断/超长/TLS 失败、取消/重试/超时、界面与原安装路径；Windows 原生 `installer_handoff_probe` 只记录真实进程交接参数，不安装程序。`python -B -m unittest discover -s tests/packaging -p test_publish_updates.py` 验证发布事务、不可覆盖版本、拒绝倒退及回滚，不接触真实 SSH/Nginx。`update_probe <HTTPS清单URL> <当前版本> [--download]` 验证真实证书、在线清单及安装包下载校验，不启动安装器，结束时删除自身下载；只能在明确发布后用于当前在线验证。报告仍写 `build/`，不把隔离 transport 测试当成真实网络证据。
+
+Windows 安全回归目标 `security_tests`/CTest `client.security` 验证正式传输策略、真实 AES-GCM/DPAPI、加密 DB/WAL、拒绝普通 SQLite 读取、迁移与恢复、密钥缺失及密码恢复、私有 ACL；原有客户端回归使用明确的本机开发传输策略，发布目标保持严格策略。`security_store_probe create|audit <账号目录>` 仅用于隔离夹具及记录数/摘要核对，create 拒绝覆盖现有数据库，audit 不输出消息内容。安装验证会创建自身明文旧聊天/草稿/附件，升级后验证内容摘要一致且文件已加密，卸载后密钥保留。已注册的用户安装不用于该破坏性夹具验证。受信任代码签名需真实证书，当前仅验证签名强制开关及静态配置流程。
 
 套件内容：
 
@@ -51,7 +57,7 @@ python tests/run.py --suite release --configuration Release --qt-build CppChat/b
 
 `cases.json` 映射自动及人工用例，每项记录前置、输入、响应、数据变化、清理方法。人工步骤在 [manual/windows.md](manual/windows.md)，运行 `python tests/manual/prepare.py --output build/manual-results.json` 生成待验收记录。需要验收人、时间、Kit、编译器、DPI、非空证据，以及相同源码指纹；历史文档中的“通过”不被接受。
 
-真实依赖采用 Testcontainers：MySQL 8.4.0、Redis 7.4.2、Mailpit 1.21.8、Toxiproxy 2.9.0。每个 Python 模式独立容器/随机账号/动态端口，启动五个 C++ 二进制和一个 Node 进程。故障用例另外独立运行，避免污染普通用例连接池。失败、正常退出都会回收自己创建的进程和容器；请勿用系统进程名批量结束服务。容器端口不使用本机 MySQL 3306。初始化已含媒体列，只执行标签和重试索引适用迁移，并验证重复初始化及旧 users 表保留。
+真实依赖采用 Testcontainers：MySQL 8.4.0、Redis 7.4.2、Mailpit 1.21.8、Toxiproxy 2.9.0。每个 Python 模式独立容器/随机账号/动态端口，启动五个 C++ 二进制和一个 Node 进程。故障用例另外独立运行，避免污染普通用例连接池。失败、正常退出都会回收自己创建的进程和容器；请勿用系统进程名批量结束服务。容器端口不使用本机 MySQL 3306。初始化只执行 `database/mysql/schema.sql`，验证八张业务表、标签和图片字段、重试索引及重复导入保留数据。
 
 TLS 使用当轮 CA、私钥、有效/过期/不可信证书和回环代理；Qt probe 使用同一 Kit 的 QSslSocket，严格验证主机名，不调用 `ignoreSslErrors()`。私钥是运行产物。截图计算覆盖四种缩放，真实多屏、焦点、系统剪贴板和发布依赖必须人工验收。
 

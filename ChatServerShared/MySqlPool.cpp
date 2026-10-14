@@ -54,8 +54,7 @@ std::unique_ptr<sql::Connection> MySqlPool::CreateConnection() const
   options["OPT_CONNECT_TIMEOUT"] = _options.connect_timeout_seconds;
   options["OPT_READ_TIMEOUT"] = _options.read_timeout_seconds;
   options["OPT_WRITE_TIMEOUT"] = _options.write_timeout_seconds;
-  // 禁止事务中隐式重连，避免丢失行锁或会话状态后继续写入。
-  options["OPT_RECONNECT"] = false;
+  // 默认关闭隐式重连；不设置已弃用的 OPT_RECONNECT，恢复由连接池显式完成。
   // 静态初始化由 C++ 同步，工作线程不并发查询全局驱动实例。
   static auto *driver = sql::mysql::get_mysql_driver_instance();
   std::unique_ptr<sql::Connection> connection(driver->connect(options));

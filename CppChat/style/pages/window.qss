@@ -33,12 +33,14 @@ QMainWindow#MainWindow #title_bar QPushButton {
     font-size: ${font.size.subheading};
 }
 
+QMainWindow#MainWindow #check_updates_btn:hover,
 QMainWindow#MainWindow #pin_btn:hover,
 QMainWindow#MainWindow #minimize_btn:hover,
 QMainWindow#MainWindow #maximize_btn:hover {
     background-color: #e5e5e5;
 }
 
+QMainWindow#MainWindow #check_updates_btn:pressed,
 QMainWindow#MainWindow #pin_btn:pressed,
 QMainWindow#MainWindow #minimize_btn:pressed,
 QMainWindow#MainWindow #maximize_btn:pressed {

@@ -13,6 +13,7 @@
 #include <QEvent>
 #include <QIcon>
 #include <QMouseEvent>
+#include <QPushButton>
 #include <QSignalBlocker>
 #include <QStackedWidget>
 #include <QWindow>
@@ -102,6 +103,20 @@ void MainWindow::setupTitleBar()
   // 标题文字和图标不截获鼠标，让它们后面的 title_bar 统一处理拖动。
   ui->app_icon->setAttribute(Qt::WA_TransparentForMouseEvents);
   ui->title_label->setAttribute(Qt::WA_TransparentForMouseEvents);
+
+  auto *updateButton = new QPushButton(ui->title_bar);
+  updateButton->setObjectName("check_updates_btn");
+  updateButton->setAutoDefault(false);
+  updateButton->setCursor(Qt::PointingHandCursor);
+  updateButton->setToolTip(tr("检查 CppChat 新版本"));
+  updateButton->setAccessibleName(tr("检查更新"));
+  updateButton->setIcon(QIcon(QStringLiteral(":/icons/update-download.svg")));
+  updateButton->setIconSize(QSize(16, 16));
+  updateButton->setFixedSize(32, 38);
+  ui->title_layout->setSpacing(4);
+  ui->title_label->setMinimumWidth(ui->title_label->sizeHint().width());
+  ui->title_layout->insertWidget(ui->title_layout->indexOf(ui->pin_btn), updateButton);
+  connect(updateButton, &QPushButton::clicked, this, &MainWindow::checkUpdatesRequested);
 
   connect(ui->pin_btn, &QPushButton::toggled, this, &MainWindow::setWindowPinned);
   connect(ui->minimize_btn, &QPushButton::clicked, this, &MainWindow::showMinimized);

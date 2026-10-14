@@ -132,13 +132,13 @@
     "implemented": true
   },
   {
-    "id": "DB-MIGRATION",
-    "domain": "MySQL 新库旧库",
+    "id": "DB-SCHEMA",
+    "domain": "MySQL 完整建表",
     "kind": "automated",
     "automation": "integration/test_database_compatibility.py",
     "preconditions": "独立测试配置、容器或 Qt Kit；不得使用生产账号",
-    "inputs": "空库及旧 users 表重复初始化和适用迁移",
-    "expected": "旧用户保留，媒体及资料列存在，无重复加列",
+    "inputs": "无项目库时导入完整 schema，写入业务数据后重复导入",
+    "expected": "八张业务表、标签和媒体列及索引完整，重复导入保留数据",
     "data_changes": "只允许本轮独立数据库/缓存变化",
     "cleanup": "fixture / RAII / QTemporaryDir 回收",
     "implemented": true

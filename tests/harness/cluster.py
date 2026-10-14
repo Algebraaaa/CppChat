@@ -208,6 +208,13 @@ class Cluster:
 
         eventually(mysql_ready, 120, "isolated MySQL")
         self.initialize_schema()
+        # Match deployed services: schema setup uses root, business code only DML.
+        with self.sql(root=True) as db:
+            with db.cursor() as cursor:
+                cursor.execute(f"REVOKE ALL PRIVILEGES, GRANT OPTION FROM '{self.username}'@'%'")
+                cursor.execute(
+                    f"GRANT SELECT, INSERT, UPDATE, DELETE ON cppchat.* TO '{self.username}'@'%'"
+                )
         self.redis_container = self.container(
             "redis",
             [6379],
@@ -425,11 +432,7 @@ class Cluster:
         )
 
     def initialize_schema(self):
-        # Init already contains media columns. Only applicable, idempotent migrations.
-        paths = [ROOT / "database/mysql/init_cppchat.sql"] + [
-            ROOT / "database/mysql/migrations" / name
-            for name in ("2026-10-02-contact-tags.sql", "2026-10-02-chat-message-retry-index.sql")
-        ]
+        schema = ROOT / "database/mysql/schema.sql"
         from pymysql.constants import CLIENT
 
         with pymysql.connect(
@@ -441,11 +444,9 @@ class Cluster:
             autocommit=True,
         ) as db:
             with db.cursor() as cursor:
-                for path in paths:
-                    cursor.execute(path.read_text(encoding="utf-8-sig"))
-                    while cursor.nextset():
-                        pass
-        self.migrations = paths
+                cursor.execute(schema.read_text(encoding="utf-8-sig"))
+                while cursor.nextset():
+                    pass
 
     def write_config(self, name, config):
         directory = self.directory / name

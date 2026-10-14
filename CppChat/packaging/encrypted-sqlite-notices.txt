@@ -1,0 +1,33 @@
+Encrypted SQLite dependencies
+
+Qt driver: https://github.com/FalsinSoft/QSQLite3MultipleCiphers
+Pinned commit: 65accf531f33952c3431d914fcdf7f6c6cd02c35.
+The derived plugin contains Qt's QSQLiteDriver code under LGPL-3.0-only
+or the other Qt license choices listed in its SPDX headers. Applicable Qt
+license texts are included in ../Qt. The matching plugin sources and build
+recipe are included here; the plugin is a replaceable shared library.
+The only build adaptation is QT_USE_QSTRINGBUILDER with the installed Qt Kit.
+
+Encryption engine: https://github.com/utelle/SQLite3MultipleCiphers
+Version 2.6.1 (SQLite 3.54.0), upstream source release SHA256:
+3f25af603566a23c821d8e581778b5ece2a541d2435776de57b8d845c176815a.
+Author: Ulrich Telle. MIT license, (c) 2019-2026 Ulrich Telle.
+SQLite is public domain; incorporated cipher sources retain their individual
+copyright/license notices inside sqlite3mc_amalgamation.c.
+
+MIT License
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

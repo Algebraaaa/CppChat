@@ -80,6 +80,7 @@
         <file alias="SIMPLE-ICONS-LICENSE.txt">Resources/discover/SIMPLE-ICONS-LICENSE.txt</file>
     </qresource>
     <qresource prefix="/icons">
+        <file alias="update-download.svg">Resources/icons/update-download.svg</file>
         <file alias="settings-plus.svg">Resources/icons/settings-plus.svg</file>
         <file alias="settings-switch-off.svg">Resources/icons/settings-switch-off.svg</file>
         <file alias="settings-switch-on.svg">Resources/icons/settings-switch-on.svg</file>
@@ -613,7 +614,7 @@
         <file alias="1f4ad.png">Resources/emojis/telegram/1f4ad.png</file>
     </qresource>
     <qresource prefix="/storage">
-        <file alias="chatstore-schema.sql">../database/sqlite/chatstore-schema.sql</file>
+        <file alias="chatstore-schema.sql">../database/sqlite/schema.sql</file>
     </qresource>
 </RCC>
 

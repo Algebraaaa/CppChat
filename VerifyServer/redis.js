@@ -7,12 +7,17 @@ const redisClient = new IORedis({
   port: serverConfig.redisPort,
   password: serverConfig.redisPassword,
 });
+redisClient.on('ready', () => {
+  console.log(
+    `[${new Date().toISOString()}] Redis connection ready: ${serverConfig.redisHost}:${serverConfig.redisPort}`
+  );
+});
 redisClient.on('error', (connectionError) => {
   // 2026-08-12 对比：
   // 旧写法：Redis 出现一次 error 就调用 quit()，主动结束客户端。
   // 新写法：记录具体错误，但让 ioredis 自己执行自动重连。
   // 好处：Redis 短暂重启或网络抖动后服务可以自动恢复，不必重启 VerifyServer。
-  console.error('Redis connection error:', connectionError.message);
+  console.error(`[${new Date().toISOString()}] Redis connection error:`, connectionError.message);
 });
 
 async function getValue(redisKey) {

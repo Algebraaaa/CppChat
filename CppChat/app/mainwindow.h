@@ -35,6 +35,9 @@ public:
   // 登录窗口的总尺寸，包含认证页面、标题栏和外边距。
   QSize authenticationWindowSize() const;
 
+signals:
+  void checkUpdatesRequested();
+
 protected:
   // 窗口创建/显示、子控件鼠标事件和最大化状态变化。
   bool event(QEvent *event) override;

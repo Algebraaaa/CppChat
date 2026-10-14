@@ -1,6 +1,7 @@
 #include "resourcemgr.h"
 #include "common/chatstore.h"
 #include "common/runtimepaths.h"
+#include "common/securitypolicy.h"
 #include "usermgr.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -140,6 +141,10 @@ bool connectSocket(QSslSocket &socket, const ConnectionInfo &info, QString &erro
     return false;
   if (info.uid <= 0 || info.token.isEmpty()) {
     error = QObject::tr("请先登录");
+    return false;
+  }
+  if (!SecurityPolicy::socketAllowed(info.tls, info.host)) {
+    error = QObject::tr("正式版资源连接必须启用 TLS");
     return false;
   }
   if (info.tls) {

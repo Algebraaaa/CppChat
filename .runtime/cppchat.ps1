@@ -1,7 +1,12 @@
-param(
-  [Parameter(Position=0)][ValidateSet('start','stop','build','debug','debug-client','sync','help','log-window')][string]$Action='start',
+﻿param(
+  [Parameter(Position=0)][ValidateSet('start','stop','build','package','publish-update','debug','debug-client','sync','generate-proto','help','log-window')][string]$Action='start',
+  [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='0.1.2',
+  [string]$ReleaseNotes='正式版强制 TLS，保护本地权限并加密聊天数据，增加备份恢复。',
+  [string]$SigningConfig,
+  [switch]$RequireSigning,
   [ValidateSet('Release','Debug')][string]$Configuration='Release',
   [ValidateSet('All','Server','Client','GateServer','StatusServer','ChatServer','ChatServer2','ResourceServer')][string]$Target='All',
+  [ValidateSet('All','GateServer','StatusServer','ChatServerShared')][string]$ProtocolTarget='All',
   [ValidateSet('GateServer','StatusServer','ChatServer','ChatServer2','ResourceServer')][string]$Server='GateServer',
   [ValidateRange(1,64)][int]$Jobs=8,
   [switch]$InstallDependencies,
@@ -154,6 +159,45 @@ function Watch-ServerLogs {
   }
 }
 
+function Start-MySqlService {
+  $service=Get-Service -Name MySQL84 -ErrorAction Stop
+  if($service.Status -ne 'Running') {
+    try { Start-Service -Name MySQL84 -ErrorAction Stop }
+    catch {
+      $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
+      $principal=[Security.Principal.WindowsPrincipal]::new($identity)
+      if($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        throw "Could not start MySQL84: $($_.Exception.Message)"
+      }
+      Write-Host 'Starting MySQL84 requires Windows administrator approval.'
+      try {
+        # Elevate only the service-start command, not the project processes.
+        $serviceStarter=Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('start','MySQL84') -Verb RunAs -WindowStyle Hidden -PassThru -Wait
+      } catch { throw "MySQL84 startup was not authorized or failed: $($_.Exception.Message)" }
+      if($serviceStarter.ExitCode -ne 0) { throw "Could not start MySQL84 (service control exit code $($serviceStarter.ExitCode)). Check the Windows service and MySQL error log." }
+    }
+  }
+  $service.WaitForStatus('Running',[TimeSpan]::FromSeconds(30))
+}
+
+function Test-MySqlConnection {
+  $mysqlClient='D:\SoftWare\MySQL\Server8.4\bin\mysql.exe'
+  $clientConfiguration=Join-Path $PSScriptRoot 'mysql\client.ini'
+  foreach($requiredFile in @($mysqlClient,$clientConfiguration)) {
+    if(-not(Test-Path -LiteralPath $requiredFile -PathType Leaf)) { throw "Missing MySQL startup file: $requiredFile" }
+  }
+  $previousErrorAction=$ErrorActionPreference
+  try {
+    $ErrorActionPreference='Continue'
+    # Isolate the project credentials from global options and saved login paths.
+    $mysqlOutput=& $mysqlClient "--defaults-file=$clientConfiguration" --no-login-paths --protocol=TCP --host=127.0.0.1 --port=3306 --connect-timeout=5 --batch --skip-column-names -e 'SELECT @@port;' 2>&1
+    $mysqlExitCode=$LASTEXITCODE
+  } finally { $ErrorActionPreference=$previousErrorAction }
+  $mysqlResult=($mysqlOutput | ForEach-Object {"$_"}) -join [Environment]::NewLine
+  if($mysqlExitCode -ne 0) { throw "MySQL84 connection check failed at 127.0.0.1:3306. Check $clientConfiguration. MySQL reported: $mysqlResult" }
+  if($mysqlResult.Trim() -ne '3306') { throw "MySQL84 port check failed: expected 3306, received '$($mysqlResult.Trim())'." }
+}
+
 function Start-Project {
   param(
     [switch]$NoClient,
@@ -165,11 +209,10 @@ function Start-Project {
   Sync-Configuration
   function Wait-Port([int]$Port) {
     for ($attempt=0; $attempt -lt 60; $attempt++) {
-      $socket = [Net.Sockets.TcpClient]::new()
-      try {
-        $connection = $socket.ConnectAsync('127.0.0.1', $Port)
-        if ($connection.Wait(500) -and $socket.Connected) { return }
-      } catch {} finally { $socket.Dispose() }
+      # Inspect local listeners without opening incomplete application sessions.
+      $listeners=@(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+        Where-Object {$_.LocalAddress -in @('127.0.0.1','0.0.0.0','::1','::')})
+      if($listeners.Count) { return }
       Start-Sleep -Milliseconds 500
     }
     throw "Port $Port did not become ready; inspect .runtime logs"
@@ -222,14 +265,9 @@ function Start-Project {
     Show-ServerLogWindow $Name $started.Id
     Write-Host "$Name ready on $Port"
   }
-  $mysqlService = Get-Service -Name MySQL84
-  if ($mysqlService.Status -ne 'Running') {
-    try { Start-Service -Name MySQL84 -ErrorAction Stop }
-    catch { throw 'MySQL84 is stopped. Start the MySQL84 Windows service as administrator, then retry.' }
-  }
+  Start-MySqlService
   Wait-Port 3306
-  $mysqlPort = & D:\SoftWare\MySQL\Server8.4\bin\mysql.exe "--defaults-extra-file=$PSScriptRoot\mysql\client.ini" --protocol=TCP --connect-timeout=5 --batch --skip-column-names -e 'SELECT @@port;'
-  if ($LASTEXITCODE -ne 0 -or "$mysqlPort".Trim() -ne '3306') { throw 'MySQL84 authentication or port check failed.' }
+  Test-MySqlConnection
   Write-Host 'MySQL84 ready on 3306'
   $redisPingExit=Invoke-Redis 'ping'
   if ($redisPingExit -ne 0) {
@@ -334,6 +372,33 @@ function Build-Project {
   }
 }
 
+function Generate-Protocol {
+  # Use the same installed tools and overrides as the former standalone launcher.
+  $vcpkgRoot=if($env:VCPKG_ROOT){$env:VCPKG_ROOT}else{'D:\Dev\vcpkg'}
+  $triplet=if($env:VCPKG_TARGET_TRIPLET){$env:VCPKG_TARGET_TRIPLET}else{'x64-windows-static-md-release'}
+  $protoc=if($env:PROTOC){$env:PROTOC}else{Join-Path $vcpkgRoot "installed\$triplet\tools\protobuf\protoc.exe"}
+  $grpcPlugin=if($env:GRPC_CPP_PLUGIN){$env:GRPC_CPP_PLUGIN}else{Join-Path $vcpkgRoot "installed\$triplet\tools\grpc\grpc_cpp_plugin.exe"}
+  foreach($tool in @($protoc,$grpcPlugin)) {
+    if(-not(Test-Path -LiteralPath $tool -PathType Leaf)){throw "Protocol generation tool not found: $tool"}
+  }
+  $protocolDirectories=if($ProtocolTarget -eq 'All'){@('GateServer','StatusServer','ChatServerShared')}else{@($ProtocolTarget)}
+  foreach($directory in $protocolDirectories) {
+    $protocol=Join-Path $root "$directory\message.proto"
+    if(-not(Test-Path -LiteralPath $protocol -PathType Leaf)){throw "Missing protocol: $protocol"}
+  }
+  foreach($directory in $protocolDirectories) {
+    $protocolDirectory=Join-Path $root $directory
+    Write-Host "Generating $directory/message.proto..."
+    & $protoc "--proto_path=$protocolDirectory" "--cpp_out=$protocolDirectory" "--grpc_out=$protocolDirectory" "--plugin=protoc-gen-grpc=$grpcPlugin" (Join-Path $protocolDirectory 'message.proto')
+    if($LASTEXITCODE -ne 0){throw "Protocol generation failed for $directory (exit code $LASTEXITCODE)"}
+    foreach($file in @('message.pb.h','message.pb.cc','message.grpc.pb.h','message.grpc.pb.cc')) {
+      $generatedFile=Join-Path $protocolDirectory $file
+      if(-not(Test-Path -LiteralPath $generatedFile -PathType Leaf)){throw "Missing generated file: $generatedFile"}
+    }
+  }
+  Write-Host 'C++ Protobuf and gRPC source files generated.'
+}
+
 function Open-DebugEnvironment([switch]$ClientOnly) {
   $chatNodesStopped=$false
   foreach ($name in @('GateServer','StatusServer','ChatServer','ChatServer2','ResourceServer')) {
@@ -368,15 +433,23 @@ switch ($Action) {
   'start' { Start-Project -Configuration $Configuration -NoClient:$NoClient -InfrastructureOnly:$InfrastructureOnly; break }
   'stop' { Stop-Project; break }
   'build' { Build-Project; break }
+  'package' { & "$root\CppChat\packaging\build-installer.ps1" -Version $Version -ReleaseNotes $ReleaseNotes -SigningConfig $SigningConfig -RequireSigning:$RequireSigning -Jobs $Jobs; break }
+  'publish-update' { & "$root\CppChat\packaging\publish-update.ps1" -Version $Version; break }
   'debug' { Open-DebugEnvironment; break }
   'debug-client' { Open-DebugEnvironment -ClientOnly; break }
   'sync' { Sync-Configuration; break }
+  'generate-proto' { Generate-Protocol; break }
   'help' {
-    Write-Host 'Usage: CppChat.cmd start|stop|build|debug|debug-client|sync|help [options]'
+    Write-Host 'Usage: CppChat.cmd start|stop|build|package|publish-update|debug|debug-client|sync|generate-proto|help [options]'
+    Write-Host 'Installer: package -Version 0.1.2 -ReleaseNotes <notes> [-SigningConfig <json>] [-RequireSigning]'
     Write-Host 'Build: -Configuration Debug|Release -Target All|Server|Client|GateServer|StatusServer|ChatServer|ChatServer2|ResourceServer -Jobs 8'
     Write-Host 'Dependencies: build -InstallDependencies (requires local proxy 127.0.0.1:7897)'
     Write-Host 'Debug: debug -Server GateServer|StatusServer|ChatServer|ChatServer2|ResourceServer'
     Write-Host 'Start: -Configuration Debug|Release -NoClient -InfrastructureOnly'
+    Write-Host 'Protocol: generate-proto -ProtocolTarget All|GateServer|StatusServer|ChatServerShared (default: All)'
+    Write-Host 'Protocol tools: override PROTOC, GRPC_CPP_PLUGIN, VCPKG_ROOT or VCPKG_TARGET_TRIPLET if needed.'
+    Write-Host 'Protocol sources are written beside message.proto. Both chat nodes share ChatServerShared; VerifyServer needs no C++ generation.'
+    Write-Host 'CMake builds generate their own protocol files in the build directory.'
     Write-Host 'Double-click CppChat.cmd for the menu. MySQL84 is left running when stopping.'
     break
   }

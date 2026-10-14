@@ -6,13 +6,14 @@ B站恋恋风辰大佬的C++全栈即时通讯项目，我在辰哥的基础上�
 
 ## 2026-10-13 更新
 
+- **数据库文件整理**：MySQL / SQLite 建表文件统一命名为 `database/<类型>/schema.sql`；MySQL 完整脚本一次建立全部业务表，包含好友标签、图片字段和消息重试索引，删除历史迁移目录，同步客户端资源、测试及文档引用。Redis 键由业务代码创建，无需 SQL 建表文件，详见 [数据库说明](database/README.md)。
 - **Linux 编译修复**：Designer 自定义控件和 C++ 源码中的头文件引用统一为实际文件名 `widgets/MessageTextEdit.h`，修复 Ubuntu CI 找不到头文件的问题，相关文档路径同步更正。沿用 [Qt Designer 自定义控件的头文件配置](https://doc.qt.io/qt-6/designer-using-custom-widgets.html)，无需新增依赖或修改构建架构。本次修复已通过客户端本机头文件、UI 和资源引用大小写检查，以及 Windows Debug / Release 编译和 Qt 原生回归；Ubuntu 结果以对应提交的 GitHub Actions 为准。
 - **构建与工程**：Qt 客户端由 qmake 迁移到 CMake；服务端保留总解决方案，每个服务单独维护 `CMakeLists.txt`，公共依赖、协议生成和调试配置集中在 `cmake/`。支持单独编译一个服务，VS 将服务、测试、第三方测试依赖和构建辅助目标分组显示。
 - **图片服务拆分**：`ResourceServer/` 从客户端目录迁至仓库根目录，与其他后端服务并列；构建、测试和文档引用同步更新，客户端通过网络访问图片服务。
 - **云端加密连接**：客户端支持 HTTPS 网关及 TLS 聊天、图片传输，校验服务器证书；通过配置切换本机 HTTP/TCP 与云端 HTTPS/TLS。聊天节点由登录接口分配。
 - **本地数据与运行路径**：客户端按服务器和账号隔离聊天记录；支持 `--config`、`--data-dir`、`--log-dir`，方便隔离运行与测试。数据库初始化和迁移 SQL 统一放入 `database/`。
 - **数据库连接恢复**：网关和聊天节点复用 MySQL 连接池，借出前检查连接并恢复失效会话；连接故障与账号不匹配分别返回业务错误，避免把数据库异常显示为密码错误。详见 [连接恢复说明](CppChat/docs/server-database-recovery.md)。
-- **启动与开发工具**：`CppChat.cmd` 输入编号后按回车执行，操作后返回菜单；支持单服务 Debug/Release 构建和独立服务日志窗口。手动协议生成工具集中在 `tools/generate_proto.bat`。
+- **启动与开发工具**：`CppChat.cmd` 输入编号后按回车执行，操作后返回菜单；支持单服务 Debug/Release 构建和独立服务日志窗口。手动协议生成已集成到菜单第 `9` 项及 `generate-proto` 命令。
 - **测试与工程约定**：测试源码集中在 `tests/`，提供 C++、Qt、Node.js、Python 单元及隔离集成测试，新增 GitHub Actions 回归入口；统一源码格式并记录架构、检索复用和产物整理约定。
 
 验证说明：2026-10-12 已完成图片服务 Debug/Release 编译及 18 项核心测试，并验证过客户端云端 TLS 通信和普通 TCP 兼容性。历史 Full 报告仍记录一次 Docker 容器启动 HTTP 500 和清理审核失败；Release 报告包含待完成的桌面人工验收，因此不将历史结果表述为全部功能通过。提交前的本轮检查结果见下文“提交验证”。
@@ -31,12 +32,13 @@ B站恋恋风辰大佬的C++全栈即时通讯项目，我在辰哥的基础上�
 | `ChatServer2/` | 第二个独立聊天节点入口及本机配置 |
 | `ChatServerShared/` | 两个节点共用的 TCP、会话、好友/消息业务、DAO、连接池与生命周期实现 |
 | `ResourceServer/` | 独立图片资源服务，负责认证、上传下载、文件元数据与断点续传 |
-| `database/` | 独立维护的 MySQL 初始化、迁移脚本及客户端 SQLite 建表脚本，见 [数据库说明](database/README.md) |
+| `database/` | MySQL 完整建库、建表脚本及客户端 SQLite 建表脚本，见 [数据库说明](database/README.md) |
 | `cmake/` | 服务端公共构建、依赖、调试分组及测试插桩配置 |
 | `tests/` | 单元、集成、回归、性能测试和人工验收工具 |
-| `tools/` | 手动 Protobuf/gRPC 源码生成工具 |
 
-本机 Windows 操作入口为根目录的 `CppChat.cmd`，实现位于 `.runtime/cppchat.ps1`，命令行选项可运行 `CppChat.cmd help` 查看。构建时协议由 CMake 自动生成；手动更新源码目录中的 C++ Protobuf / gRPC 文件可运行 `tools\generate_proto.bat`，默认生成全部协议，也可指定 `GateServer`、`StatusServer` 或 `ChatServerShared`。两个聊天节点共用 `ChatServerShared` 的协议。工具默认使用 D 盘现有 vcpkg，参数说明见 `tools\generate_proto.bat --help`。
+本机 Windows 操作入口为根目录的 `CppChat.cmd`，实现位于 `.runtime/cppchat.ps1`，命令行选项可运行 `CppChat.cmd help` 查看。构建时协议由 CMake 自动生成；手动更新源码目录中的 C++ Protobuf / gRPC 文件可选择菜单第 `9` 项，或运行 `CppChat.cmd generate-proto`，默认生成全部协议。指定单个协议可运行 `CppChat.cmd generate-proto -ProtocolTarget GateServer`，目标支持 `All`、`GateServer`、`StatusServer`、`ChatServerShared`。两个聊天节点共用 `ChatServerShared` 的协议，VerifyServer 在运行时加载协议，无需生成 C++ 文件。
+
+协议生成复用已安装的 vcpkg Protobuf/gRPC 工具，沿用官方 [Protobuf C++ 生成方式](https://protobuf.dev/reference/cpp/cpp-generated/)和 [gRPC C++ 生成方式](https://grpc.io/docs/languages/cpp/basics/)，未引入新依赖。默认工具来自 `D:\Dev\vcpkg` 的 `x64-windows-static-md-release` 安装；可通过环境变量 `PROTOC`、`GRPC_CPP_PLUGIN`、`VCPKG_ROOT`、`VCPKG_TARGET_TRIPLET` 覆盖。本机版本见下文开发环境表；生成结果写入对应 `message.proto` 所在目录，CMake 构建使用的生成目录保持独立。
 
 头像来源说明见 [AVATAR_SOURCES.md](CppChat/Resources/AVATAR_SOURCES.md)
 
@@ -45,6 +47,12 @@ B站恋恋风辰大佬的C++全栈即时通讯项目，我在辰哥的基础上�
 客户端工程入口为 `CppChat/CMakeLists.txt`，本机服务端 VS 工程位于 `build/server`。各组件目录中的 `config.ini`（VerifyServer 为 `config.json`）是本机配置修改入口，统一脚本会同步到运行目录。实际配置、凭据、运行数据、生成的 IDE 工程和测试报告均不上传 GitHub。客户端配置和 Qt 构建方式见 [客户端说明](CppChat/README.md)，图片服务环境变量见 [资源服务说明](ResourceServer/README.md)。
 
 首次克隆后，需自行创建实际配置、安装依赖并生成构建目录。`CppChat.cmd` 是当前 Windows 开发环境的便捷入口，使用本机 VS、Qt、vcpkg 路径和已准备的 `.runtime` 环境；在其他机器上使用时需要调整工具路径并准备相应服务配置及运行依赖。跨平台构建使用 CMake 入口，Linux 隔离环境可参考 [CI 构建脚本](tests/ci/build-linux.sh)。
+
+本机启动依赖 MySQL84 Windows 服务（`127.0.0.1:3306`）。服务停止时，启动器先尝试启动；权限不足时请求 Windows 管理员授权，仅提升数据库服务的启动命令。认证检查使用 `.runtime/mysql/client.ini`，按 [MySQL 官方客户端选项](https://dev.mysql.com/doc/refman/8.4/en/mysql-command-options.html)通过 `--defaults-file` 和 `--no-login-paths` 隔离全局配置及已保存的登录路径；连接失败显示原始 MySQL 错误，端口不匹配单独报错。停止项目仍保留 MySQL84 服务。
+
+启动器使用 Windows 原生 [Get-NetTCPConnection](https://learn.microsoft.com/en-us/powershell/module/nettcpip/get-nettcpconnection)检查本机端口是否监听，避免通过连接后立即断开的探测方式产生 HTTP/TCP 读取错误日志；MySQL 和 Redis 仍分别执行真实认证检查。MySQL 弃用选项及连接池恢复方式见 [数据库连接恢复说明](CppChat/docs/server-database-recovery.md)。
+
+验证码服务沿用现有 [ioredis 自动重连及状态事件](https://github.com/redis/ioredis#connection-events)：Redis 连接错误包含 ISO 时间戳，连接成功或恢复后记录 `Redis connection ready`，便于区分旧错误与当前状态；不在错误回调中关闭客户端，也不另建重连机制。
 
 服务端总入口为根目录 `CMakeLists.txt`，各服务的目标定义分别放在 `GateServer`、`StatusServer`、`ChatServer`、`ChatServer2` 和 `ResourceServer` 的 `CMakeLists.txt` 中；`cmake/ServerDependencies.cmake` 管理公共依赖，`cmake/ServerTargets.cmake` 管理协议生成、源码调试映射和公共目标设置。总入口生成一个 `CppChatServers.slnx`，每个服务仍是独立工程。子目录由总入口组织，需要从仓库根目录配置构建。
 
@@ -163,5 +171,13 @@ StatusServer：
 | Node.js | 24.21.0 |
 | npm | 11.19.0 |
 | Git for Windows | 2.56.0.windows.2 |
+
+## 本地、GitHub 与云端源码同步
+
+以 Git 提交作为三端源码版本标识：本地完成构建和验证后提交，通过普通 [Git push](https://git-scm.com/docs/git-push) 同步远程分支，再用 [git archive](https://git-scm.com/docs/git-archive) 导出同一提交到云端。不要上传整个工作目录；`.gitignore` 排除的连接配置、数据库密码、SMTP 授权码、密钥、聊天数据、日志、构建产物和依赖目录均不进入源码包。公开说明使用示例地址，真实连接信息只放在环境配置中。
+
+提交前可使用 [Gitleaks](https://github.com/gitleaks/gitleaks) 扫描待发布源码。本轮采用官方 Windows x64 8.24.2（MIT），校验发布文件 SHA256，使用内置规则和 `--redact`；另核对真实服务器地址及本机配置中的凭据值。扫描结果仅作为检查证据，不能保证不存在所有敏感信息；第三方许可证和作者署名保留。扫描工具和报告放入被忽略的 `build/`，不增加业务依赖。
+
+云端源码与运行目录分离：先备份源码、程序和必要的环境覆盖文件，再同步固定提交、构建 Linux 程序并检查服务。环境配置及数据库保持独立，不执行首次初始化部署脚本，不自动导入 SQL。发布记录保存提交 SHA、源码清单、程序 SHA256 和实际验证结果，失败时恢复上一版本；Windows 安装包有独立版本及发布流程，源码同步不会自动替换已发布安装包。
 
 

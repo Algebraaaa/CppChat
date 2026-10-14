@@ -39,8 +39,8 @@ Qt Creator 可按实际目录查看 `app/common/network/services/dialogs/widgets
 服务端沿用 Visual Studio 的虚拟分类：启动入口和服务接口放在 `Application`，
 业务逻辑与联系人标签校验放在 `Core`，网络、MySQL、Redis、gRPC 和公共工具
 放在对应的 `Infrastructure` 分类。Proto 及生成代码放在 `Generated`，
-配置放在 `Configuration`，数据库初始化脚本放在 `Database/Schema`，
-迁移脚本放在 `Database/Migrations`。这些分组由 `.vcxproj.filters` 管理。
+配置放在 `Configuration`。数据库脚本独立放在仓库根目录 `database/`，
+新 MySQL 库只需执行 `database/mysql/schema.sql`，不再维护迁移目录。
 
 ### 源码约定
 

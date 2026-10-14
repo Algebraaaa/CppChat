@@ -1,0 +1,5 @@
+{
+  "SignTool": "C:/Program Files (x86)/Windows Kits/10/bin/REPLACE_SDK_VERSION/x64/signtool.exe",
+  "CertificateThumbprint": "REPLACE_WITH_40_HEX_DIGITS_FROM_CURRENT_USER_MY",
+  "TimestampUrl": "https://REPLACE_WITH_YOUR_PROVIDER_TIMESTAMP_URL"
+}

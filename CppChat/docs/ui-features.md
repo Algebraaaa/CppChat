@@ -22,6 +22,7 @@
 
 ### 行为
 
+- 登录页在邮箱或密码框中按主键盘 Return / 数字键盘 Enter，与点击登录使用同一校验和请求流程；请求期间登录按钮禁用，回车不会重复提交。嵌入主窗口的登录页复用 Qt 6.12 的 [QLineEdit::returnPressed](https://doc.qt.io/qt-6/qlineedit.html#returnPressed) 信号触发登录按钮，关闭按钮的自动默认行为，避免重复提交和注册按钮抢占回车。
 - 输入框失去焦点时校验；尚未校验的字段在初次输入时不立即报错。
 - 已经校验过的字段在内容变化时重新检查，旧错误不等到下一次点击提交才消失。
 - 点击提交检查全部字段，按界面顺序显示第一条错误，并聚焦该输入框。
@@ -220,13 +221,10 @@ ChatDialog（应用主界面）
 
 ### 部署
 
-先对 ChatServer 配置的 MySQL 数据库执行：
-
-[联系人标签迁移脚本](../../database/mysql/migrations/2026-10-02-contact-tags.sql)
-
-此 SQL 为 `friend_apply`、`friend` 各新增一个可空的 `tags` 字段，存储 JSON 数组文本。
-旧记录按空数组读取，不会删除现有数据。脚本通过 `information_schema` 检查字段，
-可以重复执行。两台 ChatServer 使用同一数据库时只需执行一次。
+新机器执行 [完整建表脚本](../../database/mysql/schema.sql)，其中 `friend_apply`、
+`friend` 已包含可空的 `tags` 字段，用于存储 JSON 数组文本；NULL 按空数组读取。
+两个聊天节点共用同一数据库时只需初始化一次。脚本用于新库初始化，
+不会自动修改已存在表的字段。
 
 随后重新编译客户端、ChatServer 和 ChatServer2，并重启服务端。
 2026-10-02 已对本地 `127.0.0.1:3306/cppchat` 执行数据库迁移，确认两个

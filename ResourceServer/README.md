@@ -76,10 +76,10 @@ A new client login refreshes its Redis token; it does not require restarting Res
 Restart ResourceServer when its executable or environment settings change;
 logging in again alone does not require restarting it.
 
-For an existing database, run
-[the image migration](../database/mysql/migrations/season2_image_migration.sql) once,
-only if `chat_message` still lacks `msg_type` and `media_size` (see
-[database notes](../database/README.md)).
+For a new installation, import [the complete schema](../database/mysql/schema.sql)
+to create all project tables, including image metadata (see
+[database notes](../database/README.md)). Importing this schema does not upgrade
+existing tables.
 Then start Redis/MySQL, the existing chat services, and this ResourceServer. Set
 `CPPCHAT_REDIS_PASSWORD` to the same Redis password used by the chat services;
 do not commit that password to this repository. Keep the resource service on a

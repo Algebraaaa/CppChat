@@ -1,5 +1,6 @@
 #include "tcpmgr.h"
 #include "common/runtimepaths.h"
+#include "common/securitypolicy.h"
 #include "usermgr.h"
 #include <QCoreApplication>
 #include <QDataStream>
@@ -197,6 +198,11 @@ void TcpMgr::slot_tcp_connect(ServerInfo server)
   }
   QSettings settings(RuntimePaths::configFile(), QSettings::IniFormat);
   _tlsEnabled = settings.value("ChatServer/tls", false).toBool();
+  if (!SecurityPolicy::socketAllowed(_tlsEnabled, server.Host.trimmed())) {
+    qWarning() << "Refusing insecure chat connection";
+    emit sig_con_success(false);
+    return;
+  }
   if (_tlsEnabled && !QSslSocket::supportsSsl()) {
     qWarning() << "Chat TLS is unavailable: no usable Qt TLS backend.";
     emit sig_con_success(false);

@@ -1,15 +1,21 @@
 #include "app/mainwindow.h"
+#include "app/securitycommands.h"
 #include "app/thememanager.h"
 #include "common/global.h"
 #include "common/logger.h"
 #include "common/runtimepaths.h"
+#include "common/securitypolicy.h"
+#include "dialogs/updatedialog.h"
+#include "services/clientupdateservice.h"
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDebug>
 #include <QDir>
 #include <QFile>
+#include <QMessageBox>
 #include <QSettings>
 #include <QSslSocket>
+#include <QTimer>
 #include <QUrl>
 
 #include <cstdlib>
@@ -19,14 +25,19 @@ int main(int argc, char *argv[])
   QApplication a(argc, argv);
   QCoreApplication::setOrganizationName(QStringLiteral("Algebra"));
   QCoreApplication::setApplicationName(QStringLiteral("CppChat"));
+  QCoreApplication::setApplicationVersion(QStringLiteral(CPPCHAT_VERSION));
   QCommandLineParser arguments;
   arguments.addHelpOption();
+  arguments.addVersionOption();
   arguments.addOptions({{"config", "Runtime configuration file", "file"},
                         {"data-dir", "Private data and preferences directory", "directory"},
                         {"log-dir", "Log directory", "directory"}});
+  SecurityCommands::registerArguments(arguments);
   arguments.process(a);
   RuntimePaths::configure(arguments.value("config"), arguments.value("data-dir"),
                           arguments.value("log-dir"));
+  if (const auto result = SecurityCommands::execute(a, arguments))
+    return *result;
 
   if (Logger::install()) {
     qInfo() << "Log directory:" << Logger::logDirectory();
@@ -53,6 +64,14 @@ int main(int argc, char *argv[])
 
   // 以 INI 格式读取运行时配置文件
   QSettings settings(configPath, QSettings::IniFormat);
+  if (SecurityPolicy::requiresTls() &&
+      (settings.value("GateServer/scheme").toString().trimmed().toLower() != "https" ||
+       !settings.value("ChatServer/tls", false).toBool() ||
+       !settings.value("ResourceServer/tls", false).toBool())) {
+    QMessageBox::critical(nullptr, QObject::tr("连接配置错误"),
+                          QObject::tr("正式版必须启用 HTTPS 和 TLS，请恢复安全的服务器配置。"));
+    return EXIT_FAILURE;
+  }
   // 进入 [GateServer] 分组，接下来可以直接通过 host、port 取值
   settings.beginGroup("GateServer");
   // 读取 host；第一个参数：是配置项名称。第二个参数：是默认值
@@ -106,7 +125,43 @@ int main(int argc, char *argv[])
   qInfo() << "Config file:" << configPath;
   qInfo() << "GateServer URL:" << gate_url_prefix;
 
-  MainWindow w;
-  w.show();
-  return a.exec();
+  ClientUpdateService updates(ClientUpdateService::manifestUrlForServer(gateUrl),
+                              QCoreApplication::applicationVersion());
+  bool installRequested = false;
+  bool updatesStarted = false;
+  int result = EXIT_SUCCESS;
+  {
+    MainWindow w;
+    UpdateDialog updateDialog(&updates, &w);
+    QObject::connect(&w, &MainWindow::checkUpdatesRequested, &updateDialog, [&]() {
+      updatesStarted = true;
+      updateDialog.checkManually();
+    });
+    QObject::connect(&updateDialog, &UpdateDialog::installRequested, &w, [&]() {
+      installRequested = true;
+      updateDialog.hide();
+      w.close();
+      a.quit();
+    });
+    w.show();
+#ifdef Q_OS_WIN
+    // A local HTTP development server does not provide trusted releases.
+    if (!ClientUpdateService::manifestUrlForServer(gateUrl).isEmpty())
+      QTimer::singleShot(2000, &updates, [&]() {
+        if (!updatesStarted) {
+          updatesStarted = true;
+          updates.check();
+        }
+      });
+#endif
+    result = a.exec();
+  } // Save drafts and close sessions/SQLite before launching the installer.
+  if (installRequested) {
+    QString error;
+    if (!updates.launchInstaller(QCoreApplication::applicationDirPath(), error)) {
+      QMessageBox::critical(nullptr, QObject::tr("更新安装失败"), error);
+      return EXIT_FAILURE;
+    }
+  }
+  return result;
 }

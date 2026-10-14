@@ -10,6 +10,8 @@
 
 统一使用 [Lucide](https://github.com/lucide-icons/lucide) 的 SVG 图标。
 
+`update-download.svg` 复用下述固定提交的 `icons/download.svg`，用于标题栏“检查更新”按钮；保留路径和画布，仅将 `currentColor` 改为 `#656a70`，沿用本目录 ISC 许可。
+
 ## 来源与许可
 
 - 版本：`0.468.0`

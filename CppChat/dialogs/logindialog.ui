@@ -271,6 +271,7 @@
        </item>
        <item>
         <widget class="QPushButton" name="login_btn">
+         <property name="autoDefault"><bool>false</bool></property>
          <property name="buttonRole" stdset="0"><string notr="true">primary</string></property>
          <property name="minimumSize">
           <size>
@@ -318,6 +319,7 @@
        </item>
        <item>
         <widget class="QPushButton" name="reg_btn">
+         <property name="autoDefault"><bool>false</bool></property>
          <property name="buttonRole" stdset="0"><string notr="true">secondary</string></property>
          <property name="minimumSize">
           <size>

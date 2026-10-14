@@ -5,20 +5,30 @@
 #include "common/runtimepaths.h"
 #include "dialogs/discoverpage.h"
 #include "dialogs/favoritespage.h"
+#include "dialogs/logindialog.h"
 #include "dialogs/resetdialog.h"
 #include "widgets/capturegeometry.h"
 #include <QApplication>
 #include <QCryptographicHash>
+#include <QDebug>
 #include <QDir>
 #include <QEventLoop>
 #include <QFile>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QProcess>
+#include <QProcessEnvironment>
 #include <QPushButton>
 #include <QScopeGuard>
 #include <QSignalSpy>
 #include <QSqlDatabase>
 #include <QSqlQuery>
+#include <QStackedWidget>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
@@ -157,8 +167,11 @@ private slots:
                        "chat_time) VALUES(7,101,1,'legacy','WAL message',0,'2026-10-12')"));
     // Keep the source connection open so VACUUM must include committed WAL data.
     auto result = awaitStore([&](auto done) { store->OpenAccount(101, server, done); });
+    query.finish();
+    database.close();
+    if (!result.error.isEmpty())
+      result = awaitStore([&](auto done) { store->OpenAccount(101, server, done); });
     QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
-    QVERIFY(QFile::exists(legacy + "/chat.db"));
     QVERIFY(QFile::exists(legacy + "/sql/db.sqlite"));
     result = awaitStore([&](auto done) { store->LoadMessages(7, 0, 50, done); });
     QCOMPARE(result.messages.size(), 1);
@@ -301,6 +314,57 @@ private slots:
     QVERIFY(!store->IsReady());
     RuntimePaths::configure(root.path() + "/test.ini", root.path(), root.path() + "/logs");
   }
+  void installedDirectoryStorage()
+  {
+    if (qEnvironmentVariable("CPPCHAT_INSTALLED_PATH_PROBE") != "1") {
+      const QString base = qEnvironmentVariable("CPPCHAT_INSTALL_TEST_ROOT", root.path());
+      QTemporaryDir installation(QDir(base).filePath("CppChat-installed-XXXXXX"));
+      QVERIFY(installation.isValid());
+      const QString executable =
+          QDir(installation.path())
+              .filePath(QFileInfo(QCoreApplication::applicationFilePath()).fileName());
+      QVERIFY(QFile::copy(QCoreApplication::applicationFilePath(), executable));
+      auto environment = QProcessEnvironment::systemEnvironment();
+      environment.insert("CPPCHAT_INSTALLED_PATH_PROBE", "1");
+      environment.insert("QT_PLUGIN_PATH", QCoreApplication::applicationDirPath());
+      QProcess probe;
+      probe.setProcessEnvironment(environment);
+      probe.start(executable, {"installedDirectoryStorage", "-o", "-,txt"});
+      QVERIFY(probe.waitForFinished(20000));
+      const QByteArray output = probe.readAllStandardOutput() + probe.readAllStandardError();
+      QVERIFY2(probe.exitStatus() == QProcess::NormalExit && probe.exitCode() == 0,
+               output.constData());
+      qInfo().noquote() << "Installed-directory probe passed:" << installation.path();
+      return;
+    }
+    const auto restorePaths = qScopeGuard([&] {
+      RuntimePaths::configure(root.path() + "/test.ini", root.path(), root.path() + "/logs");
+    });
+    RuntimePaths::configure({}, {}, root.path() + "/logs");
+    const QString server = "installed-" + QUuid::createUuid().toString();
+    auto result = awaitStore([&](auto done) { store->OpenAccount(101, server, done); });
+    QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+    const QString expectedRoot =
+        QDir(QCoreApplication::applicationDirPath()).filePath("chat_data/accounts/");
+    QVERIFY2(store->AccountDirectory().startsWith(expectedRoot),
+             qPrintable(store->AccountDirectory()));
+    const QString accountDirectory = store->AccountDirectory();
+    QVERIFY(QFile::exists(accountDirectory + "/sql/db.sqlite"));
+    QVERIFY(QDir(accountDirectory + "/attachments").exists());
+    result = awaitStore([&](auto done) { store->SaveConversations({{7, 102, 0, "", ""}}, done); });
+    QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+    result =
+        awaitStore([&](auto done) { store->SaveMessages({message(1, "installed")}, 7, 1, done); });
+    QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+    store->CloseAccount();
+    result = awaitStore([&](auto done) { store->OpenAccount(101, server, done); });
+    QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+    QCOMPARE(store->AccountDirectory(), accountDirectory);
+    result = awaitStore([&](auto done) { store->LoadMessages(7, 0, 10, done); });
+    QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+    QCOMPARE(result.messages.size(), 1);
+    QCOMPARE(result.messages[0].content, QString("installed"));
+  }
   void preferencesAccountIsolation()
   {
     ConversationPreferences::SavePinned(101, {7});
@@ -348,6 +412,87 @@ private slots:
     QTest::mouseClick(cancel, Qt::LeftButton);
     QCOMPARE(exit.size(), 1);
     QCOMPARE(user->text(), QString());
+  }
+  void loginEnterValidation_data()
+  {
+    QTest::addColumn<QString>("fieldName");
+    QTest::addColumn<int>("key");
+    QTest::newRow("email-return") << QString("email_edit") << int(Qt::Key_Return);
+    QTest::newRow("email-enter") << QString("email_edit") << int(Qt::Key_Enter);
+    QTest::newRow("password-return") << QString("pass_edit") << int(Qt::Key_Return);
+    QTest::newRow("password-enter") << QString("pass_edit") << int(Qt::Key_Enter);
+  }
+  void loginEnterValidation()
+  {
+    QFETCH(QString, fieldName);
+    QFETCH(int, key);
+    inspectedWidget = std::make_unique<QStackedWidget>();
+    auto *pages = static_cast<QStackedWidget *>(inspectedWidget.get());
+    auto *dialog = new LoginDialog;
+    pages->addWidget(dialog);
+    pages->show();
+    auto *field = dialog->findChild<QLineEdit *>(fieldName);
+    auto *login = dialog->findChild<QPushButton *>("login_btn");
+    auto *error = dialog->findChild<QLabel *>("err_tip");
+    QVERIFY(field && login && error);
+    QSignalSpy submissions(login, &QPushButton::clicked);
+    field->setFocus();
+    QTest::keyClick(field, Qt::Key(key));
+    QCOMPARE(submissions.size(), 1);
+    QCOMPARE(error->text(), InputValidator::emailError({}));
+    QVERIFY(login->isEnabled());
+    login->setEnabled(false);
+    QTest::keyClick(field, Qt::Key(key));
+    QCOMPARE(submissions.size(), 1);
+  }
+  void loginEnterSubmitsOnce()
+  {
+    QTcpServer server;
+    QVERIFY(server.listen(QHostAddress::LocalHost));
+    const QString previousUrl = gate_url_prefix;
+    const auto restoreUrl = qScopeGuard([&] { gate_url_prefix = previousUrl; });
+    gate_url_prefix = QString("http://127.0.0.1:%1").arg(server.serverPort());
+    inspectedWidget = std::make_unique<QStackedWidget>();
+    auto *pages = static_cast<QStackedWidget *>(inspectedWidget.get());
+    auto *dialog = new LoginDialog;
+    pages->addWidget(dialog);
+    pages->show();
+    auto *email = dialog->findChild<QLineEdit *>("email_edit");
+    auto *password = dialog->findChild<QLineEdit *>("pass_edit");
+    auto *login = dialog->findChild<QPushButton *>("login_btn");
+    QVERIFY(email && password && login);
+    email->setText("user@example.invalid");
+    password->setText("abc123456");
+    QSignalSpy submissions(login, &QPushButton::clicked);
+    QSignalSpy connections(&server, &QTcpServer::newConnection);
+    password->setFocus();
+    QTest::keyClick(password, Qt::Key_Return);
+    QCOMPARE(submissions.size(), 1);
+    QVERIFY(!login->isEnabled());
+    QTRY_VERIFY(server.hasPendingConnections());
+    std::unique_ptr<QTcpSocket> connection(server.nextPendingConnection());
+    QByteArray request;
+    QTRY_VERIFY(([&] {
+      request += connection->readAll();
+      const auto offset = request.indexOf("\r\n\r\n");
+      return offset >= 0 && QJsonDocument::fromJson(request.mid(offset + 4)).isObject();
+    })());
+    QVERIFY(request.startsWith("POST /user_login HTTP/1.1\r\n"));
+    const auto body =
+        QJsonDocument::fromJson(request.mid(request.indexOf("\r\n\r\n") + 4)).object();
+    QCOMPARE(body.value("email").toString(), email->text());
+    QCOMPARE(body.value("passwd").toString(), password->text());
+    QTest::keyClick(password, Qt::Key_Enter);
+    QCOMPARE(submissions.size(), 1);
+    QCOMPARE(connections.size(), 1);
+    const QByteArray response =
+        QJsonDocument(QJsonObject{{"error", int(ErrorCodes::PasswdInvalid)}})
+            .toJson(QJsonDocument::Compact);
+    connection->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " +
+                      QByteArray::number(response.size()) + "\r\nConnection: close\r\n\r\n" +
+                      response);
+    connection->disconnectFromHost();
+    QTRY_VERIFY(login->isEnabled());
   }
   void placeholdersRemainLocal()
   {

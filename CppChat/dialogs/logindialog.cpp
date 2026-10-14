@@ -12,6 +12,8 @@ LoginDialog::LoginDialog(QWidget *parent) : QDialog(parent), ui(new Ui::LoginDia
 {
   ui->setupUi(this);
   ui->pass_edit->setEchoMode(QLineEdit::Password);
+  connect(ui->email_edit, &QLineEdit::returnPressed, ui->login_btn, &QPushButton::click);
+  connect(ui->pass_edit, &QLineEdit::returnPressed, ui->login_btn, &QPushButton::click);
   _feedback = new FormFeedback(ui->err_tip, this);
   _feedback->addField(ui->email_edit,
                       [this]() { return InputValidator::emailError(ui->email_edit->text()); });

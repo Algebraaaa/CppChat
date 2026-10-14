@@ -153,6 +153,14 @@ def test_uuid_dedup_conflict_and_pagination(cluster, pair):
 @pytest.mark.feature("USER-PROFILE")
 def test_search_profile_avatar_tags_and_owner_isolation(cluster, pair):
     first, second, a, b, thread = pair
+    with cluster.sql() as db:
+        with db.cursor() as cursor:
+            cursor.execute("SHOW GRANTS")
+            grants = " ".join(row[0] for row in cursor.fetchall())
+            require(
+                "CREATE" not in grants and "ALL PRIVILEGES" not in grants,
+                "Avatar regression must use a business account without schema privileges",
+            )
     require(a.request(1007, {"uid": str(second["uid"])}).get("uid") == second["uid"])
     require(a.request(1007, {"uid": second["user"]}).get("uid") == second["uid"])
     avatar = b"\xff\xd8test\xff\xd9"

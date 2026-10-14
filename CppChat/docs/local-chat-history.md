@@ -1,5 +1,7 @@
 # 本地聊天记录实现与验收
 
+Windows 0.1.2 起，数据库及 WAL 使用 SQLite3 Multiple Ciphers，附件使用 AES-GCM，账号密钥使用当前 Windows 用户 DPAPI 保护；安装目录中的 `chat_data` 位置保持不变。迁移前生成核验过的加密备份，恢复、换电脑密钥导出/导入及权限规则见 [客户端安全说明](../README.md)。普通 SQLite 工具或旧客户端无法直接读加密数据库；迁移备份不随卸载删除。非 Windows 尚未启用此密钥保护方案。下方早期实现与验收记录按日期保留。
+
 本轮源码已接入 Qt 的 QSQLITE 驱动。MySQL 保留服务端聊天记录，本机 SQLite 保存消息、同步位置、待确认消息和草稿，图片缓存放在账号目录下的文件中。本轮没有编译 C++、启动服务或修改运行中的 MySQL。
 
 ## 复用的项目与资料
@@ -22,11 +24,11 @@
 
 登录成功后日志输出实际数据库路径。同一 GateServer 后面的 ChatServer1、ChatServer2 共用账号缓存；不同 GateServer、不同 uid 使用不同目录。账号切换会关闭旧连接并增加登录代数，数据库、图片传输和发送计时器拒绝旧代数回调。
 
-本项目当前默认数据根目录为客户端根目录中的 `chat_data/`，不随 Debug、Release 或 build 子目录变化。不创建项目外独立数据目录。发布目录没有客户端 CMake 工程及源码标记时，使用 EXE 同级的 `chat_data/`。目标在 C 盘时拒绝打开数据库；目标不可写时显示错误，不自动改存 AppData 或其他系统盘目录。暂不提供目录选择界面。
+开发运行时默认数据根目录为客户端根目录中的 `chat_data/`，不随 Debug、Release 或 build 子目录变化。发布目录没有客户端 CMake 工程及源码标记时，使用 EXE 同级的 `chat_data/`：用户安装到哪里，聊天数据库及账号图片缓存就保存在哪里。2026-10-13 已移除 C 盘限制，C/D 等盘符均可使用；目标不可写时显示写入权限错误，不自动改存其他目录。测试和显式 `--data-dir` 仍可覆盖默认位置，暂不提供目录选择界面。路径定位继续复用 Qt 6.12 的 [applicationDirPath](https://doc.qt.io/qt-6/qcoreapplication.html#applicationDirPath)，不增加依赖。
 
 首次登录某个账号时，如果新位置还没有 `sql/db.sqlite`，依次检查项目账号目录中的旧 `chat.db`、当前 EXE 同级的旧账号目录、旧 `QStandardPaths::AppLocalDataLocation/accounts/...`。采用找到的第一份数据库，不自动合并多份旧库。工作线程用 [SQLite VACUUM INTO](https://www.sqlite.org/lang_vacuum.html#vacuum_with_an_into_clause) 生成完整快照（包含已提交的 WAL 数据），并复制该账号图片缓存；临时数据也位于目标盘。全部完成后才发布正式目录；同目录布局升级只发布 `sql/` 子目录。失败时保留原数据并允许重试。新位置已有数据库时不重复迁移、不覆盖，旧库作为恢复副本保留。
 
-本版使用普通 SQLite，数据库、草稿及图片均未加密。没有保存登录密码或 token。SQLCipher 和系统密钥存储尚未接入。
+早期版本使用普通 SQLite；Windows 0.1.2 已加密数据库（含草稿）与附件，见上方说明。没有保存登录密码或 token。
 
 ### 2026-10-06 目录调整验证
 
@@ -75,7 +77,7 @@ Debug 旧运行目录和旧 AppData 中的数据一致，旧数据库及 WAL/SHM
 
 历史响应根据实际 styled JSON 大小分批，预留包头以外的正文空间，保证不超过现有 MAX_LENGTH。空页明确返回空数组和原游标。个别旧消息如果单条本身就超过包限制，会返回加载失败并保持游标，不能无声跳过。
 
-**部署时同时升级、重启两套 ChatServer，随后重新登录客户端。** 本轮没有执行 MySQL DDL。[查询索引脚本](../../database/mysql/migrations/2026-10-02-chat-message-retry-index.sql) 可重复执行，两套聊天节点共用同一数据库时只需执行一份，建议在备份并核对库名后手动执行，以免每次 UUID 查找扫描消息表；脚本不删除或改写消息。去重依赖所有聊天写入经过上述事务和行锁；数据库本身暂未增加 UUID 唯一约束。可在审计历史 UUID/列定义后补充唯一约束，避免直接对旧问候记录或既有重复数据执行不兼容的迁移。
+**部署时同时升级、重启两套 ChatServer，随后重新登录客户端。** 新库使用 [完整建表脚本](../../database/mysql/schema.sql)，已包含 `idx_chat_message_retry` 查询索引，避免每次 UUID 查找扫描消息表；两个聊天节点共用数据库时初始化一次即可。脚本不会自动升级旧表。去重依赖所有聊天写入经过上述事务和行锁；数据库本身未增加 UUID 唯一约束。
 
 客户端使用 CMake 构建。Windows 链接完成后，CMake 调用当前 Qt Kit 的 `windeployqt`，将 Qt SQL 库部署到 EXE 目录，将 SQLite 插件部署到 `sqldrivers` 子目录。本机 MinGW Qt 的 DLL 由 Debug、Release 应用共用。发布包应包含这些文件，不要从其他 Qt 版本复制插件。
 

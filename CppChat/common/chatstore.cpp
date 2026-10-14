@@ -1,4 +1,6 @@
 #include "chatstore.h"
+#include "common/localdataprotection.h"
+#include "common/localstoresecurity.h"
 #include "runtimepaths.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -27,7 +29,7 @@ constexpr qint64 kMaxAttachmentBytes = 64 * 1024 * 1024;
 constexpr qint64 kMaxAttachmentSize = 20 * 1024 * 1024;
 const QString kDatabaseRelativePath = QStringLiteral("sql/db.sqlite");
 
-QString chatDataRoot(QString &error)
+QString chatDataRoot()
 {
   if (!RuntimePaths::dataDirectory().isEmpty())
     return RuntimePaths::dataDirectory();
@@ -43,11 +45,7 @@ QString chatDataRoot(QString &error)
       break;
     }
   } while (directory.cdUp());
-  if (root.startsWith("C:", Qt::CaseInsensitive)) {
-    error =
-        QStringLiteral("本地聊天数据不能存放到 C 盘，请将项目或发布目录放到其他盘：%1").arg(root);
-  }
-  return error.isEmpty() ? root : QString();
+  return root;
 }
 void checked(bool success, const QString &error)
 {
@@ -474,8 +472,7 @@ void ChatStore::OpenAccount(int uid, const QString &server, Callback callback)
   const auto serverKey = QString::fromLatin1(
       QCryptographicHash::hash(server.toUtf8(), QCryptographicHash::Sha256).toHex().left(24));
   const QString accountPath = "/accounts/" + serverKey + "/" + QString::number(uid);
-  QString directoryError;
-  const QString dataRoot = chatDataRoot(directoryError);
+  const QString dataRoot = chatDataRoot();
   _directory = dataRoot.isEmpty() ? QString() : dataRoot + accountPath;
   const QString legacyRoot = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
   QStringList legacyDirectories{_directory, QCoreApplication::applicationDirPath() + "/chat_data" +
@@ -488,21 +485,23 @@ void ChatStore::OpenAccount(int uid, const QString &server, Callback callback)
   const bool validServer = !server.trimmed().isEmpty();
   auto *worker = _worker;
   Execute(
-      [worker, directory, legacyDirectories, directoryError, uid, validServer](QSqlDatabase &) {
+      [worker, directory, legacyDirectories, dataRoot, uid, validServer](QSqlDatabase &) {
         worker->Close();
         checked(uid > 0 && validServer, "Invalid account or server namespace");
-        checked(directoryError.isEmpty(), directoryError);
         checked(QSqlDatabase::isDriverAvailable("QSQLITE"),
                 QStringLiteral("未找到 SQLite 驱动，请检查客户端 sqldrivers 目录中的 "
                                "qsqlite.dll（调试版可能为 qsqlited.dll）"));
+        LocalDataProtection::secureDirectory(dataRoot);
         migrateLegacyAccount(legacyDirectories, directory);
+        const auto key = LocalStoreSecurity::prepareAccount(directory);
         checked(QDir().mkpath(directory + "/sql") && QDir().mkpath(directory + "/attachments"),
                 QStringLiteral("无法创建本地聊天数据目录，请检查数据目录的写入权限：%1")
                     .arg(directory));
-        worker->database = QSqlDatabase::addDatabase("QSQLITE", "cppchat-local-store");
+        worker->database =
+            QSqlDatabase::addDatabase(LocalStoreSecurity::driverName(), "cppchat-local-store");
         auto &database = worker->database;
         database.setDatabaseName(QDir(directory).filePath(kDatabaseRelativePath));
-        database.setConnectOptions("QSQLITE_BUSY_TIMEOUT=5000");
+        LocalStoreSecurity::configureDatabase(database, key);
         const bool opened = database.open();
         checked(opened, database.lastError().text());
         sql(database, "PRAGMA journal_mode=WAL");
@@ -818,7 +817,9 @@ void ChatStore::SaveAttachment(const QString &id, const QByteArray &image, Callb
             QCryptographicHash::hash(id.toUtf8(), QCryptographicHash::Sha256).toHex());
         const QString relative = "attachments/" + name;
         QSaveFile file(directory + '/' + relative);
-        checked(file.open(QIODevice::WriteOnly) && file.write(image) == image.size() &&
+        const auto encrypted =
+            LocalDataProtection::encryptPayload(image, LocalStoreSecurity::accountKey(directory));
+        checked(file.open(QIODevice::WriteOnly) && file.write(encrypted) == encrypted.size() &&
                     file.commit(),
                 "Cannot save attachment");
         ChatStoreResult result;
@@ -895,10 +896,11 @@ void ChatStore::LoadAttachment(const QString &id, Callback callback)
             [directory, attachment] {
               ChatStoreResult result;
               QFile file(directory + '/' + attachment.path);
-              if (!file.open(QIODevice::ReadOnly) || file.size() != attachment.size)
+              if (!file.open(QIODevice::ReadOnly) || file.size() > 21 * 1024 * 1024)
                 return result;
               // 限定读取长度，文件损坏或被外部修改时不扩大任务预算。
-              const auto bytes = file.read(attachment.size);
+              const auto bytes = LocalDataProtection::decryptPayload(
+                  file.readAll(), LocalStoreSecurity::accountKey(directory));
               if (bytes.size() == attachment.size &&
                   QString::fromLatin1(
                       QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex()) ==

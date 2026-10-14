@@ -24,7 +24,7 @@ def test_every_feature_has_reviewable_case_and_cleanup():
         )
 
 
-def test_migrations_are_outside_business_source():
+def test_sql_is_outside_business_source():
     repository = ROOT.parent
     for directory in (
         "GateServer",
