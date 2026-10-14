@@ -1,5 +1,5 @@
 ﻿param(
-  [ValidatePattern('^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$')][string]$Version = '0.1.4',
+  [ValidatePattern('^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$')][string]$Version = '0.1.5',
   [ValidateLength(0,8000)][string]$ReleaseNotes = '修复 Windows 暗色系统下的聊天配色，保留 TLS、本地加密和备份恢复。',
   [string]$SigningConfig,
   [switch]$RequireSigning,

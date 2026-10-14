@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import time
 
 from linux.release_bundle import VERSION, sha256, verify_update
 
@@ -33,6 +34,17 @@ def release_api(repo, tag):
             raise RuntimeError("Multiple releases use the same version tag")
         return matches[0] if matches else None
     return value
+
+
+def wait_for_release(repo, tag, published=False):
+    """GitHub may briefly omit a release immediately after creation or publication."""
+    for delay in (0, 2, 4, 8, 16, 32, 32):
+        if delay:
+            time.sleep(delay)
+        release = release_api(repo, tag)
+        if release is not None and (not published or not release["draft"]):
+            return release
+    raise RuntimeError("GitHub release did not become visible within the bounded retry window")
 
 
 def publish(repo, tag, version, assets):
@@ -81,9 +93,7 @@ def publish(repo, tag, version, assets):
             ],
             check=True,
         )
-        release = release_api(repo, tag)
-        if release is None:
-            raise RuntimeError("Created release could not be read")
+        release = wait_for_release(repo, tag)
     existing = {asset["name"]: asset for asset in release["assets"]}
     for name in names:
         local = assets / name
@@ -118,7 +128,7 @@ def publish(repo, tag, version, assets):
         subprocess.run(
             ["gh", "release", "edit", tag, "--repo", repo, "--draft=false", "--latest"], check=True
         )
-    final = release_api(repo, tag)
+    final = wait_for_release(repo, tag, published=True)
     if final["draft"] or sorted(a["name"] for a in final["assets"]) != sorted(names):
         raise RuntimeError("GitHub release verification failed")
     print(json.dumps({"tag": tag, "url": final["html_url"], "assets": names}))

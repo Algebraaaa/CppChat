@@ -15,6 +15,11 @@ import uuid
 from linux.release_bundle import COMMIT, VERSION, verify_update
 
 
+def ssh_text(value):
+    # OpenSSH's private key parser requires LF even when Secrets were set on Windows.
+    return value.replace("\r\n", "\n").replace("\r", "\n").strip() + "\n"
+
+
 def deploy(assets, version, commit):
     if not VERSION.fullmatch(version) or not COMMIT.fullmatch(commit):
         raise ValueError("Invalid release identity")
@@ -38,8 +43,8 @@ def deploy(assets, version, commit):
     ) as temporary:
         private = Path(temporary) / "identity"
         known = Path(temporary) / "known_hosts"
-        private.write_text(os.environ["DEPLOY_SSH_KEY"].strip() + "\n")
-        known.write_text(os.environ["DEPLOY_KNOWN_HOSTS"].strip() + "\n")
+        private.write_text(ssh_text(os.environ["DEPLOY_SSH_KEY"]), encoding="utf-8", newline="\n")
+        known.write_text(ssh_text(os.environ["DEPLOY_KNOWN_HOSTS"]), encoding="utf-8", newline="\n")
         os.chmod(private, 0o600)
         os.chmod(known, 0o600)
         options = [

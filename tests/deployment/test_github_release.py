@@ -13,6 +13,10 @@ spec = importlib.util.spec_from_file_location(
     "publish_github", Path(__file__).resolve().parents[2] / "deploy/publish-github.py"
 )
 publisher = importlib.util.module_from_spec(spec)
+deployment_spec = importlib.util.spec_from_file_location(
+    "run_deployment", Path(__file__).resolve().parents[2] / "deploy/run-deployment.py"
+)
+deployment = importlib.util.module_from_spec(deployment_spec)
 with patch.dict(
     sys.modules,
     {
@@ -21,6 +25,7 @@ with patch.dict(
     },
 ):
     spec.loader.exec_module(publisher)
+    deployment_spec.loader.exec_module(deployment)
 
 
 def response(value, code=0):
@@ -57,3 +62,40 @@ class ReleaseLookupTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "lookup failed"):
                 publisher.release_api("example/chat", "v1.2.3")
             self.assertEqual(gh.call_count, 1)
+
+    def test_creation_visibility_delay_is_retried_without_recreating(self):
+        draft = {"draft": True}
+        with (
+            patch.object(publisher, "release_api", side_effect=[None, None, draft]) as read,
+            patch.object(publisher.time, "sleep") as sleep,
+        ):
+            self.assertEqual(publisher.wait_for_release("example/chat", "v1.2.3"), draft)
+            self.assertEqual(read.call_count, 3)
+            self.assertEqual([call.args[0] for call in sleep.call_args_list], [2, 4])
+
+    def test_publication_waits_until_the_draft_becomes_public(self):
+        public = {"draft": False}
+        with (
+            patch.object(publisher, "release_api", side_effect=[{"draft": True}, public]),
+            patch.object(publisher.time, "sleep"),
+        ):
+            self.assertEqual(
+                publisher.wait_for_release("example/chat", "v1.2.3", published=True), public
+            )
+
+    def test_visibility_retry_is_bounded(self):
+        with (
+            patch.object(publisher, "release_api", return_value=None) as read,
+            patch.object(publisher.time, "sleep"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "bounded retry window"):
+                publisher.wait_for_release("example/chat", "v1.2.3")
+            self.assertEqual(read.call_count, 7)
+
+
+class SshMaterialTests(unittest.TestCase):
+    def test_windows_newlines_are_normalized_for_openssh(self):
+        value = "-----BEGIN OPENSSH PRIVATE KEY-----\r\nexample\r\n-----END OPENSSH PRIVATE KEY-----\r\n"
+        expected = value.replace("\r\n", "\n")
+        self.assertEqual(deployment.ssh_text(value), expected)
+        self.assertEqual(deployment.ssh_text(expected), expected)
