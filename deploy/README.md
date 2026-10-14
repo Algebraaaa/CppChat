@@ -5,8 +5,8 @@
 ```powershell
 git pull --ff-only
 # 完成本地测试、提交并推送 main 后，选择高于线上版本的标签。
-git tag -a v0.1.5 -m "CppChat 0.1.5"
-git push origin v0.1.5
+git tag -a v0.1.6 -m "CppChat 0.1.6"
+git push origin v0.1.6
 ```
 
 Windows 使用 Qt 6.12.0 / MinGW，运行客户端、更新、安全和安装/升级/卸载验证。

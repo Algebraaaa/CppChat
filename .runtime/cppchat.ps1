@@ -1,6 +1,6 @@
 ﻿param(
   [Parameter(Position=0)][ValidateSet('start','stop','build','package','publish-update','debug','debug-client','sync','generate-proto','help','log-window')][string]$Action='start',
-  [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='0.1.5',
+  [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='0.1.6',
   [string]$ReleaseNotes='正式版强制 TLS，保护本地权限并加密聊天数据，增加备份恢复。',
   [string]$SigningConfig,
   [switch]$RequireSigning,
@@ -441,7 +441,7 @@ switch ($Action) {
   'generate-proto' { Generate-Protocol; break }
   'help' {
     Write-Host 'Usage: CppChat.cmd start|stop|build|package|publish-update|debug|debug-client|sync|generate-proto|help [options]'
-    Write-Host 'Installer: package -Version 0.1.5 -ReleaseNotes <notes> [-SigningConfig <json>] [-RequireSigning]'
+    Write-Host 'Installer: package -Version 0.1.6 -ReleaseNotes <notes> [-SigningConfig <json>] [-RequireSigning]'
     Write-Host 'Build: -Configuration Debug|Release -Target All|Server|Client|GateServer|StatusServer|ChatServer|ChatServer2|ResourceServer -Jobs 8'
     Write-Host 'Dependencies: build -InstallDependencies (requires local proxy 127.0.0.1:7897)'
     Write-Host 'Debug: debug -Server GateServer|StatusServer|ChatServer|ChatServer2|ResourceServer'

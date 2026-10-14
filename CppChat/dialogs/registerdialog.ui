@@ -75,8 +75,11 @@
           </widget>
          </item>
          <item>
-          <layout class="QHBoxLayout" name="horizontalLayout">
-           <item>
+          <layout class="QFormLayout" name="registration_form">
+           <property name="fieldGrowthPolicy">
+            <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+           </property>
+           <item row="0" column="0">
             <widget class="QLabel" name="user_label">
              <property name="minimumSize">
               <size>
@@ -101,9 +104,11 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="0" column="1">
             <widget class="QLineEdit" name="user_edit">
-             <property name="inputRole" stdset="0"><string notr="true">form</string></property>
+             <property name="inputRole" stdset="0">
+              <string notr="true">form</string>
+             </property>
              <property name="minimumSize">
               <size>
                <width>0</width>
@@ -118,11 +123,7 @@
              </property>
             </widget>
            </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_3">
-           <item>
+           <item row="1" column="0">
             <widget class="QLabel" name="email_label">
              <property name="minimumSize">
               <size>
@@ -141,9 +142,11 @@
              </property>
             </widget>
            </item>
-           <item>
+           <item row="1" column="1">
             <widget class="QLineEdit" name="email_edit">
-             <property name="inputRole" stdset="0"><string notr="true">form</string></property>
+             <property name="inputRole" stdset="0">
+              <string notr="true">form</string>
+             </property>
              <property name="minimumSize">
               <size>
                <width>0</width>
@@ -158,11 +161,7 @@
              </property>
             </widget>
            </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_4">
-           <item>
+           <item row="2" column="0">
             <widget class="QLabel" name="pass_label">
              <property name="minimumSize">
               <size>
@@ -181,47 +180,49 @@
              </property>
             </widget>
            </item>
-           <item>
-            <widget class="QLineEdit" name="pass_edit">
-             <property name="inputRole" stdset="0"><string notr="true">form</string></property>
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>25</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>25</height>
-              </size>
-             </property>
-            </widget>
+           <item row="2" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout_4">
+             <item>
+              <widget class="QLineEdit" name="pass_edit">
+               <property name="inputRole" stdset="0">
+                <string notr="true">form</string>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>25</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>25</height>
+                </size>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="ClickedLabel" name="pass_visible">
+               <property name="minimumSize">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+               <property name="text">
+                <string />
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
-           <item>
-            <widget class="ClickedLabel" name="pass_visible">
-             <property name="minimumSize">
-              <size>
-               <width>20</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>20</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_5">
-           <item>
+           <item row="3" column="0">
             <widget class="QLabel" name="confirm_label">
              <property name="minimumSize">
               <size>
@@ -240,47 +241,49 @@
              </property>
             </widget>
            </item>
-           <item>
-            <widget class="QLineEdit" name="confirm_edit">
-             <property name="inputRole" stdset="0"><string notr="true">form</string></property>
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>25</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>25</height>
-              </size>
-             </property>
-            </widget>
+           <item row="3" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout_5">
+             <item>
+              <widget class="QLineEdit" name="confirm_edit">
+               <property name="inputRole" stdset="0">
+                <string notr="true">form</string>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>25</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>25</height>
+                </size>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="ClickedLabel" name="confirm_visible">
+               <property name="minimumSize">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+               <property name="text">
+                <string />
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
-           <item>
-            <widget class="ClickedLabel" name="confirm_visible">
-             <property name="minimumSize">
-              <size>
-               <width>20</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>20</width>
-               <height>20</height>
-              </size>
-             </property>
-             <property name="text">
-              <string/>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QHBoxLayout" name="horizontalLayout_6">
-           <item>
+           <item row="4" column="0">
             <widget class="QLabel" name="verify_label">
              <property name="minimumSize">
               <size>
@@ -299,42 +302,50 @@
              </property>
             </widget>
            </item>
-           <item>
-            <widget class="QLineEdit" name="verify_edit">
-             <property name="inputRole" stdset="0"><string notr="true">form</string></property>
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>25</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>25</height>
-              </size>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="TimerBtn" name="get_code">
-             <property name="buttonRole" stdset="0"><string notr="true">verification</string></property>
-             <property name="minimumSize">
-              <size>
-               <width>0</width>
-               <height>25</height>
-              </size>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>16777215</width>
-               <height>25</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>获取</string>
-             </property>
-            </widget>
+           <item row="4" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout_6">
+             <item>
+              <widget class="QLineEdit" name="verify_edit">
+               <property name="inputRole" stdset="0">
+                <string notr="true">form</string>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>25</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>25</height>
+                </size>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="TimerBtn" name="get_code">
+               <property name="buttonRole" stdset="0">
+                <string notr="true">verification</string>
+               </property>
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>25</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>25</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>获取</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
            </item>
           </layout>
          </item>

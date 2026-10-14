@@ -1,6 +1,6 @@
 ﻿param(
-  [ValidatePattern('^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$')][string]$Version = '0.1.5',
-  [ValidateLength(0,8000)][string]$ReleaseNotes = '修复 Windows 暗色系统下的聊天配色，保留 TLS、本地加密和备份恢复。',
+  [ValidatePattern('^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$')][string]$Version = '0.1.6',
+  [ValidateLength(0,8000)][string]$ReleaseNotes = '修复 Windows 深色模式下注册和重置密码页面文字不可见、标签裁切与输入框错位。',
   [string]$SigningConfig,
   [switch]$RequireSigning,
   [string]$BuildDirectory,

@@ -52,6 +52,19 @@ app/main.cpp
 
 ## 公共控件约定
 
+### 认证表单
+
+登录、注册和重置密码页保持白色背景，所有 `QLabel` 的默认正文色在 `pages/auth.qss`
+统一声明，成功/错误提示继续由状态规则覆盖。避免未指定前景色的标签继承 Windows
+深色系统的白色文字。参照 [Qt 样式表与调色板说明](https://doc.qt.io/qt-6/stylesheet-reference.html)。
+
+注册和重置表单复用 [Qt QFormLayout](https://doc.qt.io/qt-6/qformlayout.html)，
+由最大标签的字号和内容自动确定列宽；密码显示和验证码按钮保留在字段内的水平布局。
+不新增依赖，也不以固定 50 像素限制标签。此布局属于现有 Qt Widgets，沿用项目的 Qt 许可与版本。
+
+`client_tests` 验证浅色/深色启动及运行中切换、三种调色板状态、提示状态色、标签裁切和输入列对齐。
+截图与缩放验证产物写入 `build/`，不读取真实账号或聊天数据。
+
 ### Windows 深色模式下的消息气泡
 
 当前客户端保持 `wechat-light` 外观，不根据 Windows 应用模式切换整套界面。

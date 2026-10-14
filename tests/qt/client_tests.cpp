@@ -7,6 +7,7 @@
 #include "dialogs/discoverpage.h"
 #include "dialogs/favoritespage.h"
 #include "dialogs/logindialog.h"
+#include "dialogs/registerdialog.h"
 #include "dialogs/resetdialog.h"
 #include "widgets/capturegeometry.h"
 #include "widgets/textbubble.h"
@@ -30,6 +31,7 @@
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QStackedWidget>
+#include <QStyle>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTemporaryDir>
@@ -125,6 +127,98 @@ private slots:
     secondaryWidget.reset();
   }
   void cleanupTestCase() { store->Shutdown(); }
+  void authenticationLabelsIgnoreSystemPalette_data()
+  {
+    QTest::addColumn<bool>("startDark");
+    QTest::newRow("light-to-dark") << false;
+    QTest::newRow("dark-to-light") << true;
+  }
+  void authenticationLabelsIgnoreSystemPalette()
+  {
+    QFETCH(bool, startDark);
+    const auto previousPalette = qApp->palette();
+    const auto previousStylesheet = qApp->styleSheet();
+    const auto previousFont = qApp->font();
+    auto restoreTheme = qScopeGuard([&] {
+      qApp->setStyleSheet(previousStylesheet);
+      qApp->setPalette(previousPalette);
+      qApp->setFont(previousFont);
+    });
+    const auto systemPalette = [&](bool dark) {
+      auto palette = previousPalette;
+      palette.setColor(QPalette::Window, dark ? Qt::black : Qt::white);
+      palette.setColor(QPalette::WindowText, dark ? Qt::white : Qt::black);
+      palette.setColor(QPalette::Text, dark ? Qt::white : Qt::black);
+      return palette;
+    };
+    qApp->setPalette(systemPalette(startDark));
+    QString error;
+    QVERIFY2(ThemeManager::apply(*qApp, &error), qPrintable(error));
+    LoginDialog login;
+    RegisterDialog registration;
+    ResetDialog reset;
+    const auto verify = [&] {
+      for (QDialog *dialog : {static_cast<QDialog *>(&login), static_cast<QDialog *>(&registration),
+                              static_cast<QDialog *>(&reset)}) {
+        dialog->show();
+        QCoreApplication::processEvents();
+        for (auto *label : dialog->findChildren<QLabel *>()) {
+          if (!label->isVisible() || label->text().isEmpty() ||
+              label->objectName() == QStringLiteral("forget_label") ||
+              label->objectName() == QStringLiteral("err_tip") ||
+              label->objectName() == QStringLiteral("error_label"))
+            continue;
+          label->ensurePolished();
+          for (auto group : {QPalette::Active, QPalette::Inactive, QPalette::Disabled}) {
+            QVERIFY2(label->palette().color(group, QPalette::WindowText) == QColor("#303236"),
+                     qPrintable(dialog->objectName() + '/' + label->objectName()));
+          }
+          if (label->textFormat() == Qt::PlainText || !label->text().contains('<')) {
+            QVERIFY2(label->fontMetrics().horizontalAdvance(label->text()) <=
+                         label->contentsRect().width(),
+                     qPrintable(QStringLiteral("Clipped label: %1/%2")
+                                    .arg(dialog->objectName(), label->objectName())));
+          }
+        }
+        int inputLeft = -1;
+        for (auto *input : dialog->findChildren<QLineEdit *>()) {
+          if (!input->isVisible())
+            continue;
+          const int left = input->mapTo(dialog, QPoint()).x();
+          if (inputLeft < 0)
+            inputLeft = left;
+          QVERIFY2(left == inputLeft,
+                   qPrintable(QStringLiteral("Misaligned field: %1/%2 (%3 vs %4)")
+                                  .arg(dialog->objectName(), input->objectName())
+                                  .arg(left)
+                                  .arg(inputLeft)));
+        }
+        auto *status = dialog->findChild<QLabel *>(dialog == &reset ? "error_label" : "err_tip");
+        QVERIFY(status);
+        for (const QString &state : {QStringLiteral("normal"), QStringLiteral("err")}) {
+          status->setProperty("state", state);
+          status->setText(QStringLiteral("测试提示"));
+          status->style()->unpolish(status);
+          status->style()->polish(status);
+          QCOMPARE(status->palette().color(QPalette::WindowText),
+                   QColor(state == QStringLiteral("err") ? "#cf494e" : "#078a47"));
+        }
+        status->clear();
+        const QString artifacts = qEnvironmentVariable("CPPCHAT_TEST_ARTIFACTS");
+        if (!artifacts.isEmpty()) {
+          QDir().mkpath(artifacts);
+          dialog->grab().save(artifacts + '/' + dialog->objectName() +
+                              (startDark ? "-dark.png" : "-light.png"));
+        }
+        dialog->hide();
+      }
+    };
+    verify();
+    if (QTest::currentTestFailed())
+      return;
+    qApp->setPalette(systemPalette(!startDark));
+    verify();
+  }
   void bubbleColorsIgnoreSystemPalette_data()
   {
     QTest::addColumn<bool>("startDark");

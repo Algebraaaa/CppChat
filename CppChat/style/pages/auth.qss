@@ -14,10 +14,11 @@ QDialog#ResetDialog QLineEdit#newpsd_edit {
     lineedit-password-character: 8226;
 }
 
-QDialog#LoginDialog #user_label,
-QDialog#LoginDialog #pass_label,
-QDialog#RegisterDialog #user_label,
-QDialog#RegisterDialog #pass_label {
+/* 白色认证页面上的标题、字段、注册成功提示统一使用主题正文色。
+   Windows 系统切换深色时不能继承白色 WindowText；状态提示由下方规则覆盖。 */
+QDialog#LoginDialog QLabel,
+QDialog#RegisterDialog QLabel,
+QDialog#ResetDialog QLabel {
     color: ${color.text.body};
 }
 
