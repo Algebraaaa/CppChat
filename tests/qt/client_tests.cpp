@@ -1,3 +1,4 @@
+#include "app/thememanager.h"
 #include "common/chatstore.h"
 #include "common/conversationpreferences.h"
 #include "common/emojicatalog.h"
@@ -8,6 +9,7 @@
 #include "dialogs/logindialog.h"
 #include "dialogs/resetdialog.h"
 #include "widgets/capturegeometry.h"
+#include "widgets/textbubble.h"
 #include <QApplication>
 #include <QCryptographicHash>
 #include <QDebug>
@@ -19,6 +21,7 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPalette>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QPushButton>
@@ -31,8 +34,10 @@
 #include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTextCursor>
 #include <QTimer>
 #include <QUuid>
+#include <QVBoxLayout>
 #include <stdexcept>
 
 namespace {
@@ -120,6 +125,77 @@ private slots:
     secondaryWidget.reset();
   }
   void cleanupTestCase() { store->Shutdown(); }
+  void bubbleColorsIgnoreSystemPalette_data()
+  {
+    QTest::addColumn<bool>("startDark");
+    QTest::newRow("light-to-dark") << false;
+    QTest::newRow("dark-to-light") << true;
+  }
+  void bubbleColorsIgnoreSystemPalette()
+  {
+    QFETCH(bool, startDark);
+    const auto previousPalette = qApp->palette();
+    const auto previousStylesheet = qApp->styleSheet();
+    auto restoreTheme = qScopeGuard([&] {
+      qApp->setStyleSheet(previousStylesheet);
+      qApp->setPalette(previousPalette);
+    });
+    const auto systemPalette = [&](bool dark) {
+      auto palette = previousPalette;
+      palette.setColor(QPalette::Window, dark ? Qt::black : Qt::white);
+      palette.setColor(QPalette::Base, dark ? Qt::black : Qt::white);
+      palette.setColor(QPalette::Text, dark ? Qt::white : Qt::black);
+      palette.setColor(QPalette::WindowText, dark ? Qt::white : Qt::black);
+      palette.setColor(QPalette::Highlight, Qt::darkBlue);
+      palette.setColor(QPalette::HighlightedText, Qt::white);
+      return palette;
+    };
+    qApp->setPalette(systemPalette(startDark));
+    QString error;
+    UiTheme theme;
+    QVERIFY2(ThemeManager::load(QStringLiteral(":/style/theme.json"), &theme, &error),
+             qPrintable(error));
+    qApp->setStyleSheet(theme.stylesheet);
+    QWidget host;
+    auto *layout = new QVBoxLayout(&host);
+    const QString message = QString::fromUtf8("中文 English 123 🙂");
+    for (auto role : {ChatRole::Self, ChatRole::Other})
+      layout->addWidget(new TextBubble(role, message, &host));
+    host.show();
+    const auto verifyColors = [&] {
+      QCoreApplication::processEvents();
+      for (auto *bubble : host.findChildren<TextBubble *>()) {
+        bubble->ensurePolished();
+        const bool self = bubble->property("chatRole").toString() == QStringLiteral("self");
+        QCOMPARE(bubble->backgroundColor(), QColor(self ? "#95ec69" : "#ffffff"));
+        auto *edit = bubble->findChild<QTextEdit *>("chat_message_text");
+        QVERIFY(edit);
+        QCOMPARE(edit->toPlainText(), message);
+        for (auto group : {QPalette::Active, QPalette::Inactive, QPalette::Disabled}) {
+          QCOMPARE(edit->palette().color(group, QPalette::Text), QColor("#303236"));
+          QCOMPARE(edit->palette().color(group, QPalette::Highlight), QColor("#bde9cf"));
+          QCOMPARE(edit->palette().color(group, QPalette::HighlightedText), QColor("#202124"));
+        }
+        auto cursor = edit->textCursor();
+        cursor.select(QTextCursor::Document);
+        edit->setTextCursor(cursor);
+        QCOMPARE(cursor.selectedText(), message);
+        cursor.clearSelection();
+        edit->setTextCursor(cursor);
+      }
+    };
+    verifyColors();
+    if (QTest::currentTestFailed())
+      return;
+    // 已有消息与切换后新建的消息都应保留应用主题，而非新的系统文字颜色。
+    qApp->setPalette(systemPalette(!startDark));
+    verifyColors();
+    if (QTest::currentTestFailed())
+      return;
+    for (auto role : {ChatRole::Self, ChatRole::Other})
+      layout->addWidget(new TextBubble(role, message, &host));
+    verifyColors();
+  }
   void storagePersistenceAndCursor()
   {
     auto response = awaitStore([&](auto done) {

@@ -1,9 +1,14 @@
 #include "bubbleframe.h"
 #include <QDebug>
 #include <QPainter>
+#include <QVariant>
 const int WIDTH_SANJIAO = 8; // 三角宽
-BubbleFrame::BubbleFrame(ChatRole role, QWidget *parent) : QFrame(parent), m_role(role), m_margin(4)
+BubbleFrame::BubbleFrame(ChatRole role, QWidget *parent)
+    : QFrame(parent), m_role(role), m_margin(4),
+      m_backgroundColor(role == ChatRole::Self ? QColor(149, 236, 105) : QColor(Qt::white))
 {
+  // 用途在首次 polish 前确定；QSS 通过 backgroundColor 同时设置圆角背景和箭头。
+  setProperty("chatRole", role == ChatRole::Self ? QStringLiteral("self") : QStringLiteral("other"));
   setContextMenuPolicy(Qt::CustomContextMenu);
   connect(this, &QWidget::customContextMenuRequested, this, [this](const QPoint &position) {
     emit messageContextMenuRequested(mapToGlobal(position));
@@ -15,6 +20,19 @@ BubbleFrame::BubbleFrame(ChatRole role, QWidget *parent) : QFrame(parent), m_rol
     m_pHLayout->setContentsMargins(WIDTH_SANJIAO + m_margin, m_margin, m_margin, m_margin);
 
   this->setLayout(m_pHLayout);
+}
+
+QColor BubbleFrame::backgroundColor() const
+{
+  return m_backgroundColor;
+}
+
+void BubbleFrame::setBackgroundColor(const QColor &color)
+{
+  if (!color.isValid() || color == m_backgroundColor)
+    return;
+  m_backgroundColor = color;
+  update();
 }
 
 void BubbleFrame::setMargin(int margin)
@@ -37,11 +55,10 @@ void BubbleFrame::paintEvent(QPaintEvent *e)
   QPainter painter(this);
   painter.setRenderHint(QPainter::Antialiasing, true);
   painter.setPen(Qt::NoPen);
+  painter.setBrush(QBrush(m_backgroundColor));
 
   if (m_role == ChatRole::Other) {
     // 画气泡
-    const QColor bk_color(255, 255, 255);
-    painter.setBrush(QBrush(bk_color));
     QRect bk_rect = QRect(WIDTH_SANJIAO, 0, this->width() - WIDTH_SANJIAO, this->height());
     painter.drawRoundedRect(bk_rect, 9, 9);
     // 画小三角
@@ -52,8 +69,6 @@ void BubbleFrame::paintEvent(QPaintEvent *e)
     };
     painter.drawPolygon(points, 3);
   } else {
-    const QColor bk_color(149, 236, 105);
-    painter.setBrush(QBrush(bk_color));
     // 画气泡
     QRect bk_rect = QRect(0, 0, this->width() - WIDTH_SANJIAO, this->height());
     painter.drawRoundedRect(bk_rect, 9, 9);

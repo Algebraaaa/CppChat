@@ -6,9 +6,21 @@ QWidget {
     font-weight: ${font.weight.normal};
 }
 
+/* 气泡保持应用主题配色，不混用 Windows 深色模式的正文/选中调色板。 */
+BubbleFrame[chatRole="self"] {
+    qproperty-backgroundColor: ${color.chat.bubble.self};
+}
+
+BubbleFrame[chatRole="other"] {
+    qproperty-backgroundColor: ${color.chat.bubble.other};
+}
+
 QTextEdit#chat_message_text {
     font-size: ${font.size.message};
     font-weight: ${font.weight.normal};
+    color: ${color.text.body};
+    selection-color: ${color.text.primary};
+    selection-background-color: ${color.selection};
     background: transparent;
     border: none;
 }

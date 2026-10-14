@@ -52,6 +52,36 @@ app/main.cpp
 
 ## 公共控件约定
 
+### Windows 深色模式下的消息气泡
+
+当前客户端保持 `wechat-light` 外观，不根据 Windows 应用模式切换整套界面。
+系统使用深色模式或运行中切换浅色/深色模式时，消息气泡仍使用应用主题的完整颜色组合，
+不要求用户关闭 Windows 深色模式，也不修改 `QT_QPA_PLATFORM` 或系统设置。
+
+- `color.chat.bubble.self` / `color.chat.bubble.other` 控制发送/接收气泡背景。
+  `BubbleFrame` 的 `chatRole` 在首次 polish 前确定，QSS 的 `qproperty-backgroundColor`
+  将颜色传给自绘背景与箭头；图片气泡复用同一规则。
+- `QTextEdit#chat_message_text` 明确使用 `color.text.body` 绘制正文，
+  选中文字使用 `color.text.primary`，选中背景使用 `color.selection`。
+  正常、选中和窗口失去焦点后的文字都不依赖系统的深色正文调色板。
+- 这是系统深色模式兼容修复，不是新增 `wechat-dark` 主题；不要只修改背景或只让文字跟随系统。
+
+采用 Qt 已有的 [QSS 文字与选中颜色](https://doc.qt.io/qt-6/stylesheet-reference.html#color)
+和 [QObject 属性规则](https://doc.qt.io/qt-6/stylesheet-syntax.html#setting-qobject-properties)，
+沿用现有主题参数与 `BubbleFrame`，无需引入新依赖；所用接口兼容 Qt 6.5 和 6.12。
+
+静态回归（不编译，Python 标准库）：
+
+```powershell
+python -B -m unittest discover -s tests/unit -p test_chat_theme.py -v
+```
+
+现有 `client_tests` 增加消息气泡颜色回归，模拟浅色/深色调色板启动和运行中切换，
+检查发送/接收、普通/选中、Active/Inactive/Disabled 状态和切换后新建的气泡。
+原生测试需要用户自行启用 `CPPCHAT_BUILD_TESTS=ON` 并构建；静态通过不等于桌面渲染验收。
+发布前在 Windows 浅色/深色应用模式各检查一次中文、英文、数字、Emoji、双击选择与取消选择，
+再在客户端运行时切换应用模式，确认旧消息和新消息都清晰；不要使用 `darkmode=0` 参数验收。
+
 ### 窗口外边框
 
 主窗口和独立弹窗的外边框共用 `tokens.json` 中的 `color.border.window`
