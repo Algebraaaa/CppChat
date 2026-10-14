@@ -34,8 +34,12 @@ def require(condition, message):
 
 def mysql(query):
     result = subprocess.run(
-        ["mysql", "--batch", "--skip-column-names"], input=query,
-        text=True, capture_output=True, check=True, timeout=20,
+        ["mysql", "--batch", "--skip-column-names"],
+        input=query,
+        text=True,
+        capture_output=True,
+        check=True,
+        timeout=20,
     )
     return result.stdout.strip()
 
@@ -64,7 +68,10 @@ def managed_process(command, directory, label):
     """Own the child and its log; never stop an existing service by port/PID."""
     with (directory / (label + ".log")).open("w") as log:
         child = subprocess.Popen(
-            command, cwd=directory, stdout=log, stderr=subprocess.STDOUT,
+            command,
+            cwd=directory,
+            stdout=log,
+            stderr=subprocess.STDOUT,
         )
         try:
             yield child
@@ -111,16 +118,17 @@ class DatabaseFixture:
         )
 
     def cleanup(self):
-        require(self.schema == "mysql_recovery_" + self.suffix,
-                "Invalid test schema cleanup target")
-        require(self.user == "recovery_" + self.suffix,
-                "Invalid test user cleanup target")
-        mysql(f"DROP DATABASE IF EXISTS `{self.schema}`; "
-              f"DROP USER IF EXISTS '{self.user}'@'127.0.0.1';")
+        require(
+            self.schema == "mysql_recovery_" + self.suffix, "Invalid test schema cleanup target"
+        )
+        require(self.user == "recovery_" + self.suffix, "Invalid test user cleanup target")
+        mysql(
+            f"DROP DATABASE IF EXISTS `{self.schema}`; "
+            f"DROP USER IF EXISTS '{self.user}'@'127.0.0.1';"
+        )
 
     def block(self):
-        mysql(f"ALTER USER '{self.user}'@'127.0.0.1' "
-              f"IDENTIFIED BY '{self.blocked_password}';")
+        mysql(f"ALTER USER '{self.user}'@'127.0.0.1' IDENTIFIED BY '{self.blocked_password}';")
         identifiers = mysql(
             f"SELECT ID FROM information_schema.PROCESSLIST WHERE USER='{self.user}';"
         )
@@ -129,47 +137,69 @@ class DatabaseFixture:
             mysql(f"KILL {identifier};")
 
     def restore(self):
-        mysql(f"ALTER USER '{self.user}'@'127.0.0.1' "
-              f"IDENTIFIED BY '{self.password}';")
+        mysql(f"ALTER USER '{self.user}'@'127.0.0.1' IDENTIFIED BY '{self.password}';")
 
     def settings(self):
         return {
-            "Host": "127.0.0.1", "Port": "3306", "User": self.user,
-            "Passwd": self.password, "Schema": self.schema, "PoolSize": "1",
-            "BorrowTimeoutSeconds": "1", "ConnectTimeoutSeconds": "3",
-            "ReadTimeoutSeconds": "5", "WriteTimeoutSeconds": "5",
+            "Host": "127.0.0.1",
+            "Port": "3306",
+            "User": self.user,
+            "Passwd": self.password,
+            "Schema": self.schema,
+            "PoolSize": "1",
+            "BorrowTimeoutSeconds": "1",
+            "ConnectTimeoutSeconds": "3",
+            "ReadTimeoutSeconds": "5",
+            "WriteTimeoutSeconds": "5",
         }
 
 
 def run_pool_tests(source, work, fixture):
     write_config(work / "config.ini", {"Mysql": fixture.settings()})
     environment = dict(
-        os.environ, MYSQL_TEST_URL="tcp://127.0.0.1:3306",
-        MYSQL_TEST_USER=fixture.user, MYSQL_TEST_PASSWORD=fixture.password,
+        os.environ,
+        MYSQL_TEST_URL="tcp://127.0.0.1:3306",
+        MYSQL_TEST_USER=fixture.user,
+        MYSQL_TEST_PASSWORD=fixture.password,
         MYSQL_TEST_SCHEMA=fixture.schema,
     )
     for target in ("gate", "shared"):
         binary = work / target
         component = source / ("GateServer" if target == "gate" else "ChatServerShared")
         command = [
-            "g++", "-std=c++17", "-O0", "-pthread", "-I" + str(component),
+            "g++",
+            "-std=c++17",
+            "-O0",
+            "-pthread",
+            "-I" + str(component),
             "-I" + str(source / "ChatServerShared"),
             str(source / "tests/integration/mysql_pool_recovery.cpp"),
             str(source / "ChatServerShared/MySqlPool.cpp"),
         ]
         if target == "gate":
             command += [
-                "-DTEST_GATE_POOL", str(component / "MysqlDao.cpp"),
-                str(component / "ConfigMgr.cpp"), str(component / "Logger.cpp"),
+                "-DTEST_GATE_POOL",
+                str(component / "MysqlDao.cpp"),
+                str(component / "ConfigMgr.cpp"),
+                str(component / "Logger.cpp"),
             ]
         command += [
-            "-lmysqlcppconn", "-lssl", "-lcrypto", "-lboost_filesystem",
-            "-lboost_system", "-o", str(binary),
+            "-lmysqlcppconn",
+            "-lssl",
+            "-lcrypto",
+            "-lboost_filesystem",
+            "-lboost_system",
+            "-o",
+            str(binary),
         ]
         subprocess.run(command, check=True, timeout=120)
         child = subprocess.Popen(
-            [str(binary)], cwd=work, env=environment, text=True,
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            [str(binary)],
+            cwd=work,
+            env=environment,
+            text=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
         )
         watchdog = threading.Timer(PROCESS_TIMEOUT_SECONDS, child.kill)
@@ -180,10 +210,14 @@ def run_pool_tests(source, work, fixture):
                     action = line.strip().split(":", 1)[1]
                     require(action in ("idle", "block", "restore"), "Invalid test action")
                     if action == "idle":
-                        identifiers = mysql(f"SELECT ID FROM information_schema.PROCESSLIST WHERE USER='{fixture.user}';")
+                        identifiers = mysql(
+                            f"SELECT ID FROM information_schema.PROCESSLIST WHERE USER='{fixture.user}';"
+                        )
                         deadline = time.monotonic() + 10
                         while identifiers and time.monotonic() < deadline:
-                            identifiers = mysql(f"SELECT ID FROM information_schema.PROCESSLIST WHERE USER='{fixture.user}';")
+                            identifiers = mysql(
+                                f"SELECT ID FROM information_schema.PROCESSLIST WHERE USER='{fixture.user}';"
+                            )
                             threading.Event().wait(0.05)
                         require(not identifiers, "Idle test session did not expire")
                     else:
@@ -214,38 +248,59 @@ def run_http_tests(gate_binary, status_binary, redis_server, work, fixture):
     redis_config = redis_directory / "redis.conf"
     redis_config.write_text(
         f"bind 127.0.0.1\nport {redis_port}\nrequirepass {redis_password}\n"
-        'save ""\nappendonly no\ndaemonize no\n', encoding="utf-8",
+        'save ""\nappendonly no\ndaemonize no\n',
+        encoding="utf-8",
     )
     redis_settings = {
-        "Host": "127.0.0.1", "Port": str(redis_port),
-        "Passwd": redis_password, "PoolSize": "2",
+        "Host": "127.0.0.1",
+        "Port": str(redis_port),
+        "Passwd": redis_password,
+        "PoolSize": "2",
     }
-    write_config(status_directory / "config.ini", {
-        "StatusServer": {"Host": "127.0.0.1", "Port": str(status_port)},
-        "Redis": redis_settings,
-        "ChatServer1": {
-            "Name": "FixtureNode", "Host": "127.0.0.1", "Port": str(node_port),
-            "Enabled": "true",
+    write_config(
+        status_directory / "config.ini",
+        {
+            "StatusServer": {"Host": "127.0.0.1", "Port": str(status_port)},
+            "Redis": redis_settings,
+            "ChatServer1": {
+                "Name": "FixtureNode",
+                "Host": "127.0.0.1",
+                "Port": str(node_port),
+                "Enabled": "true",
+            },
+            "ChatServer2": {"Enabled": "false"},
         },
-        "ChatServer2": {"Enabled": "false"},
-    })
-    write_config(gate_directory / "config.ini", {
-        "GateServer": {"Host": "127.0.0.1", "Port": str(gate_port)},
-        "StatusServer": {"Host": "127.0.0.1", "Port": str(status_port)},
-        "VerifyServer": {"Host": "127.0.0.1", "Port": str(verify_port)},
-        "Redis": redis_settings, "Mysql": fixture.settings(),
-        "Business": {"Workers": "1", "IoWorkers": "1"},
-    })
+    )
+    write_config(
+        gate_directory / "config.ini",
+        {
+            "GateServer": {"Host": "127.0.0.1", "Port": str(gate_port)},
+            "StatusServer": {"Host": "127.0.0.1", "Port": str(status_port)},
+            "VerifyServer": {"Host": "127.0.0.1", "Port": str(verify_port)},
+            "Redis": redis_settings,
+            "Mysql": fixture.settings(),
+            "Business": {"Workers": "1", "IoWorkers": "1"},
+        },
+    )
 
     def redis_command(*arguments):
         result = subprocess.run(
-            ["redis-cli", "--no-auth-warning", "-h", "127.0.0.1",
-             "-p", str(redis_port), *arguments],
+            [
+                "redis-cli",
+                "--no-auth-warning",
+                "-h",
+                "127.0.0.1",
+                "-p",
+                str(redis_port),
+                *arguments,
+            ],
             env=dict(os.environ, REDISCLI_AUTH=redis_password),
-            text=True, capture_output=True, check=True, timeout=5,
+            text=True,
+            capture_output=True,
+            check=True,
+            timeout=5,
         )
-        require(not result.stdout.startswith(("ERR", "NOAUTH")),
-                "Private Redis command failed")
+        require(not result.stdout.startswith(("ERR", "NOAUTH")), "Private Redis command failed")
         return result.stdout.strip()
 
     def post(route, body):
@@ -260,34 +315,43 @@ def run_http_tests(gate_binary, status_binary, redis_server, work, fixture):
     def expect_error(route, body, expected):
         result = post(route, body)
         actual = result.get("error")
-        require(actual == expected,
-                f"{route}: expected error {expected}, received {actual}")
+        require(actual == expected, f"{route}: expected error {expected}, received {actual}")
         return result
 
     name, email = "HttpRecovery", "recovery-" + fixture.suffix + "@example.test"
     old_password, new_password = "Initial123", "Updated123"
     salt = secrets.token_hex(16)
     digest = hashlib.pbkdf2_hmac(
-        "sha256", old_password.encode(), bytes.fromhex(salt), 120000,
+        "sha256",
+        old_password.encode(),
+        bytes.fromhex(salt),
+        120000,
     ).hex()
-    mysql(f"INSERT INTO `{fixture.schema}`.users "
-          "(username, email, password_hash, password_salt, password_iterations) "
-          f"VALUES ('{name}', '{email}', '{digest}', '{salt}', 120000);")
+    mysql(
+        f"INSERT INTO `{fixture.schema}`.users "
+        "(username, email, password_hash, password_salt, password_iterations) "
+        f"VALUES ('{name}', '{email}', '{digest}', '{salt}', 120000);"
+    )
     code = f"{secrets.randbelow(1000000):06d}"
     code_key = "code_" + email
-    reset = {"user": name, "email": email,
-             "passwd": new_password, "verifycode": code}
+    reset = {"user": name, "email": email, "passwd": new_password, "verifycode": code}
 
-    with managed_process([redis_server, str(redis_config)],
-                         redis_directory, "redis") as redis_child:
-        wait_ready(redis_child, lambda: require(redis_command("PING") == "PONG",
-                                               "Private Redis is not ready"), "Redis")
+    with managed_process(
+        [redis_server, str(redis_config)], redis_directory, "redis"
+    ) as redis_child:
+        wait_ready(
+            redis_child,
+            lambda: require(redis_command("PING") == "PONG", "Private Redis is not ready"),
+            "Redis",
+        )
         health = json.dumps({"instance_id": fixture.suffix, "online": 0})
         redis_command("SET", "chat_node_FixtureNode", health, "EX", "120")
         with managed_process([str(status_binary)], status_directory, "status") as status:
+
             def status_probe():
                 with socket.create_connection(("127.0.0.1", status_port), timeout=1):
                     pass
+
             wait_ready(status, status_probe, "StatusServer")
             with managed_process([str(gate_binary)], gate_directory, "gate") as gate:
                 wrong_login = {"email": email, "passwd": "Wrong123"}
@@ -300,20 +364,30 @@ def run_http_tests(gate_binary, status_binary, redis_server, work, fixture):
                 expect_error("/user_login", {"email": email, "passwd": old_password}, 1014)
                 fixture.restore()
                 expect_error("/reset_pwd", reset, 0)
-                require(redis_command("EXISTS", code_key) == "0",
-                        "Successful reset did not consume the verification code")
+                require(
+                    redis_command("EXISTS", code_key) == "0",
+                    "Successful reset did not consume the verification code",
+                )
                 expect_error("/reset_pwd", reset, 1003)
                 expect_error("/user_login", {"email": email, "passwd": old_password}, 1009)
-                stored = mysql(f"SELECT password_hash, password_salt FROM "
-                               f"`{fixture.schema}`.users WHERE email='{email}';")
+                stored = mysql(
+                    f"SELECT password_hash, password_salt FROM "
+                    f"`{fixture.schema}`.users WHERE email='{email}';"
+                )
                 actual_hash, actual_salt = stored.split("\t")
                 calculated = hashlib.pbkdf2_hmac(
-                    "sha256", new_password.encode(), bytes.fromhex(actual_salt), 120000,
+                    "sha256",
+                    new_password.encode(),
+                    bytes.fromhex(actual_salt),
+                    120000,
                 ).hex()
                 require(calculated == actual_hash, "Updated password hash is invalid")
                 expect_error("/user_login", {"email": email, "passwd": new_password}, 0)
-                print("http PASS: isolated services, mismatch=1007, wrong password=1009, "
-                      "outage=1014, recovered reset/login=0, one-time code", flush=True)
+                print(
+                    "http PASS: isolated services, mismatch=1007, wrong password=1009, "
+                    "outage=1014, recovered reset/login=0, one-time code",
+                    flush=True,
+                )
 
 
 def main():
@@ -339,12 +413,19 @@ def main():
             work = Path(directory)
             run_pool_tests(args.source, work, fixture)
             if args.gate_binary:
-                run_http_tests(args.gate_binary.resolve(), args.status_binary.resolve(),
-                               args.redis_server, work, fixture)
+                run_http_tests(
+                    args.gate_binary.resolve(),
+                    args.status_binary.resolve(),
+                    args.redis_server,
+                    work,
+                    fixture,
+                )
     finally:
         fixture.cleanup()
-        print("Private test services and database/user removed; "
-              "production accounts/cache unchanged.", flush=True)
+        print(
+            "Private test services and database/user removed; production accounts/cache unchanged.",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":

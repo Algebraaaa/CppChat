@@ -53,8 +53,12 @@ class PublishTests(unittest.TestCase):
 
     def publish(self):
         deploy.publish(
-            self.incoming, "0.1.1", root=self.root, site=self.site,
-            snippet=self.snippet, backups=self.directory / "backups",
+            self.incoming,
+            "0.1.1",
+            root=self.root,
+            site=self.site,
+            snippet=self.snippet,
+            backups=self.directory / "backups",
         )
 
     def test_installer_precedes_latest_and_staging_is_cleaned(self):
@@ -62,7 +66,9 @@ class PublishTests(unittest.TestCase):
             if command == ["nginx", "-t"]:
                 self.assertEqual(self.latest.read_bytes(), self.original_latest)
             if command == ["systemctl", "reload", "nginx"]:
-                self.assertEqual((self.destination / self.installer_name).read_bytes(), self.installer)
+                self.assertEqual(
+                    (self.destination / self.installer_name).read_bytes(), self.installer
+                )
                 self.assertEqual(json.loads(self.latest.read_bytes()), self.manifest)
 
         with patch.object(deploy.subprocess, "run", side_effect=run) as process:
