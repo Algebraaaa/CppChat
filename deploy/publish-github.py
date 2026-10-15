@@ -21,7 +21,9 @@ def release_api(repo, tag):
         if str(value.get("status")) != "404":
             raise RuntimeError("GitHub release lookup failed")
         # The tag endpoint omits drafts. A push-authorized release listing includes them.
-        drafts = gh("api", f"repos/{repo}/releases?per_page=100", "--paginate", "--slurp")
+        drafts = gh(
+            "api", f"repos/{repo}/releases?per_page=100", "--paginate", "--slurp"
+        )
         if drafts.returncode:
             raise RuntimeError("GitHub draft release lookup failed")
         matches = [
@@ -44,7 +46,9 @@ def wait_for_release(repo, tag, published=False):
         release = release_api(repo, tag)
         if release is not None and (not published or not release["draft"]):
             return release
-    raise RuntimeError("GitHub release did not become visible within the bounded retry window")
+    raise RuntimeError(
+        "GitHub release did not become visible within the bounded retry window"
+    )
 
 
 def publish(repo, tag, version, assets):
@@ -54,7 +58,7 @@ def publish(repo, tag, version, assets):
         or not re.fullmatch(r"[\w.-]+/[\w.-]+", repo)
     ):
         raise ValueError("Invalid repository or release version")
-    verify_update(assets, version)
+    update = verify_update(assets, version)
     names = [
         f"CppChat-Setup-{version}-x64.exe",
         f"CppChat-Setup-{version}-x64.exe.sha256",
@@ -71,7 +75,7 @@ def publish(repo, tag, version, assets):
     if release is None:
         notes = assets.parent / "release-notes.md"
         notes.write_text(
-            f"CppChat {version}\n\nWindows x64 安装包，包含聊天、Windows 系统配色适配、HTTPS/TLS、本地数据加密和备份恢复。\n\n"
+            f"CppChat {version}\n\n{update.get('notes', '')}\n\n"
             "安装包当前未进行代码签名。换电脑或重置 Windows 前，请先导出恢复密钥并保存恢复密码。\n\n"
             "EXE 为用户安装包；Linux tar.gz 为服务端发布产物。SHA256 文件用于核对下载完整性。\n",
             encoding="utf-8",
@@ -119,14 +123,21 @@ def publish(repo, tag, version, assets):
                 )
                 digest = "sha256:" + sha256(download / name)
             if digest != "sha256:" + sha256(local):
-                raise ValueError("Published asset differs; bump the version instead of overwriting")
+                raise ValueError(
+                    "Published asset differs; bump the version instead of overwriting"
+                )
         else:
             if not release["draft"]:
-                raise ValueError("Published release is incomplete; a new version is required")
-            subprocess.run(["gh", "release", "upload", tag, str(local), "--repo", repo], check=True)
+                raise ValueError(
+                    "Published release is incomplete; a new version is required"
+                )
+            subprocess.run(
+                ["gh", "release", "upload", tag, str(local), "--repo", repo], check=True
+            )
     if release["draft"]:
         subprocess.run(
-            ["gh", "release", "edit", tag, "--repo", repo, "--draft=false", "--latest"], check=True
+            ["gh", "release", "edit", tag, "--repo", repo, "--draft=false", "--latest"],
+            check=True,
         )
     final = wait_for_release(repo, tag, published=True)
     if final["draft"] or sorted(a["name"] for a in final["assets"]) != sorted(names):

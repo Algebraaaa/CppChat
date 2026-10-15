@@ -139,6 +139,15 @@ ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog
   connect(ui->conversation_section->Chat(), &ChatPage::sig_reload_local, _sync,
           &ChatSyncService::LoadLocalMessages);
   const auto tcp = TcpMgr::GetInstance();
+  connect(tcp.get(), &TcpMgr::sig_contact_tags_updated, this, [this](int uid) {
+    RefreshContacts();
+    const auto thread = UserMgr::GetInstance()->GetChatThreadByUid(uid);
+    if (!thread)
+      return;
+    UpdateChatItem(thread->GetThreadId(), false);
+    if (_currentThread == thread->GetThreadId())
+      ui->conversation_section->Chat()->SetChatData(thread);
+  });
   connect(tcp.get(), &TcpMgr::sig_request_failed, this, &ChatDialog::RequestFailed);
   connect(_sync, &ChatSyncService::conversationsChanged, this,
           &ChatDialog::RefreshConversationList);

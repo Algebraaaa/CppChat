@@ -359,7 +359,8 @@ int MysqlDao::GetFriendMetadata(int self_uid, int friend_uid, std::string &back,
   }
 }
 
-int MysqlDao::SetContactTags(int self_uid, int friend_uid, const std::string &tags_json)
+int MysqlDao::SetContactTags(int self_uid, int friend_uid, const std::string &tags_json,
+                             const std::string *back)
 {
   if (self_uid <= 0 || friend_uid <= 0 || self_uid == friend_uid)
     return ErrorCodes::UidInvalid;
@@ -379,10 +380,14 @@ int MysqlDao::SetContactTags(int self_uid, int friend_uid, const std::string &ta
     if (!result->next())
       return ErrorCodes::FriendNotFound;
     std::unique_ptr<sql::PreparedStatement> statement(connection.Get()->prepareStatement(
-        "UPDATE friend SET tags = ? WHERE self_id = ? AND friend_id = ?"));
+        back ? "UPDATE friend SET tags = ?, back = ? WHERE self_id = ? AND friend_id = ?"
+             : "UPDATE friend SET tags = ? WHERE self_id = ? AND friend_id = ?"));
     statement->setString(1, tags_json);
-    statement->setInt(2, self_uid);
-    statement->setInt(3, friend_uid);
+    int parameter = 2;
+    if (back)
+      statement->setString(parameter++, *back);
+    statement->setInt(parameter++, self_uid);
+    statement->setInt(parameter, friend_uid);
     statement->executeUpdate(); // Zero affected rows also means an unchanged
                                 // value was saved.
     transaction.Commit();

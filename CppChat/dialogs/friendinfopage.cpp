@@ -28,12 +28,14 @@ FriendInfoPage::FriendInfoPage(QWidget *parent)
   // 透明无框窗口让 QSS 圆角生效，同时去掉 Windows 的方形菜单框和硬阴影。
   menu->setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
   menu->setAttribute(Qt::WA_TranslucentBackground);
-  for (const auto &title : {tr("设置备注"), tr("设为星标朋友"), tr("朋友权限")}) {
+  for (const auto &title : {tr("设为星标朋友"), tr("朋友权限")}) {
     auto *action = menu->addAction(title);
     connect(action, &QAction::triggered, this,
             [this, title] { emit sig_show_placeholder(title, tr("%1功能暂未开放").arg(title)); });
   }
-  auto *tagsAction = menu->addAction(tr("设置标签"));
+  auto *tagsAction = new QAction(tr("设置备注和标签"), menu);
+  menu->insertAction(menu->actions().first(), tagsAction);
+  tagsAction->setObjectName("edit_contact_metadata_action");
   connect(tagsAction, &QAction::triggered, this, [this] {
     if (!_user_info || _deletingUid != 0)
       return;

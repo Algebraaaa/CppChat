@@ -16,7 +16,13 @@ def test_client_startup_configuration_and_exit(tmp_path, mode):
     data, logs = tmp_path / "data", tmp_path / "logs"
     configuration = tmp_path / "config.ini"
     if mode == "invalid":
-        configuration.write_text("[GateServer]\nhost=127.0.0.1\nport=70000\n", encoding="utf-8")
+        # Keep transport valid so this case specifically exercises the invalid port,
+        # including Release builds that reject insecure transport with a modal dialog.
+        configuration.write_text(
+            "[GateServer]\nhost=127.0.0.1\nport=70000\nscheme=https\n"
+            "[ChatServer]\ntls=true\n[ResourceServer]\ntls=true\n",
+            encoding="utf-8",
+        )
     command = (
         [str(binary.resolve()), "--help"]
         if mode == "help"

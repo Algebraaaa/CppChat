@@ -1,6 +1,6 @@
 ﻿param(
-  [ValidatePattern('^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$')][string]$Version = '0.1.6',
-  [ValidateLength(0,8000)][string]$ReleaseNotes = '修复 Windows 深色模式下注册和重置密码页面文字不可见、标签裁切与输入框错位。',
+  [ValidatePattern('^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$')][string]$Version = '0.1.7',
+  [ValidateLength(0,8000)][string]$ReleaseNotes = '',
   [string]$SigningConfig,
   [switch]$RequireSigning,
   [string]$BuildDirectory,
@@ -12,6 +12,9 @@
 $ErrorActionPreference = 'Stop'
 $clientRoot = Split-Path $PSScriptRoot -Parent
 $repositoryRoot = Split-Path $clientRoot -Parent
+. (Join-Path $PSScriptRoot 'release-history.ps1')
+$releaseInfo = Get-CppChatReleaseInfo -HistoryFile (Join-Path $clientRoot 'Resources\release-history.json') -Version $Version -CurrentNotes $ReleaseNotes
+$ReleaseNotes = $releaseInfo.notes
 if (-not $SigningConfig -and (Test-Path (Join-Path $repositoryRoot '.runtime\code-signing.json'))) {
   $SigningConfig = Join-Path $repositoryRoot '.runtime\code-signing.json'
 }
@@ -140,6 +143,7 @@ try {
   Copy-Item -LiteralPath (Join-Path $clientRoot 'packaging\encrypted-sqlite-notices.txt') -Destination $cipherSources
   Copy-Item -LiteralPath (Join-Path $repositoryRoot 'LICENSE') -Destination (Join-Path $licenses 'CppChat-MIT.txt')
   Copy-Item -LiteralPath (Join-Path $clientRoot 'third_party\spdlog\LICENSE') -Destination (Join-Path $licenses 'spdlog-MIT.txt')
+  Copy-Item -LiteralPath (Join-Path $clientRoot 'third_party\pinyin-data\LICENSE') -Destination (Join-Path $licenses 'pinyin-data-MIT.txt')
   Copy-Item -LiteralPath (Join-Path $clientRoot 'Resources\icons\LICENSE.txt') -Destination (Join-Path $licenses 'Lucide-ISC.txt')
   foreach ($file in @('OFL.txt','SourceHanSans-LICENSE.txt')) {
     Copy-Item -LiteralPath (Join-Path $clientRoot "Resources\fonts\$file") -Destination $licenses
@@ -178,7 +182,7 @@ try {
   $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
   if ($SigningConfig -and (Get-AuthenticodeSignature -LiteralPath $installer).Status -ne 'Valid') { throw 'Installer signature verification failed.' }
   "$hash  $([IO.Path]::GetFileName($installer))" | Set-Content -LiteralPath "$installer.sha256" -Encoding ASCII
-  $updateManifest = [ordered]@{version=$Version; notes=$ReleaseNotes;
+  $updateManifest = [ordered]@{version=$Version; notes=$ReleaseNotes; history=$releaseInfo.history;
     downloadUrl="./$([IO.Path]::GetFileName($installer))"; sha256=$hash;
     size=(Get-Item -LiteralPath $installer).Length}
   $manifestJson = $updateManifest | ConvertTo-Json -Depth 3

@@ -1,4 +1,5 @@
 #include "contactuserlist.h"
+#include "common/contactnames.h"
 #include "network/usermgr.h"
 #include <QCollator>
 #include <QPainter>
@@ -33,11 +34,7 @@ QString contactName(const std::shared_ptr<UserInfo> &user)
   return user->_back.trimmed().isEmpty() ? user->_name : user->_back;
 }
 
-QString contactInitial(const QString &name)
-{
-  const QChar first = name.trimmed().isEmpty() ? QChar() : name.trimmed().front().toUpper();
-  return first >= QLatin1Char('A') && first <= QLatin1Char('Z') ? QString(first) : QString("#");
-}
+QString contactInitial(const QString &name) { return ContactNames::initial(name); }
 
 // 委托只绘制可见行，避免每个联系人都创建 QWidget；整行选中、缩略头像和省略文字统一绘制。
 class ContactDelegate : public QStyledItemDelegate {
@@ -211,7 +208,7 @@ void ContactUserList::Reload(bool preserveSelection)
   friends.erase(std::remove_if(friends.begin(), friends.end(),
                                [](const auto &user) { return !user || user->_uid <= 0; }),
                 friends.end());
-  QCollator collator;
+  QCollator collator(QLocale(QLocale::Chinese, QLocale::China));
   collator.setCaseSensitivity(Qt::CaseInsensitive);
   collator.setNumericMode(true);
   std::stable_sort(friends.begin(), friends.end(), [&collator](const auto &a, const auto &b) {

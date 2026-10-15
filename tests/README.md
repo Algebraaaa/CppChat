@@ -2,6 +2,10 @@
 
 统一入口：`python tests/run.py --suite smoke|full|nightly|release`。业务构建默认关闭测试；测试不会读取 `.runtime`、开发配置或生产数据。所有 SQL 仍在 `database/`，测试只引用脚本。
 
+`client.features` 覆盖拼音分组、备注优先/清除、真实回环 HTTP/TCP 登录与备注保存、Windows DPAPI 凭据隔离/防篡改、成功登录后保存、取消、密码失效和退出清除；非 Windows 验证禁止密码落盘。
+`client.updates` 另覆盖无新版本时仍展示历史及结构化历史校验。打包历史通过
+`tests/packaging/test_release_history.ps1 -Artifacts build/release-history-tests` 验证，已接入 Windows CI。
+
 首次准备 Python 3.12+ 虚拟环境和锁定依赖：
 
 ```powershell

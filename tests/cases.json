@@ -634,5 +634,53 @@
     "data_changes": "只有对应测试用户的预期关系、会话和消息记录",
     "cleanup": "fixture 和外层审计清理全部当轮状态",
     "implemented": true
+  },
+  {
+    "id": "CONTACT-PINYIN",
+    "domain": "联系人拼音分组",
+    "kind": "automated",
+    "automation": "qt/client_features_tests.cpp",
+    "preconditions": "隔离测试数据和回环服务，不使用真实账号",
+    "inputs": "简繁中文、扩展汉字、混合名称和备注变化",
+    "expected": "按首选读音分组，备注变化后重新分组",
+    "data_changes": "仅本轮临时账号与测试目录",
+    "cleanup": "fixture / QTemporaryDir / RAII 回收",
+    "implemented": true
+  },
+  {
+    "id": "CONTACT-REMARK",
+    "domain": "联系人备注",
+    "kind": "automated",
+    "automation": "integration/test_journey.py",
+    "preconditions": "隔离测试数据和回环服务，不使用真实账号",
+    "inputs": "设置、清空、超长、旧客户端标签更新和双向好友",
+    "expected": "只修改当前账号的备注，重新查询保留，旧客户端不覆盖",
+    "data_changes": "仅本轮临时账号与测试目录",
+    "cleanup": "fixture / QTemporaryDir / RAII 回收",
+    "implemented": true
+  },
+  {
+    "id": "AUTH-AUTOLOGIN",
+    "domain": "本机安全自动登录",
+    "kind": "automated",
+    "automation": "qt/client_features_tests.cpp",
+    "preconditions": "隔离测试数据和回环服务，不使用真实账号",
+    "inputs": "Windows 登录、重启、取消、关闭选项、密码失效、退出",
+    "expected": "认证成功后加密保存并单次自动认证；退出清除；非 Windows 禁止落盘",
+    "data_changes": "仅本轮临时账号与测试目录",
+    "cleanup": "fixture / QTemporaryDir / RAII 回收",
+    "implemented": true
+  },
+  {
+    "id": "UPDATE-HISTORY",
+    "domain": "历史更新信息",
+    "kind": "automated",
+    "automation": "qt/update_tests.cpp",
+    "preconditions": "隔离测试数据和回环服务，不使用真实账号",
+    "inputs": "最新版本、无更新、旧清单、历史格式和重复版本",
+    "expected": "完整历史按版本排序显示；旧清单兼容，非法历史被拒绝",
+    "data_changes": "仅本轮临时账号与测试目录",
+    "cleanup": "fixture / QTemporaryDir / RAII 回收",
+    "implemented": true
   }
 ]

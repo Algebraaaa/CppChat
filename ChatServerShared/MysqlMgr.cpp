@@ -109,7 +109,8 @@ int MysqlMgr::GetFriendMetadata(int self_uid, int friend_uid, std::string &back,
   return _dao.GetFriendMetadata(self_uid, friend_uid, back, tags_json);
 }
 
-int MysqlMgr::SetContactTags(int self_uid, int friend_uid, const std::string &tags_json)
+int MysqlMgr::SetContactTags(int self_uid, int friend_uid, const std::string &tags_json,
+                             const std::string *back)
 {
-  return _dao.SetContactTags(self_uid, friend_uid, tags_json);
+  return _dao.SetContactTags(self_uid, friend_uid, tags_json, back);
 }

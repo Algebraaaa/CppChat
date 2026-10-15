@@ -1,6 +1,8 @@
 find_package(Qt6 REQUIRED COMPONENTS Test)
 qt_add_executable(client_tests client_tests.cpp)
 target_link_libraries(client_tests PRIVATE CppChatCore Qt6::Test)
+qt_add_executable(client_features_tests client_features_tests.cpp)
+target_link_libraries(client_features_tests PRIVATE CppChatCore Qt6::Test)
 qt_add_executable(tls_probe tls_probe.cpp)
 target_link_libraries(tls_probe PRIVATE CppChatCore)
 qt_add_executable(package_probe package_probe.cpp)
@@ -13,7 +15,7 @@ qt_add_executable(security_tests security_tests.cpp)
 target_link_libraries(security_tests PRIVATE CppChatCore Qt6::Test)
 qt_add_executable(security_store_probe security_store_probe.cpp)
 target_link_libraries(security_store_probe PRIVATE CppChatCore)
-foreach(target client_tests tls_probe package_probe update_tests update_probe security_tests security_store_probe)
+foreach(target client_tests client_features_tests tls_probe package_probe update_tests update_probe security_tests security_store_probe)
   target_sources(${target} PRIVATE "${repository_root}/CppChat/common/securitypolicy.cpp")
   add_dependencies(${target} CppChatSqliteCipher)
   add_custom_command(TARGET ${target} POST_BUILD
@@ -23,6 +25,9 @@ foreach(target client_tests tls_probe package_probe update_tests update_probe se
 endforeach()
 # Only the isolated legacy login fixtures use plaintext localhost transport.
 target_compile_definitions(client_tests PRIVATE CPPCHAT_DEVELOPMENT_TRANSPORT)
+target_compile_definitions(client_features_tests PRIVATE CPPCHAT_DEVELOPMENT_TRANSPORT)
+add_test(NAME client.features COMMAND client_features_tests -o "${CMAKE_BINARY_DIR}/features-junit.xml,junitxml")
+set_tests_properties(client.features PROPERTIES TIMEOUT 60 LABELS "qt;contacts;authentication")
 if(WIN32)
   add_executable(installer_handoff_probe WIN32 installer_handoff_probe.cpp)
   target_link_libraries(installer_handoff_probe PRIVATE shell32)
@@ -41,8 +46,8 @@ add_test(NAME client.regression COMMAND client_tests
 set_tests_properties(client.regression PROPERTIES TIMEOUT 90 LABELS "qt;smoke")
 if(WIN32)
   get_filename_component(qt_test_bin "${Qt6_DIR}/../../../bin" ABSOLUTE)
-  set_tests_properties(client.regression client.updates client.security PROPERTIES ENVIRONMENT_MODIFICATION
+  set_tests_properties(client.regression client.features client.updates client.security PROPERTIES ENVIRONMENT_MODIFICATION
     "PATH=path_list_prepend:${qt_test_bin}")
 else()
-  set_tests_properties(client.regression client.updates client.security PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+  set_tests_properties(client.regression client.features client.updates client.security PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()

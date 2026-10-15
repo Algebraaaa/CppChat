@@ -672,13 +672,18 @@ void LogicSystem::SetContactTags(std::shared_ptr<CSession> session, short,
     return;
   }
   response["request_id"] = request.get("request_id", "");
-  if (!request["friend_uid"].isInt() || !NormalizeContactTags(request["tags"], tags)) {
+  if (!request["friend_uid"].isInt() || !NormalizeContactTags(request["tags"], tags) ||
+      (request.isMember("back") && !ValidContactRemark(request["back"]))) {
     response["error"] = ErrorCodes::Error_Json;
     return;
   }
   response["friend_uid"] = request["friend_uid"];
-  response["error"] = FriendService::SetTags(session->GetUserId(), request["friend_uid"].asInt(),
-                                             request["tags"], tags);
-  if (response["error"].asInt() == ErrorCodes::Success)
+  response["error"] =
+      FriendService::SetTags(session->GetUserId(), request["friend_uid"].asInt(), request["tags"],
+                             tags, request.get("back", Json::Value()));
+  if (response["error"].asInt() == ErrorCodes::Success) {
     response["tags"] = tags;
+    if (request.isMember("back"))
+      response["back"] = request["back"];
+  }
 }

@@ -55,6 +55,19 @@ TEST(ContactTags, NormalizeDeduplicateAndRejectControls)
   EXPECT_FALSE(NormalizeContactTags(input, result));
   EXPECT_FALSE(NormalizeContactTags(Json::Value(12), result));
 }
+TEST(ContactRemarks, CharacterLimitClearingAndControlBoundaries)
+{
+  EXPECT_TRUE(ValidContactRemark(Json::Value("")));
+  EXPECT_TRUE(ValidContactRemark(Json::Value(std::string(64, 'a'))));
+  EXPECT_FALSE(ValidContactRemark(Json::Value(std::string(65, 'a'))));
+  std::string chinese;
+  for (int i = 0; i < 64; ++i)
+    chinese += "中";
+  EXPECT_TRUE(ValidContactRemark(Json::Value(chinese)));
+  EXPECT_FALSE(ValidContactRemark(Json::Value(chinese + "中")));
+  EXPECT_FALSE(ValidContactRemark(Json::Value("a\nb")));
+  EXPECT_FALSE(ValidContactRemark(Json::Value(123)));
+}
 TEST(BusinessExecutor, SameConnectionFifoAndExceptionIsolation)
 {
   BusinessExecutor executor(2, 32);

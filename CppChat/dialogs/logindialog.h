@@ -11,6 +11,8 @@ namespace Ui {
 class LoginDialog;
 }
 class FormFeedback;
+class QCheckBox;
+class QPushButton;
 
 class LoginDialog : public QDialog {
   Q_OBJECT
@@ -18,13 +20,22 @@ class LoginDialog : public QDialog {
 public:
   explicit LoginDialog(QWidget *parent = nullptr);
   ~LoginDialog();
-  void ResetForLogin(const QString &message = {});
+  void ResetForLogin(const QString &message = {}, bool forgetSaved = false);
+  void TryAutoLogin();
+  bool ForgetAutoLogin();
 
 private:
   void initHttpHandlers();
   void initHead();
   Ui::LoginDialog *ui;
   FormFeedback *_feedback = nullptr;
+  QCheckBox *_autoLogin = nullptr;
+  QPushButton *_cancelAutoLogin = nullptr;
+  bool _pending = false;
+  bool _automatic = false;
+  bool _autoAttempted = false;
+  QString _pendingEmail;
+  QString _pendingPassword;
   QMap<ReqId, std::function<void(const QJsonObject &)>> _handlers;
   void showTip(QString str, bool b_ok);
   bool enableBtn(bool enabled);

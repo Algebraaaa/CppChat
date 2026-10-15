@@ -11,8 +11,19 @@ HttpMgr::~HttpMgr() {}
 
 HttpMgr::HttpMgr() { connect(this, &HttpMgr::sig_http_finish, this, &HttpMgr::slot_http_finish); }
 
+void HttpMgr::CancelRequest(ReqId id, Modules module)
+{
+  const auto reply = _replies.take({static_cast<int>(module), static_cast<int>(id)});
+  if (reply) {
+    QObject::disconnect(reply, nullptr, nullptr, nullptr);
+    reply->abort();
+    reply->deleteLater();
+  }
+}
+
 void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
 {
+  CancelRequest(req_id, mod);
   if (!SecurityPolicy::transportAllowed(url)) {
     qWarning() << "Refusing insecure HTTP request";
     emit sig_http_finish(req_id, {}, ErrorCodes::NetworkError, mod);
@@ -25,6 +36,7 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
 
   QByteArray data = QJsonDocument(json).toJson(); // ① 把 JSON 对象转成能发送的字节
   QNetworkRequest request(url);                   // ② 创建一个"请求",指定发到哪个网址
+  request.setTransferTimeout(15000);
   request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                        QNetworkRequest::SameOriginRedirectPolicy);
   // 第一行想说"我发的是 JSON 格式
@@ -36,6 +48,8 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
                                   // 在这里它指向的就是那个全局唯一的 HttpMgr 实例
   // ⑤ 让快递员真正把请求发出去
   QNetworkReply *reply = _manager.post(request, data);
+  const QPair<int, int> key{static_cast<int>(mod), static_cast<int>(req_id)};
+  _replies.insert(key, reply);
   QObject::connect(reply, &QNetworkReply::sslErrors, reply,
                    [reply](const QList<QSslError> &errors) {
                      for (const auto &error : errors)
@@ -44,7 +58,8 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
                    });
   // ⑥ 约定"回信到了"时干什么
   // lambda为什么不捕获this？等回信期间对象若被销毁，this 变野指针，emit this->... 崩溃
-  QObject::connect(reply, &QNetworkReply::finished, [self, reply, req_id, mod]() {
+  QObject::connect(reply, &QNetworkReply::finished, [self, reply, req_id, mod, key]() {
+    self->_replies.remove(key);
     if (reply->error() != QNetworkReply::NoError) { // 出错了
       qWarning() << "HTTP request failed:"
                  << "reqId:" << static_cast<int>(req_id) << "module:" << static_cast<int>(mod)

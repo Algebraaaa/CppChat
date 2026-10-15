@@ -280,7 +280,16 @@ def main():
                     "reason": f"Requested {args.configuration}, actual single-config build is {actual or 'missing'}",
                 }
             )
-    for previous in (args.server_build / "core-junit.xml", args.qt_build / "client-junit.xml"):
+    qt_reports = (
+        "client-junit.xml",
+        "features-junit.xml",
+        "updates-junit.xml",
+        "security-junit.xml",
+    )
+    for previous in (
+        args.server_build / "core-junit.xml",
+        *(args.qt_build / name for name in qt_reports),
+    ):
         if previous.is_file():
             previous.unlink()
     stages.append(
@@ -322,6 +331,9 @@ def main():
     for source, name in (
         (args.server_build / "core-junit.xml", "cpp-junit.xml"),
         (args.qt_build / "client-junit.xml", "qt-junit.xml"),
+        (args.qt_build / "features-junit.xml", "features-junit.xml"),
+        (args.qt_build / "updates-junit.xml", "updates-junit.xml"),
+        (args.qt_build / "security-junit.xml", "security-junit.xml"),
     ):
         if source.exists():
             shutil.copy2(source, directory / name)

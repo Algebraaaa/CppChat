@@ -27,6 +27,7 @@ ApplyFriend::ApplyFriend(QWidget *parent) : QDialog(parent), ui(new Ui::ApplyFri
   ui->name_ed->setPlaceholderText(tr("我是 %1").arg(UserMgr::GetInstance()->GetName()));
   ui->lb_ed->setPlaceholderText("搜索、添加标签");
   ui->back_ed->setPlaceholderText(tr("好友备注"));
+  ui->back_ed->setMaxLength(64);
 
   ui->lb_ed->SetMaxLength(21);
   ui->lb_ed->setFixedHeight(28);
@@ -55,6 +56,14 @@ ApplyFriend::ApplyFriend(QWidget *parent) : QDialog(parent), ui(new Ui::ApplyFri
   connect(tcp.get(), &TcpMgr::sig_contact_tags_updated, this, [this](int uid) {
     if (_pending && _contactInfo && uid == _contactInfo->_uid) {
       _pending = false;
+      if (_contactInfo->_back != ui->back_ed->text().trimmed()) {
+        ui->sure_btn->setEnabled(true);
+        ui->close_btn->setEnabled(true);
+        ui->apply_wid->setEnabled(true);
+        QMessageBox::warning(this, tr("备注未保存"),
+                             tr("服务器未确认备注修改，请更新服务器后重试"));
+        return;
+      }
       accept();
     }
   });
@@ -370,11 +379,10 @@ ReqId ApplyFriend::requestId() const
 void ApplyFriend::SetContactInfo(std::shared_ptr<UserInfo> info)
 {
   _contactInfo = info;
-  ui->apply_lb->setText(tr("设置联系人标签"));
+  ui->apply_lb->setText(tr("设置备注和标签"));
   ui->name_ed->hide();
-  ui->back_ed->hide();
+  ui->back_ed->setText(info ? info->_back : QString());
   ui->label->hide();
-  ui->label_2->hide();
   ui->sure_btn->setText(tr("保存"));
   if (info) {
     for (const auto &tag : info->_tags)
@@ -403,7 +411,7 @@ void ApplyFriend::on_sure_btn_clicked()
   const QString back = ui->back_ed->text().trimmed();
   const ReqId id = requestId();
   if (_contactInfo) {
-    request = {{"friend_uid", target}};
+    request = {{"friend_uid", target}, {"back", back}};
   } else if (_applyInfo) {
     request = {{"fromuid", uid}, {"touid", target}, {"back", back}};
   } else {

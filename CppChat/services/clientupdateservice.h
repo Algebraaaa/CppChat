@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QCryptographicHash>
+#include <QMap>
 #include <QNetworkAccessManager>
 #include <QPointer>
 #include <QTimer>
@@ -14,6 +15,7 @@ class QNetworkReply;
 struct ClientUpdateInfo {
   QString version;
   QString notes;
+  QMap<QString, QString> history;
   QUrl downloadUrl;
   QByteArray sha256;
   qint64 size = 0;
@@ -32,6 +34,7 @@ public:
   bool busy() const { return _state == State::Checking || _state == State::Downloading; }
   const ClientUpdateInfo &info() const { return _info; }
   QString currentVersion() const { return _currentVersion; }
+  QString releaseNotes() const;
   void check();
   void download();
   void cancel();

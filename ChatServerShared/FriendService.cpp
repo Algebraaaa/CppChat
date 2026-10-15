@@ -141,13 +141,16 @@ int FriendService::Delete(int uid, int other)
   return ErrorCodes::Success;
 }
 
-int FriendService::SetTags(int uid, int other, const Json::Value &input, Json::Value &tags)
+int FriendService::SetTags(int uid, int other, const Json::Value &input, Json::Value &tags,
+                           const Json::Value &remark)
 {
   if (uid <= 0 || other <= 0 || uid == other)
     return ErrorCodes::UidInvalid;
-  if (!NormalizeContactTags(input, tags))
+  if (!NormalizeContactTags(input, tags) || (!remark.isNull() && !ValidContactRemark(remark)))
     return ErrorCodes::Error_Json;
-  return MysqlMgr::GetInstance()->SetContactTags(uid, other, SerializeContactTags(tags));
+  const auto back = remark.isNull() ? std::string() : remark.asString();
+  return MysqlMgr::GetInstance()->SetContactTags(uid, other, SerializeContactTags(tags),
+                                                 remark.isNull() ? nullptr : &back);
 }
 bool FriendService::List(int uid, std::vector<std::shared_ptr<UserInfo>> &friends)
 {

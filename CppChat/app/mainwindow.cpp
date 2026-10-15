@@ -16,6 +16,7 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QStackedWidget>
+#include <QTimer>
 #include <QWindow>
 
 #ifdef Q_OS_WIN
@@ -58,11 +59,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     _pages->setCurrentWidget(_chatDialog);
   });
   connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_notify_offline, this,
-          [this]() { returnToLogin(tr("该账号已在其他设备登录，请重新登录")); });
+          [this]() { returnToLogin(tr("该账号已在其他设备登录，请重新登录"), true); });
   connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_connection_closed, this,
           [this]() { returnToLogin(tr("聊天连接已断开，请重新登录")); });
   connect(_chatDialog, &ChatDialog::sig_logout, this,
-          [this]() { returnToLogin(tr("已退出登录")); });
+          [this]() { returnToLogin(tr("已退出登录"), true); });
+  QTimer::singleShot(0, this, [this] {
+    if (_pages->currentWidget() == _loginDialog)
+      _loginDialog->TryAutoLogin();
+  });
 
 #ifdef Q_OS_WIN
   // 创建 Windows 窗口句柄 HWND，再设置样式和圆角；此处不会显示窗口。
@@ -483,11 +488,11 @@ void MainWindow::updateResizeCursor(Qt::Edges edges)
   }
 }
 
-void MainWindow::returnToLogin(const QString &message)
+void MainWindow::returnToLogin(const QString &message, bool forgetSaved)
 {
   TcpMgr::GetInstance()->CloseConnection();
   _pages->setCurrentWidget(_loginDialog);
   UserMgr::GetInstance()->Reset();
   _chatDialog->ResetSession();
-  _loginDialog->ResetForLogin(message);
+  _loginDialog->ResetForLogin(message, forgetSaved);
 }

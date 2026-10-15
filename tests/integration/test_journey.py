@@ -151,6 +151,7 @@ def test_uuid_dedup_conflict_and_pagination(cluster, pair):
 
 
 @pytest.mark.feature("USER-PROFILE")
+@pytest.mark.feature("CONTACT-REMARK")
 def test_search_profile_avatar_tags_and_owner_isolation(cluster, pair):
     first, second, a, b, thread = pair
     with cluster.sql() as db:
@@ -181,8 +182,27 @@ def test_search_profile_avatar_tags_and_owner_isolation(cluster, pair):
     require(
         tags.get("error") == 0 and tags.get("tags") == ["work", "中文"], "Tags normalization failed"
     )
+    remark = a.request(1038, {"friend_uid": second["uid"], "tags": ["work"], "back": "李同学"})
+    require(remark.get("error") == 0 and remark.get("back") == "李同学", "Remark not acknowledged")
+    # A legacy tags-only client must preserve the remark saved by a newer client.
+    require(a.request(1038, {"friend_uid": second["uid"], "tags": ["work"]}).get("error") == 0)
+    require(
+        a.request(1038, {"friend_uid": second["uid"], "tags": [], "back": "x" * 65}).get("error")
+        != 0,
+        "Oversized remark accepted",
+    )
     with cluster.sql() as db:
         with db.cursor() as cursor:
+            cursor.execute(
+                "SELECT back FROM friend WHERE self_id=%s AND friend_id=%s",
+                (first["uid"], second["uid"]),
+            )
+            require(cursor.fetchone()[0] == "李同学", "Remark lost after legacy tags-only update")
+            cursor.execute(
+                "SELECT back FROM friend WHERE self_id=%s AND friend_id=%s",
+                (second["uid"], first["uid"]),
+            )
+            require(cursor.fetchone()[0] != "李同学", "Remark crossed account boundary")
             cursor.execute(
                 "SELECT tags FROM friend WHERE self_id=%s AND friend_id=%s",
                 (second["uid"], first["uid"]),
@@ -192,6 +212,10 @@ def test_search_profile_avatar_tags_and_owner_isolation(cluster, pair):
                 row is not None and "work" not in (row[0] or ""),
                 "Friend tags crossed account boundary",
             )
+    require(
+        a.request(1038, {"friend_uid": second["uid"], "tags": [], "back": ""}).get("error") == 0,
+        "Cannot clear remark",
+    )
 
 
 @pytest.mark.feature("SESSION-KICK")

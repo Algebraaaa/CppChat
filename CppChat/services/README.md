@@ -37,3 +37,24 @@
 - 新服务端声明关联能力后，缺少或不匹配标识的回包被忽略；旧服务端保留原目标字段兼容路径，不能可靠区分所有同目标重试。它不是服务端取消或业务幂等机制，详见 [协议契约](../docs/protocol-contract.md)。
 
 本阶段构建与隔离回归记录见 [架构加固进度](../docs/architecture-hardening-20261006.md)。
+
+## 联系人、更新历史与本机自动登录
+
+联系人备注复用原有 `friend.back`、标签请求/响应及 UserMgr 资料对象。备注与标签在同一事务中保存，
+所有者来自认证会话；省略 `back` 的旧客户端不会覆盖备注。编辑保存成功后刷新通讯录、搜索、会话列表和聊天标题；
+清空备注恢复账号名。中文分组复用 `common/contactnames` 的离线字典，来源、许可及多音字规则见
+`third_party/pinyin-data/README.md`。
+
+`Resources/release-history.json` 是更新记录来源。打包器输出兼容旧客户端的累计 `notes` 及新客户端使用的
+结构化 `history`，GitHub Release 同样使用累计说明。更新窗口始终显示历史，包含已是最新版及离线情况；
+新旧客户端合并记录按语义版本降序排列。每次发布先更新版本和历史记录，累计说明不得超过旧客户端 8000 字符限制。
+
+自动登录职责分为 `common/autologinstore` 的安全存储、LoginDialog 的单次认证状态及 MainWindow 的启动/退出编排。
+当前仅 Windows 启用：复用现有 [DPAPI](https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata)
+与私有 ACL，按服务器来源隔离，在聊天服务认证成功后保存加密邮箱和密码；不会保存明文密码或复用一次性聊天令牌。
+下次启动只自动尝试一次，可取消或取消勾选；退出登录、异地强制下线、密码失效会清除凭据，临时网络/数据库错误保留。
+普通关闭客户端保留加密凭据。其他平台明确禁用该选项，避免使用现有保护模块的非 Windows 明文兼容路径。
+同一 Windows 用户下的恶意程序仍可调用 DPAPI；这不是针对已控制当前用户会话的攻击者的隔离。
+
+构建默认 `CPPCHAT_APP_VERSION=AUTO` 跟随源码版本，发布时仍可显式覆盖；旧的手动数字覆盖项需改为 AUTO。
+采用 [CMake 缓存与普通变量规则](https://cmake.org/cmake/help/v3.31/command/set.html)，保留版本标签打包能力。

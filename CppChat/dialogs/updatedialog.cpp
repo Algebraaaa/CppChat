@@ -13,7 +13,7 @@ UpdateDialog::UpdateDialog(ClientUpdateService *service, QWidget *parent)
 {
   setWindowTitle(tr("CppChat 更新"));
   setObjectName("update_dialog");
-  resize(440, 300);
+  resize(520, 440);
   auto *layout = new QVBoxLayout(this);
   auto *version = new QLabel(tr("当前版本：%1").arg(service->currentVersion()), this);
   layout->addWidget(version);
@@ -24,6 +24,7 @@ UpdateDialog::UpdateDialog(ClientUpdateService *service, QWidget *parent)
   layout->addWidget(_status);
   _notes = new QPlainTextEdit(this);
   _notes->setReadOnly(true);
+  _notes->setMinimumHeight(180);
   _notes->setObjectName("update_notes");
   layout->addWidget(_notes);
   _progress = new QProgressBar(this);
@@ -99,10 +100,8 @@ void UpdateDialog::refresh()
 {
   using State = ClientUpdateService::State;
   const auto state = _service->state();
-  const bool available =
-      state == State::Available || state == State::Downloading || state == State::Ready;
-  _notes->setVisible(available);
-  _notes->setPlainText(available ? _service->info().notes : QString());
+  _notes->setVisible(true);
+  _notes->setPlainText(_service->releaseNotes());
   _progress->setVisible(state == State::Downloading);
   _action->setEnabled(!_service->busy());
   _later->setText(_service->busy() ? tr("取消") : tr("稍后"));

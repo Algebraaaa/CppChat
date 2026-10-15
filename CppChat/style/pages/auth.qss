@@ -7,6 +7,18 @@ QDialog#ResetDialog {
 }
 
 /* U+2022 小圆点，统一密码遮挡字符的外观。 */
+QDialog#LoginDialog QCheckBox {
+    color: ${color.text.body};
+    spacing: 5px;
+}
+
+QDialog#LoginDialog QPushButton#cancel_auto_login_btn {
+    color: ${color.status.success};
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
 QDialog#LoginDialog QLineEdit#pass_edit,
 QDialog#RegisterDialog QLineEdit#pass_edit,
 QDialog#RegisterDialog QLineEdit#confirm_edit,

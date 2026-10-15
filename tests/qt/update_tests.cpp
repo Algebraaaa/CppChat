@@ -1,15 +1,18 @@
 #include "app/mainwindow.h"
 #include "app/thememanager.h"
+#include "common/runtimepaths.h"
 #include "dialogs/updatedialog.h"
 #include "services/clientupdateservice.h"
 #include <QApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
 #include <QNetworkReply>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -103,9 +106,48 @@ protected:
 
 class UpdateTests : public QObject {
   Q_OBJECT
+  QTemporaryDir _privateRoot;
 private slots:
+  void allHistoryVisibleWithoutAnAvailableUpdate()
+  {
+    Network network;
+    auto value = manifest("0.1.7");
+    value["history"] = QJsonArray{QJsonObject{{"version", "0.1.7"}, {"notes", "当前版本内容"}},
+                                  QJsonObject{{"version", "0.1.6"}, {"notes", "旧版本内容"}}};
+    network.responses.append({QJsonDocument(value).toJson()});
+    ClientUpdateService service(kManifestUrl, "0.1.7", nullptr, &network);
+    UpdateDialog dialog(&service);
+    dialog.checkManually();
+    QSignalSpy checked(&service, &ClientUpdateService::checkFinished);
+    QTRY_COMPARE(checked.size(), 1);
+    QCOMPARE(checked.front().front().toBool(), false);
+    auto *notes = dialog.findChild<QPlainTextEdit *>("update_notes");
+    QVERIFY(notes && !notes->isHidden());
+    QVERIFY(notes->toPlainText().contains("旧版本内容"));
+    QVERIFY(notes->toPlainText().contains("v0.1.0"));
+    QVERIFY(notes->toPlainText().indexOf("v0.1.7") < notes->toPlainText().indexOf("v0.1.6"));
+  }
+  void invalidOrDuplicateHistoryRejected()
+  {
+    auto value = manifest("0.1.7");
+    const QJsonObject entry{{"version", "0.1.6"}, {"notes", "旧版本内容"}};
+    value["history"] = QJsonArray{entry, entry};
+    ClientUpdateInfo parsed;
+    QString error;
+    QVERIFY(!ClientUpdateService::parseManifest(QJsonDocument(value).toJson(), kManifestUrl, parsed,
+                                                error));
+    value["history"] = QJsonArray{QJsonObject{{"version", "0.1.8"}, {"notes", "未来"}}};
+    QVERIFY(!ClientUpdateService::parseManifest(QJsonDocument(value).toJson(), kManifestUrl, parsed,
+                                                error));
+    value.remove("history");
+    QVERIFY(ClientUpdateService::parseManifest(QJsonDocument(value).toJson(), kManifestUrl, parsed,
+                                               error));
+  }
   void initTestCase()
   {
+    QVERIFY(_privateRoot.isValid());
+    RuntimePaths::configure(_privateRoot.filePath("config.ini"), _privateRoot.path(),
+                            _privateRoot.filePath("logs"));
     QStandardPaths::setTestModeEnabled(true);
     QCoreApplication::setOrganizationName("CppChatTests");
     QCoreApplication::setApplicationName("UpdateTests");

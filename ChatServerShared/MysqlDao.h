@@ -40,7 +40,8 @@ public:
   bool GetFriendList(int self_uid, std::vector<std::shared_ptr<UserInfo>> &friends);
   bool DeleteFriend(int self_uid, int friend_uid);
   int GetFriendMetadata(int self_uid, int friend_uid, std::string &back, std::string &tags_json);
-  int SetContactTags(int self_uid, int friend_uid, const std::string &tags_json);
+  int SetContactTags(int self_uid, int friend_uid, const std::string &tags_json,
+                     const std::string *back = nullptr);
   int CheckFriendship(int self_uid, int friend_uid);
   int CheckPrivateChatAccess(int self_uid, int thread_id);
   bool GetUserThreads(std::int64_t user_id, std::int64_t last_id, int page_size,

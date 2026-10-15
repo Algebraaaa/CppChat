@@ -33,7 +33,7 @@ QString timeoutMessage(ReqId request)
   case ID_AUTH_FRIEND_REQ:
     return QObject::tr("处理好友申请超时，请重试");
   case ID_SET_CONTACT_TAGS_REQ:
-    return QObject::tr("保存标签超时，请重试");
+    return QObject::tr("保存备注和标签超时，请重试");
   case ID_DELETE_FRIEND_REQ:
     return QObject::tr("删除好友超时，请重试");
   case ID_CHAT_LOGIN:
@@ -445,8 +445,8 @@ void TcpMgr::initHandlers()
   });
   _handlers.insert(ID_SET_CONTACT_TAGS_RSP, [this](const QJsonObject &o) {
     const int uid = o["friend_uid"].toInt();
-    if (uid <= 0 || !o["tags"].isArray()) {
-      emit sig_request_failed(ID_SET_CONTACT_TAGS_REQ, tr("标签响应格式错误"));
+    if (uid <= 0 || !o["tags"].isArray() || (o.contains("back") && !o["back"].isString())) {
+      emit sig_request_failed(ID_SET_CONTACT_TAGS_REQ, tr("联系人资料响应格式错误"));
       return;
     }
     UserMgr::GetInstance()->SetFriendMetadata(uid, o);

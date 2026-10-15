@@ -4,8 +4,10 @@
 #include "common/singleton.h"
 #include <QByteArray>
 #include <QJsonObject>
+#include <QMap>
 #include <QNetworkAccessManager>
 #include <QObject>
+#include <QPointer>
 #include <QUrl>
 #include <memory>
 // CRTP
@@ -15,6 +17,7 @@ class HttpMgr : public QObject,
   Q_OBJECT
 public:
   void PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod);
+  void CancelRequest(ReqId id, Modules module);
   ~HttpMgr();
 
 private:
@@ -23,6 +26,7 @@ private:
   // 这是Qt自带的网络类
   // 可以理解成"快递员"——你把要寄的东西（请求）交给它，它负责送出去、把回执带回来
   QNetworkAccessManager _manager;
+  QMap<QPair<int, int>, QPointer<QNetworkReply>> _replies;
   // 封装"发一个 POST 请求"的动作
 
 private slots:

@@ -6,7 +6,7 @@
       "name": "client-base",
       "hidden": true,
       "generator": "Ninja",
-      "cacheVariables": {"CMAKE_EXPORT_COMPILE_COMMANDS": true},
+      "cacheVariables": {"CMAKE_EXPORT_COMPILE_COMMANDS": true, "CPPCHAT_APP_VERSION": "AUTO"},
       "vendor": {"qt.io/QtCreator/1.0": {"PackageManagerAutoSetup": false}}
     },
     {

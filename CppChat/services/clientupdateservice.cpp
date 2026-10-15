@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkReply>
@@ -13,6 +14,7 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QVersionNumber>
+#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -57,6 +59,37 @@ ClientUpdateService::ClientUpdateService(const QUrl &manifestUrl, const QString 
 
 ClientUpdateService::~ClientUpdateService() { stopReply(); }
 
+QString ClientUpdateService::releaseNotes() const
+{
+  static const auto bundled = [] {
+    QMap<QString, QString> entries;
+    QFile file(QStringLiteral(":/updates/history.json"));
+    if (!file.open(QIODevice::ReadOnly))
+      return entries;
+    for (const auto &entry : QJsonDocument::fromJson(file.readAll()).array()) {
+      const auto item = entry.toObject();
+      entries.insert(item["version"].toString(), item["notes"].toString());
+    }
+    return entries;
+  }();
+  auto entries = bundled;
+  for (auto it = _info.history.cbegin(); it != _info.history.cend(); ++it)
+    entries.insert(it.key(), it.value());
+  if (_info.history.isEmpty() && !_info.version.isEmpty() && !_info.notes.isEmpty())
+    entries.insert(_info.version, _info.notes);
+  auto versions = entries.keys();
+  std::sort(versions.begin(), versions.end(), [](const auto &a, const auto &b) {
+    return QVersionNumber::fromString(a) > QVersionNumber::fromString(b);
+  });
+  const auto ceiling =
+      qMax(QVersionNumber::fromString(_currentVersion), QVersionNumber::fromString(_info.version));
+  QStringList notes;
+  for (const auto &version : versions)
+    if (QVersionNumber::fromString(version) <= ceiling)
+      notes.append(QStringLiteral("v%1\n%2").arg(version, entries.value(version)));
+  return notes.join(QStringLiteral("\n\n"));
+}
+
 QUrl ClientUpdateService::manifestUrlForServer(const QUrl &serverUrl)
 {
   return secureUrl(serverUrl)
@@ -92,6 +125,29 @@ bool ClientUpdateService::parseManifest(const QByteArray &json, const QUrl &mani
     return false;
   }
   candidate.size = static_cast<qint64>(size);
+  if (object.contains("history")) {
+    const auto history = object["history"].toArray();
+    if (!object["history"].isArray() || history.size() > 200) {
+      error = tr("更新历史格式错误");
+      return false;
+    }
+    for (const auto &entry : history) {
+      const auto item = entry.toObject();
+      const auto version = item["version"].toString();
+      const auto notes = item["notes"].toString();
+      if (!validVersion(version) || notes.trimmed().isEmpty() || notes.size() > 8000 ||
+          candidate.history.contains(version) ||
+          QVersionNumber::fromString(version) > QVersionNumber::fromString(candidate.version)) {
+        error = tr("更新历史格式错误");
+        return false;
+      }
+      candidate.history.insert(version, notes);
+    }
+    if (!candidate.history.contains(candidate.version)) {
+      error = tr("更新历史缺少当前版本");
+      return false;
+    }
+  }
   info = candidate;
   error.clear();
   return true;

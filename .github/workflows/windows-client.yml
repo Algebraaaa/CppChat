@@ -58,6 +58,9 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: ctest --test-dir CppChat/build/release --no-tests=error --output-on-failure
+      - name: Validate cumulative release history
+        shell: pwsh
+        run: ./tests/packaging/test_release_history.ps1 -Artifacts build/release-history-tests
       - name: Prepare installer tooling and public connection configuration
         if: inputs.package
         shell: pwsh

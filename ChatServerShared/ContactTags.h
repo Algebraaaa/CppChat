@@ -39,6 +39,18 @@ inline std::string SerializeContactTags(const Json::Value &tags)
   return Json::writeString(writer, tags);
 }
 
+inline bool ValidContactRemark(const Json::Value &value)
+{
+  if (!value.isString())
+    return false;
+  const auto text = value.asString();
+  if (text.size() > 256 ||
+      std::any_of(text.begin(), text.end(), [](unsigned char c) { return c < 32 || c == 127; }))
+    return false;
+  return std::count_if(text.begin(), text.end(),
+                       [](unsigned char c) { return (c & 0xc0) != 0x80; }) <= 64;
+}
+
 inline Json::Value ParseContactTags(const std::string &text)
 {
   Json::Reader reader;

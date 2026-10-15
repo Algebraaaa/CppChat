@@ -1,4 +1,11 @@
 <RCC>
+    <qresource prefix="/contacts">
+        <file alias="pinyin-initials.txt">third_party/pinyin-data/initials.txt</file>
+        <file alias="pinyin-data-LICENSE.txt">third_party/pinyin-data/LICENSE</file>
+    </qresource>
+    <qresource prefix="/updates">
+        <file alias="history.json">Resources/release-history.json</file>
+    </qresource>
     <qresource prefix="/">
         <file>style/theme.json</file>
         <file>style/tokens.json</file>
