@@ -70,12 +70,12 @@ Linux 构建直接使用根 CMake 和版本控制内源码。可用 `tests/ci/Do
 性能：
 
 ```powershell
-build/test-env/Scripts/python tests/performance/run.py --profile baseline --server-build build/server --artifacts build/performance
-build/test-env/Scripts/python tests/performance/run.py --profile soak --server-build build/server --artifacts build/soak
+build/test-env/Scripts/python tests/performance/run.py --mode collect --profile baseline --server-build build/server --artifacts build/performance
+build/test-env/Scripts/python tests/performance/run.py --mode collect --profile soak --server-build build/server --artifacts build/soak
 python tests/run.py --suite nightly --performance baseline --approved-baseline <approved.json>
 ```
 
-默认 100 连接、每连接 1 条/秒、600 秒，或 50 连接、7200 秒，三次取中位数。k6 测 HTTP，asyncio 复用功能编解码器测真实双节点聊天；检查每条回执、送达和唯一落库，记录吞吐、P95/P99、内存、线程、句柄/FD、在途积压，保存服务端队列指标日志。`--connections/--duration/--runs` 仅诊断，不可冒充约定基线。没有已批准的同环境基线时输出候选并标记比较 BLOCKED；提供带 `approved: true`、`approved_by` 的同环境记录后，P95 超过 20% 退化判 FAIL。每周两小时稳定性在独立长时 CI 作业执行，不占 PR。
+默认 100 连接、每连接 1 条/秒、600 秒，或 50 连接、7200 秒，三次取中位数。k6 测 HTTP，asyncio 复用功能编解码器测真实双节点聊天；检查每条回执、送达和唯一落库，记录吞吐、P95/P99、内存、线程、句柄/FD、在途积压，保存服务端队列指标日志。`--connections/--duration/--runs` 仅诊断，不可冒充约定基线。`--mode collect` 成功完成测量后输出 `COLLECTED`、退出码 0，并明确记录 `comparison_status: NOT_RUN`、`approved: false`；这表示采集成功，不表示性能回归比较通过。夜间及每周稳定性工作流采用此模式。默认 `--mode compare` 保留严格比较语义，缺少 `--approved-baseline` 时在压测前返回 BLOCKED/2；提供带 `approved: true`、`approved_by` 的同环境记录后，P95 超过 20% 退化判 FAIL。无效基线、环境不匹配、接收错误、消息丢失/重复或 k6 阈值失败仍阻止通过；不会自动批准候选。GitHub Summary 直接显示采集或比较结果。每周两小时稳定性在独立长时 CI 作业执行，不占 PR。
 
 `--resource-every N` 可在同一负载中每 N 秒为每对账号增加一次 32 KiB 资源上传及接收方下载；独立记录资源 P95/P99 并校验 SHA256。它改变负载模型，必须使用相同模型的批准基线。基础聊天基线默认不附加图片负载。
 
@@ -86,3 +86,5 @@ python tests/run.py --suite nightly --performance baseline --approved-baseline <
 GitHub 方法参考：[GoogleTest](https://github.com/google/googletest)、[Qt Test](https://github.com/qt/qtbase/blob/dev/src/testlib/doc/src/qttestlib-manual.qdoc)、[pytest](https://github.com/pytest-dev/pytest)、[Testcontainers](https://github.com/testcontainers/testcontainers-python)、[Hypothesis](https://github.com/HypothesisWorks/hypothesis)、[Toxiproxy](https://github.com/Shopify/toxiproxy)、[Mailpit](https://github.com/axllent/mailpit)、[k6](https://github.com/grafana/k6)。
 
 覆盖率门槛统一使用源码普通条件分支，按 [gcovr 官方说明](https://gcovr.com/en/stable/faq.html#why-does-c-code-have-so-many-uncovered-branches) 排除编译器生成的异常展开和不可达分支；异常处理本身仍由数据库/网络故障及抛出任务用例验证。门槛仍是行 80%、分支 70%。原始 CFG 统计可以去掉 `--exclude-throw-branches --exclude-unreachable-branches` 单独导出，用于检查差异；不会将两种口径混用为同一基线。
+
+性能采集与比较分离参考 [k6 自动化测试](https://grafana.com/docs/k6/latest/testing-guides/automated-performance-testing/)；保留现有锁定 k6 0.57.0 及协议负载工具，不增加依赖。CI 摘要使用 [GitHub Job Summary](https://docs.github.com/en/actions/reference/workflow-commands-for-github-actions#adding-a-job-summary)。`test_performance_reporting.py` 覆盖采集退出状态、批准/环境校验、20% 边界、真实压测失败传播及稳定性聚合。

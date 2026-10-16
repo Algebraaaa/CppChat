@@ -8,7 +8,6 @@ import math
 import os
 from pathlib import Path
 import platform
-import statistics
 import sys
 import time
 import uuid
@@ -20,6 +19,7 @@ from harness.checks import require
 from harness.cluster import Cluster, executable
 from harness.protocol import async_receive, encode, CHUNK_SIZE
 from performance.resource_load import transfer
+from performance.reporting import EXIT_CODES, measurement_report, validate_baseline, write_report
 
 
 def percentile(values, fraction):
@@ -181,6 +181,12 @@ def main():
     parser.add_argument("--configuration", default="Debug")
     parser.add_argument("--artifacts", type=Path, default=Path("build/performance"))
     parser.add_argument("--approved-baseline", type=Path)
+    parser.add_argument(
+        "--mode",
+        choices=["collect", "compare"],
+        default="compare",
+        help="Collect candidate measurements or compare against an explicitly approved baseline",
+    )
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument(
         "--resource-every",
@@ -200,6 +206,18 @@ def main():
     duration = args.duration or (600 if args.profile == "baseline" else 7200)
     require(args.runs > 0, "No measurement runs")
     require(args.resource_every >= 0, "Invalid resource interval")
+    if args.mode == "collect":
+        require(args.approved_baseline is None, "Collect mode cannot accept an approved baseline")
+    elif args.approved_baseline is None:
+        raise FileNotFoundError(
+            "Compare mode requires --approved-baseline; use --mode collect to collect a candidate"
+        )
+    else:
+        require(
+            not args.connections and not args.duration,
+            "Diagnostic overrides cannot serve as approved baselines",
+        )
+        require(args.runs == 3, "Performance comparison requires three measurements")
     binary = executable(args.server_build.resolve(), "ChatServer", args.configuration)
     environment = {
         "os": platform.platform(),
@@ -218,6 +236,10 @@ def main():
                 environment["cpu"] = line.split(":", 1)[1].strip()
                 break
     measurements = []
+    baseline = None
+    if args.approved_baseline:
+        baseline = json.loads(args.approved_baseline.read_text(encoding="utf-8"))
+        validate_baseline(baseline, environment)
     for index in range(args.runs):
         run = args.artifacts / (
             datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -252,53 +274,10 @@ def main():
             require(exit_status == 0, "HTTP load failed thresholds")
             (run / "measurement.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
             measurements.append(result)
-    median = {
-        key: statistics.median(item[key] for item in measurements)
-        for key in ("ack_p95_ms", "ack_p99_ms", "delivery_p95_ms", "delivery_p99_ms", "throughput")
-    }
-    status, reason = (
-        "BLOCKED",
-        "Candidate baseline measured; supply an approved baseline from the same environment",
-    )
-    if args.approved_baseline:
-        require(
-            not args.connections and not args.duration,
-            "Diagnostic overrides cannot serve as approved baselines",
-        )
-        baseline = json.loads(args.approved_baseline.read_text(encoding="utf-8"))
-        # Binary hash is recorded for traceability, but changes are the comparison target.
-        compatible = all(
-            baseline["environment"].get(key) == value
-            for key, value in environment.items()
-            if key != "binary_sha256"
-        )
-        require(compatible, "Approved baseline belongs to a different environment/profile")
-        require(
-            baseline.get("approved") is True and baseline.get("approved_by"),
-            "Baseline has no approval evidence",
-        )
-        require(len(measurements) == 3, "Performance comparison requires three measurements")
-        regression = any(
-            median[key] > baseline["median"][key] * 1.20
-            for key in ("ack_p95_ms", "delivery_p95_ms")
-        )
-        status, reason = (
-            ("FAIL", "P95 regressed more than 20%")
-            if regression
-            else ("PASS", "P95 within approved 20% threshold")
-        )
-    report = {
-        "status": status,
-        "reason": reason,
-        "environment": environment,
-        "median": median,
-        "runs": len(measurements),
-        "approved": False,
-        "measurements": measurements,
-    }
-    (args.artifacts / "performance.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
-    print(f"{status}: {reason}", flush=True)
-    return {"PASS": 0, "FAIL": 1, "BLOCKED": 2}[status]
+    report = measurement_report(environment, measurements, baseline)
+    write_report(report, args.artifacts / "performance.json")
+    print(f"{report['status']}: {report['reason']}", flush=True)
+    return EXIT_CODES[report["status"]]
 
 
 if __name__ == "__main__":

@@ -64,9 +64,9 @@ jobs:
             else suite=full; fi
           fi
           python tests/run.py --suite "$suite" --no-build --server-build build/linux --qt-build build/qt-linux
-      - name: Nightly performance baseline
+      - name: Collect nightly performance candidate (not an approved comparison)
         if: github.event_name == 'schedule' && github.event.schedule == '15 18 * * *'
-        run: python tests/performance/run.py --profile baseline --server-build build/linux --artifacts build/performance
+        run: python tests/performance/run.py --mode collect --profile baseline --server-build build/linux --artifacts build/performance
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -166,7 +166,7 @@ jobs:
           npm ci --prefix VerifyServer --ignore-scripts
           cmake -S . -B build/soak-server -G Ninja -DCPPCHAT_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
           cmake --build build/soak-server --parallel 2
-          python tests/performance/run.py --profile soak --runs 1 --configuration Release --server-build build/soak-server --artifacts build/soak
+          python tests/performance/run.py --mode collect --profile soak --runs 1 --configuration Release --server-build build/soak-server --artifacts build/soak
       - uses: actions/upload-artifact@v4
         if: always()
         with:
