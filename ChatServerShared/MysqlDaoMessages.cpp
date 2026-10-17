@@ -235,8 +235,7 @@ bool MysqlDao::AddChatMsg(std::vector<std::shared_ptr<ChatMessage>> &messages)
 
   try {
     const auto &first = messages.front();
-    if (!first || first->thread_id <= 0 || first->sender_id <= 0 || first->recv_id <= 0 ||
-        first->sender_id == first->recv_id) {
+    if (!first || first->thread_id <= 0 || first->sender_id <= 0 || first->recv_id <= 0) {
       return false;
     }
     for (const auto &message : messages) {
@@ -247,19 +246,37 @@ bool MysqlDao::AddChatMsg(std::vector<std::shared_ptr<ChatMessage>> &messages)
       }
     }
     MySqlTransaction transaction(connection.Get());
-    std::unique_ptr<sql::PreparedStatement> membership(connection.Get()->prepareStatement(
-        "SELECT 1 FROM private_chat p JOIN friend f ON f.self_id = ? AND "
-        "f.friend_id = ? "
-        "WHERE p.thread_id = ? AND p.user1_id = ? AND p.user2_id = ? FOR "
-        "UPDATE"));
-    membership->setInt(1, first->sender_id);
-    membership->setInt(2, first->recv_id);
-    membership->setInt64(3, first->thread_id);
-    membership->setInt(4, std::min(first->sender_id, first->recv_id));
-    membership->setInt(5, std::max(first->sender_id, first->recv_id));
-    std::unique_ptr<sql::ResultSet> membership_result(membership->executeQuery());
-    if (!membership_result->next())
-      return false;
+    if (first->sender_id == first->recv_id) {
+      // Group messages use sender as the legacy non-null receiver sentinel.
+      // Only a locked, active group and current membership authorize this path.
+      std::unique_ptr<sql::PreparedStatement> lock(connection.Get()->prepareStatement(
+          "SELECT thread_id FROM group_chat WHERE thread_id=? AND active=1 FOR UPDATE"));
+      lock->setInt(1, first->thread_id);
+      std::unique_ptr<sql::ResultSet> row(lock->executeQuery());
+      if (!row->next())
+        return false;
+      std::unique_ptr<sql::PreparedStatement> member(connection.Get()->prepareStatement(
+          "SELECT 1 FROM group_chat_member WHERE thread_id=? AND user_id=?"));
+      member->setInt(1, first->thread_id);
+      member->setInt(2, first->sender_id);
+      std::unique_ptr<sql::ResultSet> access(member->executeQuery());
+      if (!access->next())
+        return false;
+    } else {
+      std::unique_ptr<sql::PreparedStatement> membership(connection.Get()->prepareStatement(
+          "SELECT 1 FROM private_chat p JOIN friend f ON f.self_id = ? AND "
+          "f.friend_id = ? "
+          "WHERE p.thread_id = ? AND p.user1_id = ? AND p.user2_id = ? FOR "
+          "UPDATE"));
+      membership->setInt(1, first->sender_id);
+      membership->setInt(2, first->recv_id);
+      membership->setInt64(3, first->thread_id);
+      membership->setInt(4, std::min(first->sender_id, first->recv_id));
+      membership->setInt(5, std::max(first->sender_id, first->recv_id));
+      std::unique_ptr<sql::ResultSet> membership_result(membership->executeQuery());
+      if (!membership_result->next())
+        return false;
+    }
 
     std::unique_ptr<sql::PreparedStatement> statement(connection.Get()->prepareStatement(
         "INSERT INTO chat_message "

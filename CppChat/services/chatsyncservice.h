@@ -27,6 +27,7 @@ public:
   void ReceiveMessages(const std::vector<std::shared_ptr<TextChatData>> &messages, bool reply);
 
 signals:
+  void groupRemoved(int threadId);
   void conversationsChanged(bool complete);
   void messagesChanged(int threadId);
   void incomingMessage(int threadId);
@@ -58,5 +59,8 @@ private:
   bool _storeReady = false;
   bool _threadsLoading = false;
   bool _threadsComplete = false;
+  void ReceiveGroup(const QJsonObject &group);
+  QSet<int> _groupSnapshot;
   QTimer _syncTimer;
+  QTimer _groupTimer;
 };

@@ -60,6 +60,8 @@ enum ReqId {
   ID_DELETE_FRIEND_RSP = 1036,
   ID_NOTIFY_DELETE_FRIEND = 1037,
   ID_SET_CONTACT_TAGS_REQ = 1038, // 保存当前用户对好友设置的标签
+  ID_GROUP_REQ = 1060,
+  ID_GROUP_RSP = 1061,
   ID_SET_CONTACT_TAGS_RSP = 1039,
 };
 enum Modules { REGISTERMOD = 0, RESETMOD = 1, LOGINMOD = 2 };
@@ -84,6 +86,9 @@ enum ErrorCodes {
   RedisError = 1015,
   InternalError = 1016,
   FriendNotFound = 1017,
+  GroupForbidden = 1018,
+  GroupOwnerMustTransfer = 1019,
+  GroupFull = 1020,
 };
 
 // 根据错误类型输出对应的错误信息
@@ -94,6 +99,12 @@ inline QString errorCodeMessage(int errorCode)
     return QStringLiteral("网络连接失败，请检查服务是否启动");
   case ErrorCodes::Success:
     return QStringLiteral("操作成功");
+  case ErrorCodes::GroupForbidden:
+    return QStringLiteral("群聊不存在或你已不在群中");
+  case ErrorCodes::GroupOwnerMustTransfer:
+    return QStringLiteral("群主请先转让群主，或解散群聊");
+  case ErrorCodes::GroupFull:
+    return QStringLiteral("群聊最多支持 32 人");
   case ErrorCodes::FriendNotFound:
     return QStringLiteral("你们已不是好友，请重新添加好友后再聊天");
   case ErrorCodes::Error_Json:

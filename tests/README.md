@@ -61,7 +61,7 @@ Windows 安全回归目标 `security_tests`/CTest `client.security` 验证正式
 
 `cases.json` 映射自动及人工用例，每项记录前置、输入、响应、数据变化、清理方法。人工步骤在 [manual/windows.md](manual/windows.md)，运行 `python tests/manual/prepare.py --output build/manual-results.json` 生成待验收记录。需要验收人、时间、Kit、编译器、DPI、非空证据，以及相同源码指纹；历史文档中的“通过”不被接受。
 
-真实依赖采用 Testcontainers：MySQL 8.4.0、Redis 7.4.2、Mailpit 1.21.8、Toxiproxy 2.9.0。每个 Python 模式独立容器/随机账号/动态端口，启动五个 C++ 二进制和一个 Node 进程。故障用例另外独立运行，避免污染普通用例连接池。失败、正常退出都会回收自己创建的进程和容器；请勿用系统进程名批量结束服务。容器端口不使用本机 MySQL 3306。初始化只执行 `database/mysql/schema.sql`，验证八张业务表、标签和图片字段、重试索引及重复导入保留数据。
+真实依赖采用 Testcontainers：MySQL 8.4.0、Redis 7.4.2、Mailpit 1.21.8、Toxiproxy 2.9.0。每个 Python 模式独立容器/随机账号/动态端口，启动五个 C++ 二进制和一个 Node 进程。故障用例另外独立运行，避免污染普通用例连接池。失败、正常退出都会回收自己创建的进程和容器；请勿用系统进程名批量结束服务。容器端口不使用本机 MySQL 3306。初始化只执行 `database/mysql/schema.sql`，验证九张业务表、标签和图片字段、重试索引及重复导入保留数据。
 
 TLS 使用当轮 CA、私钥、有效/过期/不可信证书和回环代理；Qt probe 使用同一 Kit 的 QSslSocket，严格验证主机名，不调用 `ignoreSslErrors()`。私钥是运行产物。截图计算覆盖四种缩放，真实多屏、焦点、系统剪贴板和发布依赖必须人工验收。
 
@@ -88,3 +88,9 @@ GitHub 方法参考：[GoogleTest](https://github.com/google/googletest)、[Qt T
 覆盖率门槛统一使用源码普通条件分支，按 [gcovr 官方说明](https://gcovr.com/en/stable/faq.html#why-does-c-code-have-so-many-uncovered-branches) 排除编译器生成的异常展开和不可达分支；异常处理本身仍由数据库/网络故障及抛出任务用例验证。门槛仍是行 80%、分支 70%。原始 CFG 统计可以去掉 `--exclude-throw-branches --exclude-unreachable-branches` 单独导出，用于检查差异；不会将两种口径混用为同一基线。
 
 性能采集与比较分离参考 [k6 自动化测试](https://grafana.com/docs/k6/latest/testing-guides/automated-performance-testing/)；保留现有锁定 k6 0.57.0 及协议负载工具，不增加依赖。CI 摘要使用 [GitHub Job Summary](https://docs.github.com/en/actions/reference/workflow-commands-for-github-actions#adding-a-job-summary)。`test_performance_reporting.py` 覆盖采集退出状态、批准/环境校验、20% 边界、真实压测失败传播及稳定性聚合。
+
+
+`client.groups` 覆盖群入口、群名/发送者显示、真实回环 TCP 创建与管理响应、加密库重启恢复与成员撤销。
+`integration/test_groups.py` 使用两个实际聊天 EXE、隔离 MySQL/Redis，覆盖群主权限、好友邀请、
+跨节点和同节点投递、消息重试去重、离线补拉、移出后禁读禁发、转让/退群/解散、非法参数和 32 人边界。
+群图片尚未开放，测试要求拒绝而非放宽现有资源服务的两人 ACL。

@@ -147,3 +147,31 @@ StatusServer 删除了只在自身旧拷贝之间互相引用、没有服务调�
 工程清单和 VS 过滤器同步移除，Redis 适配收敛为健康/凭证读取与过期 Token 写入，StatusServer 不再链接本项目的 MySQL 访问实现。
 共享节点去掉旧 logincount 累加代码、无会话 ID 的用户移除重载及多余 gRPC Wait 线程；修改后的业务源码已格式化。
 删除前原件已转为各本地仓库的 `recovery/pre-stage5-20261003` 标签；StatusServer 的旧文件可从其标签恢复。重复文件备份目录已清理，本机配置仍保留在各服务原位置且不纳入 Git。未删除协议生成文件、数据库迁移、运行数据或客户端现有修改。
+
+
+## 群聊
+
+`MysqlDaoGroups.cpp` 负责群资料与成员事务；`LogicSystem` 保留协议适配，
+`MessageService` 复用消息去重、分页历史和原 gRPC 跨节点投递。
+群主可邀请自己的好友、移除成员、改群名、转让群主和解散；成员可发文字/表情和退群。
+成员互相不必是好友。最多 32 人，群名 1–64 UTF-8 字节，不接受控制字符或纯空白。
+邀请成员可读取该群全部历史；退群、被移除或解散后，服务器拒绝后续读取和发送。
+已下载的本机历史不会远程擦除，重新入群可继续同步。
+
+群变更和发送持有同一个群行锁，权限以数据库当前成员关系为准。
+创建使用 `(creator_uid, creation_key)` 及规范化初始参数去重；传输重试改变 request_id，
+保留 creation_key。解散保留停用的群元数据和消息以避免旧创建请求复活群。
+群消息复用旧 chat_message 表：接收者列使用 sender_id 作为兼容非空外键的内部标记，
+只有已锁定的 active 群与成员记录能授权该写入路径，私聊不能借此绕过好友检查。
+群消息落库后先回复成功，再向当前成员逐一投递；实时投递失败可由历史补拉恢复。
+群图片尚未开放，现有 ResourceServer 仍只授权两人资源，服务端拒绝群图片元数据。
+群资料及成员变化通过客户端 10 秒会话刷新和群管理查询恢复，群消息仍实时推送。
+
+已有 MySQL 库需由维护账号先执行 `database/mysql/20261018_group_chat.sql`，
+然后配套更新两个聊天节点和客户端；运行账号不增加 DDL 权限，不重导全库。
+协议及兼容约定见 `CppChat/docs/protocol-contract.md`。
+
+方案调研参考 [Tinode 群主题、订阅权限与群主转让](https://github.com/tinode/chat/blob/master/docs/API.md#group-topics)
+及其 [GPLv3 许可](https://github.com/tinode/chat/blob/master/LICENSE)。只借鉴领域划分，未复制其源码，
+不引入 Go 服务及另一套账号/存储协议；沿用已锁定的 Qt、MySQL、gRPC 依赖，减少 Windows/Linux 适配成本。
+验证覆盖真实双节点、独立 MySQL/Redis、权限撤销、离线、重试，以及 Qt UI/加密本地恢复。

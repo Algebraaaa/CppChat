@@ -1,5 +1,6 @@
 #include "LogicSystem.h"
 #include "ContactTags.h"
+#include "LoginSnapshot.h"
 #include "RequestContract.h"
 #include "SessionService.h"
 
@@ -17,6 +18,7 @@
 #include "FriendService.h"
 #include "Logger.h"
 #include "MessageService.h"
+#include "MysqlMgr.h"
 #include "RedisMgr.h"
 #include "ServicePolicy.h"
 #include "StatusGrpcClient.h"
@@ -176,6 +178,9 @@ void LogicSystem::HandleMessage(const std::shared_ptr<LogicNode> &message)
 
 void LogicSystem::RegisterCallbacks()
 {
+  callbacks_[ID_GROUP_REQ] = [this](auto session, short id, const auto &data) {
+    GroupRequest(session, id, data);
+  };
   auto bind = [this](auto handler) {
     return std::bind(handler, this, std::placeholders::_1, std::placeholders::_2,
                      std::placeholders::_3);
@@ -198,17 +203,53 @@ void LogicSystem::RegisterCallbacks()
 void LogicSystem::LoginHandler(std::shared_ptr<CSession> session, short,
                                const std::string &message_data)
 {
-  Json::Value request, response;
-  Defer send_response([&request, &response, session] {
+  // Snapshot construction and Send may allocate. Keep them inside the request
+  // exception boundary instead of a noexcept scope-guard destructor.
+  try {
+    Json::Value request, response;
+    if (!ParseRequest(message_data, request) || !request["uid"].isInt() ||
+        !request["token"].isString() ||
+        (request.isMember("login_chunks") && !request["login_chunks"].isBool())) {
+      response["error"] = ErrorCodes::Error_Json;
+    } else {
+      response =
+          SessionService::Login(session, request["uid"].asInt(), request["token"].asString());
+    }
     RequestContract::EchoId(request, response);
-    session->Send(response.toStyledString(), MSG_CHAT_LOGIN_RSP);
-  });
-  if (!ParseRequest(message_data, request) || !request["uid"].isInt() ||
-      !request["token"].isString()) {
-    response["error"] = ErrorCodes::Error_Json;
-    return;
+    if (response["error"].asInt() != ErrorCodes::Success) {
+      Json::Value failure;
+      failure["error"] = response["error"];
+      RequestContract::EchoId(request, failure);
+      session->Send(failure.toStyledString(), MSG_CHAT_LOGIN_RSP);
+      if (response["error"].asInt() == ErrorCodes::InternalError)
+        session->DrainAndClose(std::chrono::seconds(3), [] {});
+      return;
+    }
+    std::vector<std::string> frames;
+    const bool allow_chunks = request["login_chunks"].isBool() && request["login_chunks"].asBool();
+    if (!LoginSnapshot::BuildFrames(response, allow_chunks, frames)) {
+      Json::Value failure;
+      failure["error"] = ErrorCodes::InternalError;
+      RequestContract::EchoId(request, failure);
+      session->Send(failure.toStyledString(), MSG_CHAT_LOGIN_RSP);
+      // A failed snapshot must not leave its authenticated route/token alive.
+      session->DrainAndClose(std::chrono::seconds(3), [] {});
+      return;
+    }
+    for (const auto &frame : frames)
+      session->Send(frame, MSG_CHAT_LOGIN_RSP);
+  } catch (...) {
+    // Logging and close are best effort even if the original failure was an
+    // allocation error; never terminate a worker while unwinding this request.
+    try {
+      LOG_ERROR("Login snapshot response failed; closing the session.");
+    } catch (...) {
+    }
+    try {
+      session->Close();
+    } catch (...) {
+    }
   }
-  response = SessionService::Login(session, request["uid"].asInt(), request["token"].asString());
 }
 
 void LogicSystem::SearchInfo(std::shared_ptr<CSession> session, short,
@@ -304,8 +345,20 @@ void LogicSystem::AuthFriendApply(std::shared_ptr<CSession> session, short,
   if (UserService::GetById(to_uid, accepted_user)) {
     FillUserJson(*accepted_user, response);
   }
-  response["back"] = request.get("back", "");
-  response["tags"] = tags;
+  if (initial_messages.empty()) {
+    std::string persisted_back, persisted_tags;
+    const int metadata_result = MysqlMgr::GetInstance()->GetFriendMetadata(
+        from_uid, to_uid, persisted_back, persisted_tags);
+    if (metadata_result != ErrorCodes::Success) {
+      response["error"] = metadata_result;
+      return;
+    }
+    response["back"] = persisted_back;
+    response["tags"] = ParseContactTags(persisted_tags);
+  } else {
+    response["back"] = request.get("back", "");
+    response["tags"] = tags;
+  }
   const std::string timestamp = GetCurrentTimestamp();
   for (const auto &message : initial_messages) {
     if (message->chat_time.empty()) {
@@ -316,7 +369,8 @@ void LogicSystem::AuthFriendApply(std::shared_ptr<CSession> session, short,
     response["chat_datas"].append(value);
   }
 
-  FriendService::NotifyAcceptance(from_uid, to_uid, response);
+  if (!initial_messages.empty())
+    FriendService::NotifyAcceptance(from_uid, to_uid, response);
 }
 
 void LogicSystem::DeleteFriend(std::shared_ptr<CSession> session, short,
@@ -348,9 +402,12 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session, short,
 {
   Json::Value request;
   Json::Value response;
-  Defer send_response([&request, &response, session]() {
-    RequestContract::EchoId(request, response);
-    session->Send(response.toStyledString(), ID_TEXT_CHAT_MSG_RSP);
+  bool acknowledged = false;
+  Defer send_response([&request, &response, &acknowledged, session]() {
+    if (!acknowledged) {
+      RequestContract::EchoId(request, response);
+      session->Send(response.toStyledString(), ID_TEXT_CHAT_MSG_RSP);
+    }
   });
   if (!ParseRequest(message_data, request) || !request["fromuid"].isInt() ||
       !request["touid"].isInt() || !request["thread_id"].isInt() ||
@@ -362,7 +419,8 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session, short,
   const int from_uid = request["fromuid"].asInt();
   const int to_uid = request["touid"].asInt();
   const int thread_id = request["thread_id"].asInt();
-  if (from_uid <= 0 || from_uid != session->GetUserId() || to_uid <= 0 || thread_id <= 0) {
+  if (from_uid <= 0 || from_uid != session->GetUserId() || to_uid < 0 || to_uid == from_uid ||
+      thread_id <= 0) {
     response["error"] = ErrorCodes::UidInvalid;
     return;
   }
@@ -379,7 +437,7 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session, short,
     auto message = std::make_shared<ChatMessage>();
     message->thread_id = thread_id;
     message->sender_id = from_uid;
-    message->recv_id = to_uid;
+    message->recv_id = to_uid == 0 ? from_uid : to_uid;
     message->unique_id = item.get("unique_id", item.get("msgid", "")).asString();
     message->content = item["content"].asString();
     message->chat_time = timestamp;
@@ -400,7 +458,26 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session, short,
     response["chat_datas"].append(value);
   }
 
-  MessageService::Deliver(from_uid, to_uid, thread_id, messages, response);
+  if (to_uid == 0) {
+    RequestContract::EchoId(request, response);
+    session->Send(response.toStyledString(), ID_TEXT_CHAT_MSG_RSP);
+    acknowledged = true;
+    Json::Value group;
+    if (MysqlMgr::GetInstance()->GetGroup(from_uid, thread_id, group, true) ==
+        ErrorCodes::Success) {
+      response["group"] = group;
+      response["group"].removeMember("members");
+      for (const auto &member : group["members"])
+        if (member["uid"].asInt() == from_uid)
+          response["group"]["member_names"][std::to_string(from_uid)] = member["name"];
+      for (const auto &member : group["members"]) {
+        const int recipient = member["uid"].asInt();
+        if (recipient != from_uid)
+          MessageService::Deliver(from_uid, recipient, thread_id, messages, response);
+      }
+    }
+  } else
+    MessageService::Deliver(from_uid, to_uid, thread_id, messages, response);
 }
 
 void LogicSystem::HeartBeatHandler(std::shared_ptr<CSession> session, short,
@@ -573,6 +650,12 @@ void LogicSystem::GetUserThreadsHandler(std::shared_ptr<CSession> session, short
     value["user2_id"] = thread->_user2_id;
     value["last_message_id"] = thread->_last_message_id;
     value["last_chat_time"] = thread->_last_chat_time;
+    if (thread->_type == "group") {
+      Json::Value group;
+      if (MysqlMgr::GetInstance()->GetGroup(uid, thread->_thread_id, group) != ErrorCodes::Success)
+        continue;
+      value["group"] = group;
+    }
     response["threads"].append(value);
   }
 }
@@ -686,4 +769,19 @@ void LogicSystem::SetContactTags(std::shared_ptr<CSession> session, short,
     if (request.isMember("back"))
       response["back"] = request["back"];
   }
+}
+
+void LogicSystem::GroupRequest(std::shared_ptr<CSession> session, short, const std::string &data)
+{
+  Json::Value request, response;
+  response["error"] = ErrorCodes::Error_Json;
+  if (ParseRequest(data, request)) {
+    response["op"] = request.get("op", "");
+    response["error"] =
+        MysqlMgr::GetInstance()->ChangeGroup(session->GetUserId(), request, response["group"]);
+  }
+  RequestContract::EchoId(request, response);
+  Json::StreamWriterBuilder writer;
+  writer["indentation"] = "";
+  session->Send(Json::writeString(writer, response), ID_GROUP_RSP);
 }

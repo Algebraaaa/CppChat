@@ -107,7 +107,8 @@ CREATE TABLE IF NOT EXISTS `group_chat_member` (
 ) ENGINE = InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- 聊天消息，包含图片元数据、游标分页和消息重试查询索引。
--- 重试索引不是唯一约束，消息去重由业务事务和行锁完成。
+-- 空 unique_id 为系统消息；派生 NULL 不参与幂等唯一性约束。
+-- 保留原重试查询索引，业务事务和行锁继续负责重试回执及内容冲突检查。
 CREATE TABLE IF NOT EXISTS `chat_message` (
     `message_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `thread_id` INT UNSIGNED NOT NULL,
@@ -120,11 +121,14 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `status` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    `dedup_unique_id` VARCHAR(64) GENERATED ALWAYS AS
+        (CASE WHEN OCTET_LENGTH(`unique_id`) = 0 THEN NULL ELSE `unique_id` END) VIRTUAL,
     PRIMARY KEY (`message_id`),
     KEY `idx_chat_message_thread_page` (`thread_id`, `message_id`),
     KEY `idx_chat_message_sender` (`sender_id`),
     KEY `idx_chat_message_receiver` (`recv_id`),
     KEY `idx_chat_message_retry` (`thread_id`, `sender_id`, `unique_id`),
+    UNIQUE KEY `uk_chat_message_idempotency` (`thread_id`, `sender_id`, `dedup_unique_id`),
     CONSTRAINT `fk_chat_message_thread`
         FOREIGN KEY (`thread_id`) REFERENCES `chat_thread` (`thread_id`) ON DELETE CASCADE,
     CONSTRAINT `fk_chat_message_sender`
@@ -132,3 +136,19 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
     CONSTRAINT `fk_chat_message_receiver`
         FOREIGN KEY (`recv_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Group metadata; membership remains in group_chat_member. No runtime DDL.
+CREATE TABLE IF NOT EXISTS `group_chat` (
+    `thread_id` INT UNSIGNED NOT NULL,
+    `name` VARCHAR(64) NOT NULL,
+    `owner_uid` INT UNSIGNED NOT NULL,
+    `creator_uid` INT UNSIGNED NOT NULL,
+    `creation_key` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    `creation_spec` TEXT NOT NULL,
+    `active` BOOLEAN NOT NULL DEFAULT TRUE,
+    PRIMARY KEY (`thread_id`),
+    UNIQUE KEY `uk_group_creation` (`creator_uid`, `creation_key`),
+    CONSTRAINT `fk_group_thread` FOREIGN KEY (`thread_id`) REFERENCES `chat_thread` (`thread_id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_group_owner` FOREIGN KEY (`owner_uid`) REFERENCES `users` (`id`),
+    CONSTRAINT `fk_group_creator` FOREIGN KEY (`creator_uid`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

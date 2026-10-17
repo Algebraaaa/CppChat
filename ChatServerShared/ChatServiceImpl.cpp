@@ -2,6 +2,7 @@
 #include "CSession.h"
 #include "FriendService.h"
 #include "Logger.h"
+#include "MysqlMgr.h"
 #include "UserMgr.h"
 #include "const.h"
 #include <json/json.h>
@@ -91,6 +92,19 @@ Status ChatServiceImpl::NotifyTextChatMsg(::grpc::ServerContext *context,
     chat_datas.append(element);
   }
   rtvalue["chat_datas"] = chat_datas;
+  Json::Value group;
+  if (MysqlMgr::GetInstance()->GetGroup(touid, request->thread_id(), group) ==
+      ErrorCodes::Success) {
+    if (const auto sender = MysqlMgr::GetInstance()->GetUser(request->fromuid()))
+      group["member_names"][std::to_string(request->fromuid())] = sender->name;
+    rtvalue["group"] = group;
+    rtvalue["touid"] = 0;
+  } else {
+    // Do not deliver a group message to a member removed while the RPC was in flight.
+    if (MysqlMgr::GetInstance()->CheckPrivateChatAccess(touid, request->thread_id()) !=
+        ErrorCodes::Success)
+      return Status::OK;
+  }
 
   std::string return_str = rtvalue.toStyledString();
   session->Send(return_str, ID_NOTIFY_TEXT_CHAT_MSG_REQ);

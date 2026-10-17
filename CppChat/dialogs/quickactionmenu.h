@@ -16,6 +16,7 @@ public:
   void Popup(const QPoint &position);
 
 signals:
+  void createGroupRequested();
   void addFriendRequested();
   void placeholderRequested(const QString &title);
 

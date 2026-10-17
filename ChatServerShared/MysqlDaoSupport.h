@@ -43,7 +43,16 @@ class MySqlTransaction {
 public:
   explicit MySqlTransaction(sql::Connection *connection) : _connection(connection)
   {
-    _connection->setAutoCommit(false);
+    try {
+      _connection->setAutoCommit(false);
+    } catch (...) {
+      // A failed constructor has no destructor to restore transaction state.
+      try {
+        _connection->close();
+      } catch (...) {
+      }
+      throw;
+    }
   }
 
   ~MySqlTransaction()
@@ -58,6 +67,11 @@ public:
       }
       _connection->setAutoCommit(true);
     } catch (...) {
+      // A connection with unknown transaction state must not be reused.
+      try {
+        _connection->close();
+      } catch (...) {
+      }
     }
   }
 
@@ -66,6 +80,24 @@ public:
     _connection->commit();
     _finished = true;
     _connection->setAutoCommit(true);
+  }
+
+  // Call explicitly before restarting a transaction after a lock error. A
+  // failed rollback/autocommit restoration closes the connection so the pool
+  // cannot hand an unfinished transaction to a later borrower.
+  void Rollback()
+  {
+    try {
+      _connection->rollback();
+      _finished = true;
+      _connection->setAutoCommit(true);
+    } catch (...) {
+      try {
+        _connection->close();
+      } catch (...) {
+      }
+      throw;
+    }
   }
 
 private:

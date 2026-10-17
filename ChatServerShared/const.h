@@ -24,6 +24,9 @@ enum ErrorCodes {
   RedisError = 1015,
   InternalError = 1016,
   FriendNotFound = 1017,
+  GroupForbidden = 1018,
+  GroupOwnerMustTransfer = 1019,
+  GroupFull = 1020,
 };
 
 class Defer {
@@ -84,6 +87,8 @@ enum MessageIds : short {
   ID_DELETE_FRIEND_RSP = 1036,
   ID_NOTIFY_DELETE_FRIEND = 1037,
   ID_SET_CONTACT_TAGS_REQ = 1038,
+  ID_GROUP_REQ = 1060,
+  ID_GROUP_RSP = 1061,
   ID_SET_CONTACT_TAGS_RSP = 1039
 };
 

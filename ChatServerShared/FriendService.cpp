@@ -4,6 +4,7 @@
 #include "ConfigMgr.h"
 #include "ContactTags.h"
 #include "Logger.h"
+#include "LoginSnapshot.h"
 #include "MysqlMgr.h"
 #include "RedisMgr.h"
 #include "UserMgr.h"
@@ -18,9 +19,12 @@ int FriendService::Apply(int uid, int other, const std::string &description,
   Json::Value tags;
   if (!NormalizeContactTags(input, tags))
     return ErrorCodes::Error_Json;
+  bool notify_application = false;
   if (!MysqlMgr::GetInstance()->AddFriendApply(uid, other, description, remark,
-                                               SerializeContactTags(tags)))
+                                               SerializeContactTags(tags), &notify_application))
     return ErrorCodes::DatabaseError;
+  if (!notify_application)
+    return ErrorCodes::Success;
   std::string destination;
   if (!RedisMgr::GetInstance()->Get(std::string(USER_IP_PREFIX) + std::to_string(other),
                                     destination))
@@ -152,11 +156,111 @@ int FriendService::SetTags(int uid, int other, const Json::Value &input, Json::V
   return MysqlMgr::GetInstance()->SetContactTags(uid, other, SerializeContactTags(tags),
                                                  remark.isNull() ? nullptr : &back);
 }
-bool FriendService::List(int uid, std::vector<std::shared_ptr<UserInfo>> &friends)
+bool FriendService::List(int uid, std::vector<std::shared_ptr<UserInfo>> &friends, int *error)
 {
-  return uid > 0 && MysqlMgr::GetInstance()->GetFriendList(uid, friends);
+  friends.clear();
+  if (error)
+    *error = ErrorCodes::DatabaseError;
+  if (uid <= 0)
+    return false;
+  constexpr int page_size = 100;
+  int cursor = 0;
+  std::size_t bytes = 0;
+  for (;;) {
+    std::vector<std::shared_ptr<UserInfo>> page;
+    if (!MysqlMgr::GetInstance()->GetFriendPage(uid, page, cursor, page_size)) {
+      friends.clear();
+      return false;
+    }
+    for (const auto &user : page) {
+      Json::Value item;
+      UserService::WriteProfile(*user, item);
+      bytes += item.toStyledString().size();
+      if (bytes > LoginSnapshot::MaxBytes) {
+        friends.clear();
+        if (error)
+          *error = ErrorCodes::InternalError;
+        return false;
+      }
+    }
+    if (page.empty()) {
+      if (error)
+        *error = ErrorCodes::Success;
+      return true;
+    }
+    const int next_cursor = page.back()->uid;
+    if (next_cursor <= cursor) {
+      friends.clear();
+      return false;
+    }
+    friends.insert(friends.end(), page.begin(), page.end());
+    cursor = next_cursor;
+    if (page.size() < page_size) {
+      if (error)
+        *error = ErrorCodes::Success;
+      return true;
+    }
+  }
 }
-bool FriendService::Applications(int uid, std::vector<std::shared_ptr<ApplyInfo>> &applications)
+bool FriendService::Ids(int uid, std::vector<int> &friend_ids)
 {
-  return uid > 0 && MysqlMgr::GetInstance()->GetApplyList(uid, applications, 0, 10);
+  return uid > 0 && MysqlMgr::GetInstance()->GetFriendIds(uid, friend_ids);
+}
+void FriendService::WriteApplication(const ApplyInfo &application, Json::Value &item)
+{
+  item["uid"] = application._uid;
+  item["name"] = application._name;
+  item["desc"] = application._desc;
+  item["icon"] = application._icon;
+  item["nick"] = application._nick;
+  item["sex"] = application._sex;
+  item["status"] = application._status;
+}
+bool FriendService::Applications(int uid, std::vector<std::shared_ptr<ApplyInfo>> &applications,
+                                 int *error)
+{
+  applications.clear();
+  if (error)
+    *error = ErrorCodes::DatabaseError;
+  if (uid <= 0)
+    return false;
+  // Iterate the existing keyset pages, rather than truncating login at ten rows.
+  constexpr int page_size = 100;
+  int cursor = 0;
+  std::size_t bytes = 0;
+  for (;;) {
+    std::vector<std::shared_ptr<ApplyInfo>> page;
+    if (!MysqlMgr::GetInstance()->GetApplyList(uid, page, cursor, page_size)) {
+      applications.clear();
+      return false;
+    }
+    for (const auto &application : page) {
+      Json::Value item;
+      WriteApplication(*application, item);
+      bytes += item.toStyledString().size();
+      if (bytes > LoginSnapshot::MaxBytes) {
+        applications.clear();
+        if (error)
+          *error = ErrorCodes::InternalError;
+        return false;
+      }
+    }
+    if (page.empty()) {
+      if (error)
+        *error = ErrorCodes::Success;
+      return true;
+    }
+    const int next_cursor = page.back()->_id;
+    if (next_cursor <= cursor) {
+      applications.clear();
+      return false;
+    }
+    applications.insert(applications.end(), page.begin(), page.end());
+    cursor = next_cursor;
+    if (page.size() < page_size) {
+      if (error)
+        *error = ErrorCodes::Success;
+      return true;
+    }
+  }
 }

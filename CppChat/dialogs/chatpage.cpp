@@ -63,6 +63,9 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
 {
   ui->setupUi(this);
   _sender = new MessageSender(this);
+  connect(ui->chat_settings_panel, &ChatSettingsPanel::sig_members_requested, this, [this] {
+    emit sig_group_settings(_chat_data && _chat_data->IsGroup() ? _chat_data->GetThreadId() : 0);
+  });
   setAttribute(Qt::WA_StyledBackground);
   ui->chat_data_wid->setAttribute(Qt::WA_StyledBackground);
   ui->title_wid->setAttribute(Qt::WA_StyledBackground);
@@ -169,6 +172,14 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
       ShowStatus(tr("请先选择会话并连接聊天服务器"));
       return;
     }
+    if (_chat_data->IsGroup()) {
+      ShowStatus(tr("群聊暂支持文字和表情，图片发送尚未开放"));
+      return;
+    }
+    if (_chat_data->IsGroup()) {
+      ShowStatus(tr("群聊暂支持文字和表情，图片发送尚未开放"));
+      return;
+    }
     if (!UserMgr::GetInstance()->CheckFriendById(_chat_data->GetOtherId())) {
       ShowStatus(errorCodeMessage(FriendNotFound));
       return;
@@ -245,6 +256,10 @@ void ChatPage::StartScreenCapture()
     return;
   if (!_chat_data || !TcpMgr::GetInstance()->IsConnected()) {
     ShowStatus(tr("请先选择会话并连接聊天服务器"));
+    return;
+  }
+  if (_chat_data->IsGroup()) {
+    ShowStatus(tr("群聊暂支持文字和表情，图片发送尚未开放"));
     return;
   }
   if (!UserMgr::GetInstance()->CheckFriendById(_chat_data->GetOtherId())) {
@@ -368,10 +383,14 @@ void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
   }
   const auto user = UserMgr::GetInstance()->GetFriendById(data->GetOtherId());
   ui->chat_settings_panel->SetUser(user);
+  if (data->IsGroup())
+    ui->chat_settings_panel->SetGroup(data->GetGroupName());
   ui->chat_more_btn->setEnabled(true);
   ui->chat_history_btn->setEnabled(true);
-  ui->title_label->setText(user ? (user->_back.isEmpty() ? user->_name : user->_back)
-                                : tr("用户 %1").arg(data->GetOtherId()));
+  ui->title_label->setTextFormat(Qt::PlainText);
+  ui->title_label->setText(data->IsGroup() ? data->GetGroupName()
+                           : user          ? (user->_back.isEmpty() ? user->_name : user->_back)
+                                           : tr("用户 %1").arg(data->GetOtherId()));
   ui->chatEdit->setEnabled(!_sender->SavingMessages() &&
                            !_loadingDrafts.contains(data->GetThreadId()));
   ui->screenshot_btn->setEnabled(!_screenCapture);
@@ -499,7 +518,10 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
   item->setProperty("message_type", static_cast<int>(message->GetMsgType()));
   item->setProperty("message_sender", message->GetSendUid());
   // 当前只有一对一会话，微信式私聊气泡不重复显示发送者姓名。
-  item->setUserName(QString());
+  item->setUserName(_chat_data->IsGroup() && !self
+                        ? (user ? (user->_back.isEmpty() ? user->_name : user->_back)
+                                : _chat_data->MemberName(message->GetSendUid()))
+                        : QString());
   const int senderUid = message->GetSendUid();
   const QString fallback = user ? user->_icon : QString();
   QPixmap icon = mgr->AvatarPixmap(senderUid, fallback);

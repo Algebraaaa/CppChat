@@ -189,6 +189,7 @@ public:
 };
 
 struct ChatThreadInfo {
+  QJsonObject _group;
   int _thread_id = 0;
   QString _type; // "private" or "group"
   int _user1_id = 0;
@@ -216,6 +217,28 @@ public:
   void SetOtherId(int other_id);
   int GetOtherId();
   QString GetGroupName();
+  bool IsGroup() const { return _other_id == 0; }
+  void SetGroup(const QJsonObject &group)
+  {
+    auto names = _group["member_names"].toObject();
+    for (const auto &value : group["members"].toArray()) {
+      const auto member = value.toObject();
+      names[QString::number(member["uid"].toInt())] = member["name"];
+    }
+    const auto incoming = group["member_names"].toObject();
+    for (auto it = incoming.begin(); it != incoming.end(); ++it)
+      names[it.key()] = it.value();
+    for (auto it = group.begin(); it != group.end(); ++it)
+      _group[it.key()] = it.value();
+    _group["member_names"] = names;
+    _group_name = _group["name"].toString();
+  }
+  QJsonObject Group() const { return _group; }
+  QString MemberName(int uid) const
+  {
+    const auto name = _group["member_names"].toObject()[QString::number(uid)].toString();
+    return name.isEmpty() ? QStringLiteral("用户 %1").arg(uid) : name;
+  }
   QMap<int, std::shared_ptr<ChatDataBase>> GetMsgMap();
   int GetThreadId();
   QMap<int, std::shared_ptr<ChatDataBase>> &GetMsgMapRef();
@@ -233,7 +256,7 @@ private:
   int _thread_id;
   QString _last_msg;
   QString _last_chat_time;
-  std::vector<int> _group_members;
+  QJsonObject _group;
   QString _group_name;
   QMap<int, std::shared_ptr<ChatDataBase>> _msg_map;
   QMap<QString, std::shared_ptr<ChatDataBase>> _msg_unrsp_map;

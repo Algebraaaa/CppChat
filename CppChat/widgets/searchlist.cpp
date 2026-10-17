@@ -61,13 +61,15 @@ void SearchList::Search(const QString &keyword, Scope scope)
       continue;
 
     const auto user = userManager->GetFriendById(thread->GetOtherId());
-    if (!user)
+    if (!user && !thread->IsGroup())
       continue;
 
+    const bool nameMatches = thread->IsGroup() ? containsKeyword(thread->GetGroupName(), query)
+                                               : userMatches(user, query);
     QString matchedPreview;
 
     // 名字或会话摘要命中时，展示这段会话的最新摘要。
-    if (userMatches(user, query) || containsKeyword(thread->GetLastMsg(), query))
+    if (nameMatches || containsKeyword(thread->GetLastMsg(), query))
       matchedPreview = thread->GetLastMsg();
 
     // 从最近的已加载文本消息向前查找。每个会话只显示一个最相关结果，
@@ -98,7 +100,7 @@ void SearchList::Search(const QString &keyword, Scope scope)
     }
 
     // 名字命中了但会话尚无消息时，仍然允许用户从“聊天记录”进入该会话。
-    if (matchedPreview.isEmpty() && userMatches(user, query))
+    if (matchedPreview.isEmpty() && nameMatches)
       matchedPreview = tr("已有会话");
 
     if (matchedPreview.isEmpty())
@@ -132,15 +134,19 @@ void SearchList::addSection(const QString &title)
 void SearchList::addResult(ResultKind kind, const std::shared_ptr<UserInfo> &user,
                            const QString &preview, int threadId)
 {
-  if (!user)
+  const auto thread = UserMgr::GetInstance()->GetChatThreadByThreadId(threadId);
+  if (!user && (!thread || !thread->IsGroup()))
     return;
 
   auto *item = new QListWidgetItem(this);
   auto *resultWidget = new ChatUserWid(this);
-  resultWidget->SetSearchInfo(user, preview);
+  if (thread && thread->IsGroup())
+    resultWidget->SetChatData(thread);
+  else
+    resultWidget->SetSearchInfo(user, preview);
   item->setSizeHint(resultWidget->sizeHint());
   item->setData(kResultKindRole, static_cast<int>(kind));
-  item->setData(kUserIdRole, user->_uid);
+  item->setData(kUserIdRole, user ? user->_uid : 0);
   item->setData(kThreadIdRole, threadId);
   setItemWidget(item, resultWidget);
 }

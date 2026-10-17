@@ -25,9 +25,10 @@ bool MysqlMgr::CheckPwdByEmail(const std::string &email, const std::string &pass
 }
 
 bool MysqlMgr::AddFriendApply(int from_uid, int to_uid, const std::string &description,
-                              const std::string &remark, const std::string &tags_json)
+                              const std::string &remark, const std::string &tags_json,
+                              bool *notify_application)
 {
-  return _dao.AddFriendApply(from_uid, to_uid, description, remark, tags_json);
+  return _dao.AddFriendApply(from_uid, to_uid, description, remark, tags_json, notify_application);
 }
 
 bool MysqlMgr::AuthFriendApply(int from_uid, int to_uid)
@@ -64,6 +65,17 @@ bool MysqlMgr::GetApplyList(int to_uid, std::vector<std::shared_ptr<ApplyInfo>> 
 bool MysqlMgr::GetFriendList(int self_uid, std::vector<std::shared_ptr<UserInfo>> &friends)
 {
   return _dao.GetFriendList(self_uid, friends);
+}
+
+bool MysqlMgr::GetFriendIds(int self_uid, std::vector<int> &friend_ids)
+{
+  return _dao.GetFriendIds(self_uid, friend_ids);
+}
+
+bool MysqlMgr::GetFriendPage(int self_uid, std::vector<std::shared_ptr<UserInfo>> &friends,
+                             int begin_uid, int limit)
+{
+  return _dao.GetFriendPage(self_uid, friends, begin_uid, limit);
 }
 
 bool MysqlMgr::DeleteFriend(int self_uid, int friend_uid)
@@ -113,4 +125,13 @@ int MysqlMgr::SetContactTags(int self_uid, int friend_uid, const std::string &ta
                              const std::string *back)
 {
   return _dao.SetContactTags(self_uid, friend_uid, tags_json, back);
+}
+
+int MysqlMgr::GetGroup(int uid, int thread, Json::Value &group, bool members)
+{
+  return _dao.GetGroup(uid, thread, group, members);
+}
+int MysqlMgr::ChangeGroup(int uid, const Json::Value &request, Json::Value &group)
+{
+  return _dao.ChangeGroup(uid, request, group);
 }

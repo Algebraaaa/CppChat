@@ -49,6 +49,8 @@ QString timeoutMessage(ReqId request)
 ReqId requestForResponse(ReqId response)
 {
   switch (response) {
+  case ID_GROUP_RSP:
+    return ID_GROUP_REQ;
   case ID_CHAT_LOGIN_RSP:
     return ID_CHAT_LOGIN;
   case ID_SEARCH_USER_RSP:
@@ -170,6 +172,7 @@ void TcpMgr::resetConnectionState()
   _readScheduled = false;
   _loggedIn = false;
   _messageDedup = false;
+  _groupChat = false;
   _requestCorrelation = false;
   _connectTimer.stop();
   _heartbeatTimer.stop();
@@ -422,6 +425,10 @@ void TcpMgr::handleMsg(ReqId id, const QByteArray &data)
 
 void TcpMgr::initHandlers()
 {
+  _handlers.insert(ID_GROUP_RSP, [this](const QJsonObject &o) {
+    emit sig_group_info(o["group"].toObject());
+    emit sig_group_result(o);
+  });
   _handlers.insert(ID_CHAT_LOGIN_RSP, [this](const QJsonObject &o) {
     if (o["uid"].toInt() <= 0) {
       CloseConnection();
@@ -438,6 +445,7 @@ void TcpMgr::initHandlers()
     mgr->AppendFriendList(o["friend_list"].toArray());
     _loggedIn = true;
     _messageDedup = o["message_dedup"].toBool(false);
+    _groupChat = o["group_chat"].toBool(false);
     _requestCorrelation = o["request_correlation"].toBool(false);
     _lastHeartbeat.start();
     _heartbeatTimer.start();
@@ -510,10 +518,15 @@ void TcpMgr::initHandlers()
     emit sig_add_auth_friend(auth);
   });
   _handlers.insert(ID_TEXT_CHAT_MSG_RSP, [this](const QJsonObject &o) {
+    if (o["group"].isObject())
+      emit sig_group_info(o["group"].toObject());
     emit sig_chat_msg_rsp(o["thread_id"].toInt(), readMessages(o));
   });
-  _handlers.insert(ID_NOTIFY_TEXT_CHAT_MSG_REQ,
-                   [this](const QJsonObject &o) { emit sig_text_chat_msg(readMessages(o)); });
+  _handlers.insert(ID_NOTIFY_TEXT_CHAT_MSG_REQ, [this](const QJsonObject &o) {
+    if (o["group"].isObject())
+      emit sig_group_info(o["group"].toObject());
+    emit sig_text_chat_msg(readMessages(o));
+  });
   _handlers.insert(ID_LOAD_CHAT_THREAD_RSP, [this](const QJsonObject &o) {
     std::vector<std::shared_ptr<ChatThreadInfo>> threads;
     for (const auto &value : o["threads"].toArray()) {
@@ -521,6 +534,7 @@ void TcpMgr::initHandlers()
       auto thread = std::make_shared<ChatThreadInfo>();
       thread->_thread_id = item["thread_id"].toInt();
       thread->_type = item["type"].toString();
+      thread->_group = item["group"].toObject();
       thread->_user1_id = item["user1_id"].toInt();
       thread->_user2_id = item["user2_id"].toInt();
       thread->_last_message_id = item["last_message_id"].toInt();

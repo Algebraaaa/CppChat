@@ -355,8 +355,10 @@ int MysqlDao::RegUser(const std::string &name, const std::string &email,
         return -1;
     }
 }
-AccountCheckResult MysqlDao::CheckEmail(const std::string &name, const std::string &email)
+AccountCheckResult MysqlDao::CheckEmail(const std::string &name, const std::string &email,
+                                        int &verified_uid)
 {
+    verified_uid = 0;
     if (name.empty() || email.empty())
     {
         return AccountCheckResult::NoMatch;
@@ -379,12 +381,17 @@ AccountCheckResult MysqlDao::CheckEmail(const std::string &name, const std::stri
         // 当前数据库使用 users(username, email)，不是旧代码里的 user(name, email)。
         // 把用户名和邮箱同时写入 WHERE，可以直接判断它们是否属于同一个账号。
         std::unique_ptr<sql::PreparedStatement> check_statement(connection.Get()->prepareStatement(
-            "SELECT 1 FROM users WHERE username = ? AND email = ? LIMIT 1"));
+            "SELECT id FROM users WHERE username = ? AND email = ? LIMIT 1"));
         check_statement->setString(1, name);
         check_statement->setString(2, email);
 
         std::unique_ptr<sql::ResultSet> result(check_statement->executeQuery());
-        return result->next() ? AccountCheckResult::Match : AccountCheckResult::NoMatch;
+        if (!result->next())
+        {
+            return AccountCheckResult::NoMatch;
+        }
+        verified_uid = result->getInt("id");
+        return AccountCheckResult::Match;
     }
     catch (const sql::SQLException &exception)
     {
@@ -451,9 +458,10 @@ AccountCheckResult MysqlDao::CheckPwdByEmail(const std::string &email, const std
         return AccountCheckResult::DatabaseError;
     }
 }
-PasswordUpdateResult MysqlDao::UpdatePwd(const std::string &name, const std::string &new_password)
+PasswordUpdateResult MysqlDao::UpdatePwd(int verified_uid, const std::string &verified_email,
+                                         const std::string &new_password)
 {
-    if (name.empty() || new_password.empty())
+    if (verified_uid <= 0 || verified_email.empty() || new_password.empty())
     {
         return PasswordUpdateResult::Failed;
     }
@@ -480,14 +488,16 @@ PasswordUpdateResult MysqlDao::UpdatePwd(const std::string &name, const std::str
 
     try
     {
-        // users 表只保存 hash、salt 和迭代次数，不保存 new_password
+        // UID 不随用户名修改；邮箱必须仍属于刚才验证的账号。单条 UPDATE 原子校验两者。
+        // users 表只保存 hash、salt 和迭代次数，不保存 new_password。
         std::unique_ptr<sql::PreparedStatement> update_statement(connection.Get()->prepareStatement(
             "UPDATE users SET password_hash = ?, password_salt = ?, "
-            "password_iterations = ? WHERE username = ?"));
+            "password_iterations = ? WHERE id = ? AND email = ?"));
         update_statement->setString(1, hash_hex);
         update_statement->setString(2, salt_hex);
         update_statement->setInt(3, kPasswordIterations);
-        update_statement->setString(4, name);
+        update_statement->setInt(4, verified_uid);
+        update_statement->setString(5, verified_email);
 
         const int updated_rows = update_statement->executeUpdate();
         if (updated_rows != 1)

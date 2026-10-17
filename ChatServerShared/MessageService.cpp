@@ -14,10 +14,17 @@ int MessageService::Store(int actor, std::vector<std::shared_ptr<ChatMessage>> &
 {
   if (actor <= 0 || messages.empty())
     return ErrorCodes::UidInvalid;
+  const bool isGroup = messages.front() && messages.front()->sender_id == messages.front()->recv_id;
+  if (isGroup) {
+    Json::Value group;
+    const int access = MysqlMgr::GetInstance()->GetGroup(actor, messages.front()->thread_id, group);
+    if (access != ErrorCodes::Success)
+      return access;
+  }
   for (const auto &message : messages) {
     if (!message || message->sender_id != actor || message->recv_id <= 0 || message->thread_id <= 0)
       return ErrorCodes::UidInvalid;
-    if (message->msg_type != 0 && message->msg_type != 1)
+    if ((isGroup && message->msg_type != 0) || (message->msg_type != 0 && message->msg_type != 1))
       return ErrorCodes::Error_Json;
     if (message->msg_type == 1) {
       const auto &id = message->content;
@@ -37,9 +44,12 @@ int MessageService::Store(int actor, std::vector<std::shared_ptr<ChatMessage>> &
       }
     }
   }
-  const int friendship = MysqlMgr::GetInstance()->CheckFriendship(actor, messages.front()->recv_id);
-  if (friendship != ErrorCodes::Success)
-    return friendship;
+  if (!isGroup) {
+    const int friendship =
+        MysqlMgr::GetInstance()->CheckFriendship(actor, messages.front()->recv_id);
+    if (friendship != ErrorCodes::Success)
+      return friendship;
+  }
   // DAO also checks membership while holding transactional locks; this check is
   // not the authority alone.
   return MysqlMgr::GetInstance()->AddChatMsg(messages) ? ErrorCodes::Success
@@ -50,6 +60,11 @@ void MessageService::Deliver(int from, int to, int thread,
                              const std::vector<std::shared_ptr<ChatMessage>> &messages,
                              const Json::Value &payload)
 {
+  if (!messages.empty() && messages.front()->recv_id == from) {
+    Json::Value group;
+    if (MysqlMgr::GetInstance()->GetGroup(to, thread, group) != ErrorCodes::Success)
+      return;
+  }
   std::string destination;
   if (!RedisMgr::GetInstance()->Get(std::string(USER_IP_PREFIX) + std::to_string(to), destination))
     return;
@@ -92,8 +107,12 @@ int MessageService::CreatePrivate(int uid, int other, int &thread)
 int MessageService::Load(int uid, int thread, int cursor, std::shared_ptr<PageResult> &page)
 {
   const int access = MysqlMgr::GetInstance()->CheckPrivateChatAccess(uid, thread);
-  if (access != ErrorCodes::Success)
-    return access;
+  if (access != ErrorCodes::Success) {
+    Json::Value group;
+    const int groupAccess = MysqlMgr::GetInstance()->GetGroup(uid, thread, group);
+    if (groupAccess != ErrorCodes::Success)
+      return access;
+  }
   page = MysqlMgr::GetInstance()->LoadChatMsg(thread, cursor, 10);
   return page ? ErrorCodes::Success : ErrorCodes::LoadChatFailed;
 }

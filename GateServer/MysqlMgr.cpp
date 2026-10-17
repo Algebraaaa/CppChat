@@ -9,14 +9,16 @@ int MysqlMgr::RegUser(const std::string &name, const std::string &email,
 }
 
 MysqlMgr::MysqlMgr() {}
-AccountCheckResult MysqlMgr::CheckEmail(const std::string &name, const std::string &email)
+AccountCheckResult MysqlMgr::CheckEmail(const std::string &name, const std::string &email,
+                                        int &verified_uid)
 {
-    return _dao.CheckEmail(name, email);
+    return _dao.CheckEmail(name, email, verified_uid);
 }
 
-PasswordUpdateResult MysqlMgr::UpdatePwd(const std::string &name, const std::string &new_password)
+PasswordUpdateResult MysqlMgr::UpdatePwd(int verified_uid, const std::string &verified_email,
+                                         const std::string &new_password)
 {
-    return _dao.UpdatePwd(name, new_password);
+    return _dao.UpdatePwd(verified_uid, verified_email, new_password);
 }
 AccountCheckResult MysqlMgr::CheckPwdByEmail(const std::string &email, const std::string &password,
                                              UserInfo &user_info)

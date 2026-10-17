@@ -33,6 +33,7 @@ struct ApplyInfo {
   {
   }
 
+  int _id = 0; // Database cursor; never use an applicant UID as the page cursor.
   int _uid = 0;
   std::string _name;
   std::string _desc;

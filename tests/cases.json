@@ -682,5 +682,17 @@
     "data_changes": "仅本轮临时账号与测试目录",
     "cleanup": "fixture / QTemporaryDir / RAII 回收",
     "implemented": true
+  },
+  {
+    "id": "GROUP-CHAT",
+    "domain": "群聊创建与权限",
+    "kind": "automated",
+    "automation": "integration/test_groups.py",
+    "preconditions": "隔离 MySQL/Redis/SMTP 与两个实际聊天节点；Qt 测试使用独立加密目录",
+    "inputs": "好友建群、邀请与移除、普通成员/非成员操作、跨节点消息、重试、离线、转让、退群、解散、32 人上限",
+    "expected": "群消息唯一落库并实时/补拉送达；非成员禁读禁发；仅群主可管理；本地重启恢复群资料",
+    "data_changes": "隔离库的 group_chat/group_chat_member/chat_message 与临时加密本地库",
+    "cleanup": "fixture 回收所属进程/容器，QTemporaryDir 回收本地数据",
+    "implemented": true
   }
 ]

@@ -26,6 +26,7 @@ public:
   void SaveCurrentDraft();
   void SetThreadPinned(int threadId, bool pinned);
 signals:
+  void sig_group_settings(int threadId);
   void sig_reload_local(int threadId);
   void sig_messages_changed(int threadId);
   void sig_open_favorites();

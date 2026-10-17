@@ -49,3 +49,11 @@ Inno Setup 6.7.3 从上游下载并验证签名。不复制或修改第三方下
 `python -B -m unittest discover -s tests/deployment` 验证损坏文件、身份、路径穿越、
 链接及多余文件在激活前被拒绝；`tests/packaging` 验证更新发布事务。
 工具、诊断和失败证据放入忽略的 `build/`，日志和真实配置不作为 Release 附件。
+
+
+群聊发布 0.1.8：先使用维护账号对现有业务库执行
+`database/mysql/20261018_group_chat.sql`（新增群资料表，不改旧消息），再推送版本标签。
+运行账号继续不授予 DDL。发布前将云端事务/好友幂等修复合回同一 Git 提交，
+避免完整源码导出覆盖云端维护改动。数据库维护与版本发布分开留备份记录。
+标签构建复用 [GitHub 官方发布/部署模型](https://docs.github.com/en/actions/concepts/workflows-and-actions/deployment-environments)，
+沿用现有锁定 Actions 与 production 环境，不引入额外发布服务。

@@ -34,3 +34,38 @@
 ## 本轮验证
 
 两个实际节点 EXE 的隔离回归覆盖合法标识的参数错误/未登录拒绝、64 字节边界、非法标识和非对象 JSON。客户端生产对象的 QtTest 覆盖同目标取消重发后的旧成功/错误包、严格模式缺失标识和旧服务端历史加载。完整构建、测试配置及未验证边界见 [架构加固进度](architecture-hardening-20261006.md)。
+
+
+## 群聊（1060 / 1061）
+
+登录成功声明 `group_chat=true`。客户端连接关闭即清除此能力；旧服务器没有该标记时，
+群管理入口说明服务器尚未升级，不发送未知操作。
+1060 走现有 request_id 关联和 15 秒请求超时，同一时刻只有一个群操作槽位。
+
+| op | 请求字段 | 权限 |
+| --- | --- | --- |
+| create | name、members（好友 UID 数组）、creation_key | 已登录用户；自己自动加入 |
+| info | thread_id | 当前成员 |
+| rename | thread_id、name | 群主 |
+| add | thread_id、member_uid | 群主邀请自己的好友；最多 32 人 |
+| remove | thread_id、member_uid | 群主；不能移除群主 |
+| transfer | thread_id、member_uid | 群主；目标必须为其他当前成员 |
+| leave | thread_id | 普通成员，群主需先转让 |
+| disband | thread_id | 群主 |
+
+成功返回 error=0、op、group；group 含 thread_id、name、owner_uid，info/创建/管理响应另含
+members: [{uid,name}]。退群和解散返回 group:{thread_id,removed:true}。
+错误码 1018=无群成员权限，1019=群主不能直接退群，1020=32 人上限；格式错误沿用 1001。
+name 上限为 UTF-8 的 64 字节，不接受控制字符；creation_key 为 1–64 字节 ASCII 字母、数字或连字符。
+创建超时重试保留 creation_key 和初始参数，同一个 key 不得用于不同内容。
+
+会话列表 1026 中群条目 type="group"、user1_id=user2_id=0，并有 group 摘要。
+群消息仍使用 1017/1018/1019：touid=0，thread_id 为群会话 ID，fromuid 必须匹配当前会话，
+text_array 的 UUID 和去重规则不变。群图片（msg_type=1）当前拒绝。
+1019 携带 group 摘要，可含 member_names（以 UID 字符串为键的发送者显示名缓存），
+群管理 info 的完整成员列表也可补齐显示名。客户端优先显示自己的好友备注。
+群历史复用 1029/1030，并在服务器检查 active 群及当前成员身份。
+
+本地复用加密的聊天记录库；群资料保存在附加的 group_profiles 表，原私聊表不重建，
+旧库自动补表，不迁移到普通明文 SQLite。成员撤销后移除会话入口和发送队列，保留已有本地数据。
+群会话和权限在完整分页刷新后核对，默认 10 秒；实时通知可能先于会话列表到达。

@@ -39,6 +39,8 @@ const char *IncomingRequestName(short message_id)
     return "avatar request";
   case ID_SET_CONTACT_TAGS_REQ:
     return "set-contact-tags request";
+  case ID_GROUP_REQ:
+    return "group operation request";
   case ID_DELETE_FRIEND_REQ:
     return "delete-friend request";
   default:

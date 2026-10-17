@@ -64,6 +64,7 @@ private:
   void SetContactTags(std::shared_ptr<CSession> session, short message_id,
                       const std::string &message_data);
 
+  void GroupRequest(std::shared_ptr<CSession> session, short, const std::string &data);
   bool IsPureDigit(const std::string &text) const;
   void GetUserByUid(const std::string &uid_text, Json::Value &response);
   void GetUserByName(const std::string &name, Json::Value &response);

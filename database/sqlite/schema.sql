@@ -46,3 +46,8 @@ CREATE TABLE IF NOT EXISTS attachments (
     size INTEGER NOT NULL
 );
 PRAGMA user_version = 1;
+
+CREATE TABLE IF NOT EXISTS group_profiles (
+    thread_id INTEGER PRIMARY KEY,
+    metadata TEXT NOT NULL
+);

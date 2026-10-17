@@ -50,6 +50,11 @@ public:
   void AddFriend(std::shared_ptr<AuthInfo> auth);
   std::shared_ptr<UserInfo> GetFriendById(int uid) const;
   int RemoveFriend(int uid);
+  void RemoveGroup(int threadId)
+  {
+    if (_chat_map.contains(threadId) && _chat_map[threadId]->IsGroup())
+      _chat_map.remove(threadId);
+  }
   void AddChatThreadData(std::shared_ptr<ChatThreadData> data, int otherUid);
   std::shared_ptr<ChatThreadData> GetChatThreadByThreadId(int threadId) const;
   std::shared_ptr<ChatThreadData> GetChatThreadByUid(int uid) const;

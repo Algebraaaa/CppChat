@@ -383,9 +383,12 @@ LogicSystem::LogicSystem()
                 return true;
             }
 
-            // 查询 users 表，确认用户名和邮箱属于同一个账号。
-            const auto email_error = AccountCheckError(
-                MysqlMgr::GetInstance()->CheckEmail(name, email), ErrorCodes::EmailNotMatch);
+            // 查询 users 表，确认用户名和邮箱属于同一个账号，并固定此次验证的
+            // UID。
+            int verified_uid = 0;
+            const auto email_error =
+                AccountCheckError(MysqlMgr::GetInstance()->CheckEmail(name, email, verified_uid),
+                                  ErrorCodes::EmailNotMatch);
             if (email_error != ErrorCodes::Success)
             {
                 LOG_WARNING("Password reset account lookup failed: error=", email_error);
@@ -395,9 +398,10 @@ LogicSystem::LogicSystem()
                 return true;
             }
 
-            // MysqlDao 会为新密码生成新的随机盐和 PBKDF2 哈希，不会保存明文密码。
-            const auto update_error =
-                PasswordUpdateError(MysqlMgr::GetInstance()->UpdatePwd(name, password));
+            // MysqlDao 会为新密码生成新的随机盐和 PBKDF2
+            // 哈希，不会保存明文密码。
+            const auto update_error = PasswordUpdateError(
+                MysqlMgr::GetInstance()->UpdatePwd(verified_uid, email, password));
             if (update_error != ErrorCodes::Success)
             {
                 LOG_ERROR("Password reset failed while updating MySQL.");

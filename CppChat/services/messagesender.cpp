@@ -157,7 +157,7 @@ bool MessageSender::Send(const QVector<MsgInfo> &inputs,
     emit status(data->GetThreadId(), tr("连接已断开，草稿已保存到本机，请重新登录"));
     return false;
   }
-  if (!UserMgr::GetInstance()->CheckFriendById(data->GetOtherId())) {
+  if ((!data->IsGroup() && !UserMgr::GetInstance()->CheckFriendById(data->GetOtherId()))) {
     emit status(data->GetThreadId(), errorCodeMessage(FriendNotFound));
     return false;
   }
@@ -165,6 +165,10 @@ bool MessageSender::Send(const QVector<MsgInfo> &inputs,
   QVector<StoredMessage> records;
   for (const auto &input : inputs) {
     const bool image = input.msgFlag == "image";
+    if (image && data->IsGroup()) {
+      emit status(data->GetThreadId(), tr("群聊暂支持文字和表情，请移除图片后发送"));
+      return false;
+    }
     if (image && (input.imageData.isEmpty() || input.imageData.size() > 20 * 1024 * 1024)) {
       emit status(data->GetThreadId(), tr("图片无法读取或超过 20 MB，请重新选择图片"));
       return false;
@@ -305,7 +309,7 @@ void MessageSender::SendNextMessage()
     if (UserMgr::GetInstance()->GetChatThreadByThreadId(data->GetThreadId()) != data)
       continue;
     if (!TcpMgr::GetInstance()->IsConnected() ||
-        !UserMgr::GetInstance()->CheckFriendById(data->GetOtherId())) {
+        (!data->IsGroup() && !UserMgr::GetInstance()->CheckFriendById(data->GetOtherId()))) {
       MarkOutgoingFailed(item.message, data);
       emit status(data->GetThreadId(), tr("会话无法发送，消息保留在本机待确认记录中"));
       continue;
@@ -364,7 +368,7 @@ void MessageSender::SendStoredMessage(const std::shared_ptr<TextChatData> &messa
     return;
   if (!TcpMgr::GetInstance()->IsConnected() ||
       UserMgr::GetInstance()->GetChatThreadByThreadId(data->GetThreadId()) != data ||
-      !UserMgr::GetInstance()->CheckFriendById(data->GetOtherId())) {
+      (!data->IsGroup() && !UserMgr::GetInstance()->CheckFriendById(data->GetOtherId()))) {
     MarkOutgoingFailed(message, data);
     return;
   }

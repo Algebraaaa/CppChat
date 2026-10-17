@@ -17,6 +17,9 @@ public:
   static void NotifyDeleted(int uid, int other);
   static int SetTags(int uid, int other, const Json::Value &input, Json::Value &normalized,
                      const Json::Value &remark = Json::Value());
-  static bool List(int uid, std::vector<std::shared_ptr<UserInfo>> &friends);
-  static bool Applications(int uid, std::vector<std::shared_ptr<ApplyInfo>> &applications);
+  static bool List(int uid, std::vector<std::shared_ptr<UserInfo>> &friends, int *error = nullptr);
+  static bool Ids(int uid, std::vector<int> &friend_ids);
+  static bool Applications(int uid, std::vector<std::shared_ptr<ApplyInfo>> &applications,
+                           int *error = nullptr);
+  static void WriteApplication(const ApplyInfo &application, Json::Value &item);
 };

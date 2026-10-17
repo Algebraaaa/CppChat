@@ -4,6 +4,7 @@
 #include "common/avatarimage.h"
 #include "common/chatstore.h"
 #include "common/conversationpreferences.h"
+#include "groupdialog.h"
 #include "network/resourcemgr.h"
 #include "network/tcpmgr.h"
 #include "network/usermgr.h"
@@ -51,6 +52,30 @@ ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog
           &QWidget::setVisible);
 
   auto *quickMenu = new QuickActionMenu(this);
+  const auto openGroup = [this](int thread) {
+    if (auto *existing = findChild<GroupDialog *>()) {
+      existing->show();
+      existing->raise();
+      existing->activateWindow();
+      return;
+    }
+    auto *dialog = new GroupDialog(thread, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &GroupDialog::groupOpened, this, &ChatDialog::SelectThread);
+    dialog->open();
+  };
+  connect(quickMenu, &QuickActionMenu::createGroupRequested, this, [openGroup] { openGroup(0); });
+  connect(ui->conversation_section->Chat(), &ChatPage::sig_group_settings, this, openGroup);
+  connect(_sync, &ChatSyncService::groupRemoved, this, [this](int id) {
+    ui->conversation_section->RemoveThread(id);
+    _unreadThreads.remove(id);
+    _manuallyUnreadThreads.remove(id);
+    if (_currentThread == id) {
+      _currentThread = 0;
+      ui->conversation_section->Chat()->ShowStatus(tr("你已退出群聊，或该群已被解散"));
+    }
+    ui->chat_unread_dot->setVisible(!_unreadThreads.isEmpty());
+  });
   connect(quickMenu, &QuickActionMenu::placeholderRequested, this, [this](const QString &title) {
     QMessageBox::information(this, tr("功能建设中"), tr("%1功能暂未实现。").arg(title));
   });
@@ -326,6 +351,12 @@ bool ChatDialog::eventFilter(QObject *watched, QEvent *event)
 
 void ChatDialog::RefreshConversationList(bool complete)
 {
+  if (auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(_currentThread)) {
+    if (data->IsGroup()) {
+      UpdateChatItem(_currentThread);
+      ui->conversation_section->Chat()->SetChatData(data);
+    }
+  }
   if (!complete) {
     AddChatUserList();
     return;

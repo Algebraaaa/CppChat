@@ -50,6 +50,7 @@ ChatItemBase::ChatItemBase(ChatRole role, QWidget *parent) : QWidget(parent), m_
 
 void ChatItemBase::setUserName(const QString &name)
 {
+  m_pNameLabel->setTextFormat(Qt::PlainText);
   m_pNameLabel->setText(name);
   m_pNameLabel->setVisible(!name.trimmed().isEmpty());
 }

@@ -39,6 +39,7 @@ struct StoredConversation {
   int lastServerId = 0;
   QString lastTime;
   QString summary;
+  QString groupJson;
 };
 
 struct HistoryCursor {
@@ -76,6 +77,7 @@ public:
   quint64 Generation() const { return _generation; }
   QString AccountDirectory() const { return _directory; }
   void SaveConversations(const QVector<StoredConversation> &conversations, Callback callback = {});
+  void ForgetGroupProfile(int threadId, Callback callback = {});
   void SaveMessages(const QVector<StoredMessage> &messages, int syncThread = 0, int cursor = -1,
                     Callback callback = {}, int clearDraftThread = 0);
   void LoadMessages(int thread, int beforeId, int limit, Callback callback);

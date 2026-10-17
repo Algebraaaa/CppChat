@@ -10,6 +10,7 @@
 ChatUserWid::ChatUserWid(QWidget *parent) : ListItemBase(parent), ui(new Ui::ChatUserWid)
 {
   ui->setupUi(this);
+  ui->user_name_lb->setTextFormat(Qt::PlainText);
   SetItemType(ListItemType::CHAT_USER_ITEM);
   setAttribute(Qt::WA_TransparentForMouseEvents);
   ui->time_lb->clear();
@@ -69,9 +70,12 @@ void ChatUserWid::SetChatData(std::shared_ptr<ChatThreadData> data)
   if (!data)
     return;
   const auto user = UserMgr::GetInstance()->GetFriendById(data->GetOtherId());
-  const auto name = user ? (user->_back.isEmpty() ? user->_name : user->_back)
-                         : tr("用户 %1").arg(data->GetOtherId());
-  const auto icon = user ? user->_icon : QStringLiteral(":/res/head_1.jpg");
+  const auto name = data->IsGroup() ? data->GetGroupName()
+                    : user          ? (user->_back.isEmpty() ? user->_name : user->_back)
+                                    : tr("用户 %1").arg(data->GetOtherId());
+  const auto icon = data->IsGroup() ? QStringLiteral(":/icons/action-group-chat.svg")
+                    : user          ? user->_icon
+                                    : QStringLiteral(":/res/head_1.jpg");
   SetInfo(name, icon, data->GetLastMsg());
   const QString timestamp = data->GetLastChatTime();
   QDateTime chatTime = QDateTime::fromString(timestamp, "yyyy-MM-dd HH:mm:ss.zzz");

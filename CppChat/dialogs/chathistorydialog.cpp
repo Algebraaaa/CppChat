@@ -162,10 +162,12 @@ void ChatHistoryDialog::Query(bool reset)
           row->installEventFilter(guard);
           auto *layout = new QVBoxLayout(row);
           const auto friendInfo = UserMgr::GetInstance()->GetFriendById(message.senderUid);
+          const auto thread = UserMgr::GetInstance()->GetChatThreadByThreadId(guard->_threadId);
           const auto name =
               message.senderUid == UserMgr::GetInstance()->GetUid() ? guard->tr("我")
               : friendInfo ? (friendInfo->_back.isEmpty() ? friendInfo->_name : friendInfo->_back)
-                           : QString::number(message.senderUid);
+              : thread && thread->IsGroup() ? thread->MemberName(message.senderUid)
+                                            : QString::number(message.senderUid);
           auto *label = new QLabel(name + "  " + message.time +
                                        (message.serverId == 0 ? guard->tr("  待确认") : QString()),
                                    row);

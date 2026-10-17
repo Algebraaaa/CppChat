@@ -19,11 +19,14 @@ public:
   void CloseConnection();
   bool IsConnected() const;
   bool SupportsMessageDedup() const { return _messageDedup; }
+  bool SupportsGroupChat() const { return _groupChat; }
   void CancelRequest(ReqId request);
 public slots:
   void slot_tcp_connect(ServerInfo server);
   void slot_send_data(ReqId id, QByteArray data);
 signals:
+  void sig_group_result(QJsonObject response);
+  void sig_group_info(QJsonObject group);
   void sig_con_success(bool success);
   void sig_send_data(ReqId id, QByteArray data);
   void sig_swich_chatdlg();
@@ -68,6 +71,7 @@ private:
   quint64 _connectionGeneration = 0;
   bool _loggedIn = false;
   bool _messageDedup = false;
+  bool _groupChat = false;
   bool _requestCorrelation = false;
   int _applyTarget = 0;
   QTimer _connectTimer;

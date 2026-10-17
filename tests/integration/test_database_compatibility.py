@@ -41,6 +41,7 @@ def test_complete_schema_creates_tables_and_preserves_data(cluster, reimports):
                     "chat_thread": 2,
                     "private_chat": 1,
                     "group_chat_member": 1,
+                    "group_chat": 0,
                     "chat_message": 1,
                 }
                 require(tables == set(expected_counts), "Incomplete project schema")

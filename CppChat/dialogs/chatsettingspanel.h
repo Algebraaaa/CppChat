@@ -23,11 +23,13 @@ public:
   void SetAvailableRect(const QRect &rect);
   void SetToggleButton(QWidget *button);
   void SetUser(const std::shared_ptr<UserInfo> &user);
+  void SetGroup(const QString &name);
   void SetPinned(bool pinned);
   qreal revealProgress() const;
   void setRevealProgress(qreal progress);
 
 signals:
+  void sig_members_requested();
   void sig_history_requested();
   void sig_clear_history();
   void sig_pin_changed(bool pinned);

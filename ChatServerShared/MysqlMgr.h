@@ -17,7 +17,8 @@ public:
   bool UpdatePwd(const std::string &name, const std::string &new_password);
   bool CheckPwdByEmail(const std::string &email, const std::string &password, UserInfo &user_info);
   bool AddFriendApply(int from_uid, int to_uid, const std::string &description,
-                      const std::string &remark, const std::string &tags_json);
+                      const std::string &remark, const std::string &tags_json,
+                      bool *notify_application = nullptr);
   bool AuthFriendApply(int from_uid, int to_uid);
   bool AddFriend(int from_uid, int to_uid, const std::string &remark, const std::string &tags_json,
                  std::vector<std::shared_ptr<ChatMessage>> &initial_messages);
@@ -29,6 +30,9 @@ public:
   bool GetApplyList(int to_uid, std::vector<std::shared_ptr<ApplyInfo>> &applications, int begin_id,
                     int limit = 10);
   bool GetFriendList(int self_uid, std::vector<std::shared_ptr<UserInfo>> &friends);
+  bool GetFriendPage(int self_uid, std::vector<std::shared_ptr<UserInfo>> &friends, int begin_uid,
+                     int limit = 100);
+  bool GetFriendIds(int self_uid, std::vector<int> &friend_ids);
   bool DeleteFriend(int self_uid, int friend_uid);
   int GetFriendMetadata(int self_uid, int friend_uid, std::string &back, std::string &tags_json);
   int SetContactTags(int self_uid, int friend_uid, const std::string &tags_json,
@@ -40,6 +44,8 @@ public:
                       int &next_last_id);
   bool CreatePrivateChat(int user1_uid, int user2_uid, int &thread_id);
   std::shared_ptr<PageResult> LoadChatMsg(int thread_id, int last_message_id, int page_size);
+  int GetGroup(int uid, int thread, Json::Value &group, bool members = false);
+  int ChangeGroup(int uid, const Json::Value &request, Json::Value &group);
   bool AddChatMsg(std::vector<std::shared_ptr<ChatMessage>> &messages);
 
 private:

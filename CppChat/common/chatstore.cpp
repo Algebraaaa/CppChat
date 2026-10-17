@@ -523,13 +523,14 @@ void ChatStore::OpenAccount(int uid, const QString &server, Callback callback)
         ChatStoreResult result;
         QSqlQuery conversations(database);
         conversations.prepare(
-            "SELECT thread_id,other_uid,last_server_id,last_time,summary FROM conversations");
+            "SELECT c.thread_id,c.other_uid,c.last_server_id,c.last_time,c.summary,g.metadata "
+            "FROM conversations c LEFT JOIN group_profiles g ON g.thread_id=c.thread_id");
         run(conversations);
         while (conversations.next())
           result.conversations.append(
               {conversations.value(0).toInt(), conversations.value(1).toInt(),
                conversations.value(2).toInt(), conversations.value(3).toString(),
-               conversations.value(4).toString()});
+               conversations.value(4).toString(), conversations.value(5).toString()});
         QSqlQuery cursors(database);
         cursors.prepare("SELECT thread_id,confirmed_cursor FROM sync_state");
         run(cursors);
@@ -557,6 +558,19 @@ void ChatStore::CloseAccount()
         _worker, [worker = _worker] { worker->Close(); }, Qt::QueuedConnection);
 }
 
+void ChatStore::ForgetGroupProfile(int threadId, Callback callback)
+{
+  Execute(
+      [threadId](QSqlDatabase &database) {
+        QSqlQuery query(database);
+        query.prepare("DELETE FROM group_profiles WHERE thread_id=?");
+        query.addBindValue(threadId);
+        run(query);
+        return ChatStoreResult{};
+      },
+      callback);
+}
+
 void ChatStore::SaveConversations(const QVector<StoredConversation> &conversations,
                                   Callback callback)
 {
@@ -579,6 +593,14 @@ void ChatStore::SaveConversations(const QVector<StoredConversation> &conversatio
           query.addBindValue(conversation.summary.isNull() ? QStringLiteral("")
                                                            : conversation.summary);
           run(query);
+          if (!conversation.groupJson.isEmpty()) {
+            QSqlQuery metadata(database);
+            metadata.prepare("INSERT INTO group_profiles(thread_id,metadata) VALUES(?,?) "
+                             "ON CONFLICT(thread_id) DO UPDATE SET metadata=excluded.metadata");
+            metadata.addBindValue(conversation.threadId);
+            metadata.addBindValue(conversation.groupJson);
+            run(metadata);
+          }
         }
         transaction.Commit();
         return ChatStoreResult{};

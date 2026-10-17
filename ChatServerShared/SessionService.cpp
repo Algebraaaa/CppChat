@@ -34,27 +34,25 @@ Json::Value SessionService::Login(const std::shared_ptr<CSession> &session, int 
   }
   UserService::WriteProfile(*user, response);
   response["token"] = status_reply.token();
+  response["group_chat"] = true;
   response["message_dedup"] = true;
   response["request_correlation"] = true;
 
   std::vector<std::shared_ptr<ApplyInfo>> applications;
-  if (FriendService::Applications(uid, applications)) {
-    for (const auto &application : applications) {
-      Json::Value item;
-      item["uid"] = application->_uid;
-      item["name"] = application->_name;
-      item["desc"] = application->_desc;
-      item["icon"] = application->_icon;
-      item["nick"] = application->_nick;
-      item["sex"] = application->_sex;
-      item["status"] = application->_status;
-      response["apply_list"].append(item);
-    }
+  int contacts_error = ErrorCodes::Success;
+  if (!FriendService::Applications(uid, applications, &contacts_error)) {
+    response["error"] = contacts_error;
+    return response;
+  }
+  for (const auto &application : applications) {
+    Json::Value item;
+    FriendService::WriteApplication(*application, item);
+    response["apply_list"].append(item);
   }
 
   std::vector<std::shared_ptr<UserInfo>> friends;
-  if (!FriendService::List(uid, friends)) {
-    response["error"] = ErrorCodes::DatabaseError;
+  if (!FriendService::List(uid, friends, &contacts_error)) {
+    response["error"] = contacts_error;
     return response;
   }
   for (const auto &friend_info : friends) {
@@ -142,11 +140,11 @@ Json::Value SessionService::Heartbeat(const std::shared_ptr<CSession> &session,
   response["uid"] = session->GetUserId();
   if (snapshotId)
     response["friend_snapshot_id"] = *snapshotId;
-  std::vector<std::shared_ptr<UserInfo>> friends;
-  if (FriendService::List(session->GetUserId(), friends)) {
+  std::vector<int> friend_ids;
+  if (FriendService::Ids(session->GetUserId(), friend_ids)) {
     response["friend_ids"] = Json::Value(Json::arrayValue);
-    for (const auto &user : friends)
-      response["friend_ids"].append(user->uid);
+    for (const int friend_uid : friend_ids)
+      response["friend_ids"].append(friend_uid);
     if (response.toStyledString().size() >= MAX_LENGTH)
       response.removeMember("friend_ids");
   }

@@ -18,8 +18,14 @@ ChatSyncService::ChatSyncService(QObject *parent) : QObject(parent)
           [this](const auto &messages) { ReceiveMessages(messages, false); });
   connect(tcp.get(), &TcpMgr::sig_chat_msg_rsp, this,
           [this](int, const auto &messages) { ReceiveMessages(messages, true); });
+  connect(tcp.get(), &TcpMgr::sig_group_info, this, &ChatSyncService::ReceiveGroup);
   _syncTimer.setInterval(60000);
   connect(&_syncTimer, &QTimer::timeout, this, [this] { RefreshAllHistory(true); });
+  _groupTimer.setInterval(10000);
+  connect(&_groupTimer, &QTimer::timeout, this, [this] {
+    if (TcpMgr::GetInstance()->SupportsGroupChat())
+      ReloadThreads();
+  });
 }
 
 void ChatSyncService::StartSession(int uid, const QString &server)
@@ -36,13 +42,17 @@ void ChatSyncService::StartSession(int uid, const QString &server)
     }
     guard->_storeReady = true;
     guard->_syncCursors = result.cursors;
-    for (const auto &stored : result.conversations)
+    for (const auto &stored : result.conversations) {
+      if (stored.otherUid == 0 && !stored.groupJson.isEmpty())
+        guard->ReceiveGroup(QJsonDocument::fromJson(stored.groupJson.toUtf8()).object());
       if (auto data = guard->EnsureThread(stored.threadId, stored.otherUid))
         data->SetLastChatSummary(stored.lastServerId, stored.lastTime);
+    }
     emit guard->conversationsChanged(false);
     guard->LoadThreads();
     guard->LoadNextHistory();
     guard->_syncTimer.start();
+    guard->_groupTimer.start();
   });
 }
 
@@ -51,6 +61,7 @@ void ChatSyncService::ResetSession()
   ++_revision;
   ++_historyOperation;
   _syncTimer.stop();
+  _groupTimer.stop();
   TcpMgr::GetInstance()->CancelRequest(ID_LOAD_CHAT_THREAD_REQ);
   TcpMgr::GetInstance()->CancelRequest(ID_LOAD_CHAT_MSG_REQ);
   _storeReady = _localRefreshScheduled = _threadsLoading = _threadsComplete = false;
@@ -61,12 +72,16 @@ void ChatSyncService::ResetSession()
   _historyComplete.clear();
   _threadsWithoutSummary.clear();
   _threadRevisions.clear();
+  _groupSnapshot.clear();
   _threadCursor = _historyThread = _historyCursor = 0;
   ChatStore::instance()->CloseAccount();
 }
 
 void ChatSyncService::ReloadThreads()
 {
+  if (_threadsLoading)
+    return;
+  _groupSnapshot.clear();
   _threadsComplete = false;
   _threadCursor = 0;
   LoadThreads();
@@ -119,7 +134,9 @@ void ChatSyncService::RequestFailed(ReqId request, const QString &message)
 
 std::shared_ptr<ChatThreadData> ChatSyncService::EnsureThread(int threadId, int otherUid)
 {
-  if (threadId <= 0 || otherUid <= 0 || otherUid == UserMgr::GetInstance()->GetUid() ||
+  if (otherUid == 0)
+    return UserMgr::GetInstance()->GetChatThreadByThreadId(threadId);
+  if (threadId <= 0 || otherUid < 0 || otherUid == UserMgr::GetInstance()->GetUid() ||
       !UserMgr::GetInstance()->CheckFriendById(otherUid))
     return nullptr;
   const auto mgr = UserMgr::GetInstance();
@@ -151,8 +168,23 @@ void ChatSyncService::ReceiveThreads(bool more, int lastId,
   _threadsLoading = false;
   QVector<StoredConversation> storedThreads;
   for (const auto &thread : threads) {
+    if (thread->_type == "group") {
+      _groupSnapshot.insert(thread->_thread_id);
+      ReceiveGroup(thread->_group);
+      if (auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(thread->_thread_id)) {
+        data->SetLastChatSummary(thread->_last_message_id, thread->_last_chat_time);
+        storedThreads.append(
+            {thread->_thread_id,
+             0,
+             thread->_last_message_id,
+             thread->_last_chat_time,
+             {},
+             QString::fromUtf8(QJsonDocument(data->Group()).toJson(QJsonDocument::Compact))});
+      }
+      continue;
+    }
     if (thread->_type != "private")
-      continue; // 参考项目群聊仅有占位，尚无完整实现。
+      continue;
     const int self = UserMgr::GetInstance()->GetUid();
     if (thread->_user1_id != self && thread->_user2_id != self)
       continue;
@@ -176,6 +208,10 @@ void ChatSyncService::ReceiveThreads(bool more, int lastId,
   if (more)
     QTimer::singleShot(0, this, &ChatSyncService::LoadThreads);
   else {
+    const auto threads = UserMgr::GetInstance()->GetChatThreads();
+    for (const auto &data : threads)
+      if (data && data->IsGroup() && !_groupSnapshot.contains(data->GetThreadId()))
+        ReceiveGroup({{"thread_id", data->GetThreadId()}, {"removed", true}});
     emit conversationsChanged(true);
     QList<int> missing = _threadsWithoutSummary.values();
     std::sort(missing.begin(), missing.end(), std::greater<int>());
@@ -379,4 +415,46 @@ void ChatSyncService::ReceiveMessages(const std::vector<std::shared_ptr<TextChat
         for (int thread : refresh)
           guard->LoadLocalMessages(thread);
       });
+}
+
+void ChatSyncService::ReceiveGroup(const QJsonObject &group)
+{
+  const int id = group["thread_id"].toInt();
+  if (id <= 0 || !_storeReady)
+    return;
+  auto mgr = UserMgr::GetInstance();
+  if (group["removed"].toBool()) {
+    RemoveThread(id);
+    mgr->RemoveGroup(id);
+    ChatStore::instance()->ForgetGroupProfile(id);
+    emit groupRemoved(id);
+    return;
+  }
+  if (!group["name"].isString() || group["owner_uid"].toInt() <= 0)
+    return;
+  auto data = mgr->GetChatThreadByThreadId(id);
+  if (data && !data->IsGroup())
+    return;
+  const bool created = !data;
+  if (!data) {
+    data = std::make_shared<ChatThreadData>(0, id, 0);
+    mgr->AddChatThreadData(data, 0);
+  }
+  const auto previousMetadata = data->Group();
+  data->SetGroup(group);
+  _groupSnapshot.insert(id);
+  ChatStore::instance()->SaveConversations(
+      {{id,
+        0,
+        0,
+        {},
+        {},
+        QString::fromUtf8(QJsonDocument(data->Group()).toJson(QJsonDocument::Compact))}});
+  if (created) {
+    LoadLocalMessages(id);
+    QueueHistory(id);
+  }
+  if (previousMetadata != data->Group())
+    emit messagesChanged(id);
+  emit conversationsChanged(false);
 }

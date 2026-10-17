@@ -58,3 +58,9 @@
 
 构建默认 `CPPCHAT_APP_VERSION=AUTO` 跟随源码版本，发布时仍可显式覆盖；旧的手动数字覆盖项需改为 AUTO。
 采用 [CMake 缓存与普通变量规则](https://cmake.org/cmake/help/v3.31/command/set.html)，保留版本标签打包能力。
+
+
+群聊复用 ChatSyncService 的分页、历史补拉、去重和账户隔离；group_profiles 保存群名与成员显示名，
+UserMgr 的 group 会话 otherUid=0，不写入好友 UID 映射。MessageSender 复用文本可靠发送，
+群图片明确拒绝并保留草稿。GroupDialog 负责单窗口创建和管理，不包含 SQL 或路由逻辑。
+群入口在会话列表“+ → 发起群聊”，成员管理在群聊天右上角更多面板中的成员按钮。

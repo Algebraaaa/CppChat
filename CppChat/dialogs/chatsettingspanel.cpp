@@ -26,7 +26,7 @@ ChatSettingsPanel::ChatSettingsPanel(QWidget *parent)
   ui->settings_chevron->setPixmap(QPixmap(":/icons/contact-chevron-right.svg"));
   ui->settings_chevron->setScaledContents(true);
   connect(ui->add_member_btn, &QPushButton::clicked, this,
-          [this] { ShowPlaceholder(tr("添加聊天成员")); });
+          [this] { emit sig_members_requested(); });
   connect(ui->find_content_btn, &QPushButton::clicked, this,
           &ChatSettingsPanel::sig_history_requested);
   connect(ui->clear_history_btn, &QPushButton::clicked, this,
@@ -53,6 +53,7 @@ ChatSettingsPanel::~ChatSettingsPanel()
 
 void ChatSettingsPanel::SetUser(const std::shared_ptr<UserInfo> &user)
 {
+  ui->add_member_btn->setToolTip(tr("创建群聊"));
   const QString name = user ? (user->_back.isEmpty() ? user->_name : user->_back) : tr("未知用户");
   ui->member_name->setText(
       ui->member_name->fontMetrics().elidedText(name, Qt::ElideRight, ui->member_name->width()));
@@ -153,4 +154,13 @@ void ChatSettingsPanel::ShowPlaceholder(const QString &feature)
 {
   QMessageBox::information(this, tr("功能建设中"),
                            tr("%1功能暂未实现，本次操作不会修改聊天数据。").arg(feature));
+}
+
+void ChatSettingsPanel::SetGroup(const QString &name)
+{
+  ui->member_name->setTextFormat(Qt::PlainText);
+  ui->member_name->setText(name);
+  ui->member_name->setToolTip(name);
+  ui->member_avatar->setPixmap(QPixmap(":/icons/action-group-chat.svg"));
+  ui->add_member_btn->setToolTip(tr("管理群聊成员"));
 }

@@ -21,7 +21,11 @@ QuickActionMenu::QuickActionMenu(QWidget *parent)
     hide();
     emit addFriendRequested();
   });
-  for (auto *button : {ui->group_chat_btn, ui->note_btn})
+  connect(ui->group_chat_btn, &QPushButton::clicked, this, [this] {
+    hide();
+    emit createGroupRequested();
+  });
+  for (auto *button : {ui->note_btn})
     connect(button, &QPushButton::clicked, this, [this, button] {
       hide();
       emit placeholderRequested(button->text());
