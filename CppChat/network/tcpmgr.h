@@ -21,6 +21,7 @@ public:
   bool SupportsMessageDedup() const { return _messageDedup; }
   bool SupportsGroupChat() const { return _groupChat; }
   bool SupportsGroupImages() const { return _groupImages; }
+  bool SupportsVoiceMessages() const { return _voiceMessages; }
   bool SupportsCommonGroups() const { return _commonGroups; }
   bool HasPendingRequest(ReqId request) const { return _pendingRequests.contains(request); }
   bool SupportsVoiceCall() const { return _voiceCall; }
@@ -84,6 +85,7 @@ private:
   bool _messageDedup = false;
   bool _groupChat = false;
   bool _groupImages = false;
+  bool _voiceMessages = false;
   bool _commonGroups = false;
   bool _voiceCall = false;
   bool _videoCall = false;

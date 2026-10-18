@@ -602,7 +602,12 @@ def main():
         "manual_checklist": "tests/manual/windows.md",
         "tools": {"cmake": cmake, "qt_cmake": qt_cmake},
         "dependency_lock": "tests/requirements.lock",
-        "implementation_status": {"收藏": "未实现", "发现": "未实现", "语音/视频": "未实现"},
+        "implementation_status": {
+            "收藏": "账号隔离的加密本机收藏",
+            "发现": "未实现",
+            "语音/视频": "一对一通话；真实设备体验待人工验收",
+            "语音消息": "私聊及群聊 PCM/WAV；真实设备录放待人工验收",
+        },
         "pending_acceptance": []
         if args.manual_results
         else ["Windows 桌面、多屏/DPI、系统剪贴板、发布包"],

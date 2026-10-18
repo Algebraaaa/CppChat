@@ -14,6 +14,7 @@
 #include "dialogs/logindialog.h"
 #include "dialogs/updatedialog.h"
 #include "dialogs/voicecalldialog.h"
+#include "dialogs/voicemessagedialog.h"
 #include "network/httpmgr.h"
 #include "network/resourcemgr.h"
 #include "network/tcpmgr.h"
@@ -21,8 +22,11 @@
 #include "services/chatsyncservice.h"
 #include "services/clientupdateservice.h"
 #include "services/messageforwarder.h"
+#include "services/messagesender.h"
 #include "services/voicecallservice.h"
+#include "services/voicemessageaudio.h"
 #include "widgets/MessageTextEdit.h"
+#include "widgets/audiobubble.h"
 #include "widgets/contactuserlist.h"
 #include "widgets/picturebubble.h"
 #include <QAction>
@@ -325,14 +329,19 @@ private slots:
   void groupImagesRequireCapabilityAndUseScopedUpload_data()
   {
     QTest::addColumn<bool>("supported");
-    QTest::newRow("legacy-server") << false;
-    QTest::newRow("group-images-server") << true;
+    QTest::addColumn<int>("mediaType");
+    QTest::newRow("legacy-server") << false << 1;
+    QTest::newRow("group-images-server") << true << 1;
+    QTest::newRow("legacy-audio") << false << 3;
+    QTest::newRow("group-audio-server") << true << 3;
   }
   void groupImagesRequireCapabilityAndUseScopedUpload()
   {
     QFETCH(bool, supported);
+    QFETCH(int, mediaType);
     LoginPeer peer, media;
-    peer.capabilities = {{"group_chat", true}, {"group_images", supported}};
+    peer.capabilities = {
+        {"group_chat", true}, {"group_images", supported}, {"voice_messages", supported}};
     gate_url_prefix = peer.url();
     LoginDialog login;
     login.findChild<QLineEdit *>("email_edit")->setText("user@example.invalid");
@@ -358,18 +367,36 @@ private slots:
     settings.setValue("ResourceServer/port", media.chat.serverPort());
     settings.sync();
     StoredFavorite image;
-    image.type = 1;
+    image.type = mediaType;
     image.content = QString(32, 'a');
     QImage pixels(24, 24, QImage::Format_RGB32);
     pixels.fill(Qt::blue);
     QBuffer buffer(&image.media);
     QVERIFY(buffer.open(QIODevice::WriteOnly));
     QVERIFY(pixels.save(&buffer, "PNG"));
+    if (mediaType == 3)
+      image.media = VoiceMessageAudio::FromPcm(QByteArray(32000, '\0'));
     ChatPage page;
     page.SetChatData(group);
     page.show();
     QTRY_VERIFY(page.findChild<MessageTextEdit *>()->isEnabled());
     QCOMPARE(page.findChild<QPushButton *>("file_btn")->isEnabled(), supported);
+    QCOMPARE(page.findChild<QPushButton *>("voice_message_btn")->isEnabled(), supported);
+    if (supported && mediaType == 3) {
+      page.findChild<QPushButton *>("voice_message_btn")->click();
+      auto *record = page.findChild<VoiceMessageDialog *>();
+      QVERIFY(record && record->isVisible());
+      QVERIFY(!VoiceMessageAudio::instance()->Recording());
+      QVERIFY(!record->findChild<QPushButton *>("voiceMessageSend")->isEnabled());
+      page.findChild<MessageSender *>()->sendPrepared(true);
+      QVERIFY(record->isVisible()); // A previous asynchronous forward must not close this dialog.
+      const auto artifacts = qEnvironmentVariable("CPPCHAT_TEST_ARTIFACTS");
+      if (!artifacts.isEmpty()) {
+        QVERIFY(QDir().mkpath(artifacts));
+        QVERIFY(record->grab().save(artifacts + "/audio-record-dialog.png"));
+      }
+      record->reject();
+    }
     QCOMPARE(page.ForwardSnapshots({image}, group), supported);
     if (supported) {
       QTRY_VERIFY(!media.chatRequests.isEmpty());
@@ -391,10 +418,21 @@ private slots:
       QCOMPARE(messages().first()["thread_id"].toInt(), 301);
       QCOMPARE(messages().first()["touid"].toInt(), 0);
       const auto body = messages().first()["text_array"].toArray().first().toObject();
-      QCOMPARE(body["msg_type"].toInt(), 1);
+      QCOMPARE(body["msg_type"].toInt(), mediaType);
       QCOMPARE(body["content"], init["file_id"]);
-      QTRY_VERIFY(page.findChild<PictureBubble *>());
-      QTRY_VERIFY(page.findChild<PictureBubble *>()->hasImage());
+      if (mediaType == 1) {
+        QTRY_VERIFY(page.findChild<PictureBubble *>());
+        QTRY_VERIFY(page.findChild<PictureBubble *>()->hasImage());
+      } else {
+        QCOMPARE(init["media_type"].toInt(), 3);
+        QTRY_VERIFY(page.findChild<AudioBubble *>());
+        QVERIFY(!VoiceMessageAudio::instance()->Recording());
+        const auto artifacts = qEnvironmentVariable("CPPCHAT_TEST_ARTIFACTS");
+        if (!artifacts.isEmpty()) {
+          QVERIFY(QDir().mkpath(artifacts));
+          QVERIFY(page.grab().save(artifacts + "/group-audio-message.png"));
+        }
+      }
     } else {
       QTest::qWait(25);
       QVERIFY(media.chatRequests.isEmpty());
@@ -402,6 +440,7 @@ private slots:
     }
     TcpMgr::GetInstance()->CloseConnection();
     QVERIFY(!TcpMgr::GetInstance()->SupportsGroupImages());
+    QVERIFY(!TcpMgr::GetInstance()->SupportsVoiceMessages());
   }
 
   void pinyinInitials_data()

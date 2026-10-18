@@ -1,5 +1,6 @@
 #include "messagesnapshotservice.h"
 #include "common/chatstore.h"
+#include "media/pcmwave.h"
 #include "network/resourcemgr.h"
 #include <QPointer>
 #include <utility>
@@ -63,7 +64,7 @@ void MessageSnapshotService::Next()
       ++_index;
       continue;
     }
-    if (value.type != 1) {
+    if (value.type != 1 && value.type != 3) {
       Finish(tr("当前版本尚不支持此媒体类型"));
       return;
     }
@@ -104,7 +105,10 @@ void MessageSnapshotService::Loaded(const QByteArray &bytes, const QString &erro
   _deadline.stop();
   _waiting.clear();
   if (!error.isEmpty() || bytes.isEmpty() || bytes.size() > 20 * 1024 * 1024 ||
-      _bytes + bytes.size() > 64 * 1024 * 1024) {
+      _bytes + bytes.size() > 64 * 1024 * 1024 ||
+      (_values[_index].type == 3 &&
+       cppchat::media::WaveDurationMs(std::string_view(bytes.constData(), bytes.size()),
+                                      bytes.size()) == 0)) {
     Finish(tr("无法读取媒体或批量媒体超过限制，内容没有提交"));
     return;
   }

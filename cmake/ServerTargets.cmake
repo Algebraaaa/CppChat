@@ -83,7 +83,7 @@ function(cppchat_add_server target source_directory proto_directory)
   cppchat_map_debug_sources(${target} mapped_sources ${sources} ${ARGN})
   add_executable(${target} ${mapped_sources})
   target_include_directories(${target} PRIVATE "${CPPCHAT_BINARY_DIR}/sources/${target}"
-    "${source_dir}" "${CPPCHAT_SOURCE_DIR}/ChatServerShared"
+    "${source_dir}" "${CPPCHAT_SOURCE_DIR}/ChatServerShared" "${CPPCHAT_SOURCE_DIR}/shared"
     "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include/jdbc")
   target_link_libraries(${target} PRIVATE Boost::asio Boost::beast Boost::filesystem Boost::uuid
     Boost::property_tree gRPC::grpc++ protobuf::libprotobuf JsonCpp::JsonCpp

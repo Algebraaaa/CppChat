@@ -13,6 +13,7 @@ class ScreenCapture;
 class ChatHistoryDialog;
 class MessageSender;
 class VoiceCallDialog;
+class VoiceMessageDialog;
 class MessageActions;
 class QLabel;
 class QPushButton;
@@ -57,6 +58,7 @@ private:
   void OpenHistory();
   void SetupMediaControls();
   void StartCall(bool video);
+  void RecordVoiceMessage();
   void UpdateMediaControls();
   void StartScreenCapture();
   void on_send_btn_clicked();
@@ -75,6 +77,7 @@ private:
   MessageSender *_sender = nullptr;
   MessageActions *_messageActions = nullptr;
   VoiceCallDialog *_voice = nullptr;
+  QPointer<VoiceMessageDialog> _voiceMessage;
   Ui::ChatPage *ui;
   QTimer *_draftTimer = nullptr;
   bool _restoringDraft = false;

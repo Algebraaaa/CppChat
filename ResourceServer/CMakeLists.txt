@@ -2,7 +2,9 @@ file(GLOB resource_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 cppchat_map_debug_sources(ResourceServer mapped_sources ${resource_sources}
   "${CPPCHAT_SOURCE_DIR}/ChatServerShared/BusinessExecutor.cpp")
 add_executable(ResourceServer ${mapped_sources})
-target_include_directories(ResourceServer PRIVATE "${CPPCHAT_BINARY_DIR}/sources/ResourceServer"
+target_sources(ResourceServer PRIVATE "${CPPCHAT_SOURCE_DIR}/shared/media/pcmwave.h")
+source_group("头文件/共享媒体格式" FILES "${CPPCHAT_SOURCE_DIR}/shared/media/pcmwave.h")
+target_include_directories(ResourceServer PRIVATE "${CPPCHAT_SOURCE_DIR}/shared" "${CPPCHAT_BINARY_DIR}/sources/ResourceServer"
   "${CMAKE_CURRENT_SOURCE_DIR}" "${CPPCHAT_SOURCE_DIR}/ChatServerShared")
 target_link_libraries(ResourceServer PRIVATE Boost::asio Boost::filesystem JsonCpp::JsonCpp
   hiredis::hiredis OpenSSL::SSL OpenSSL::Crypto gRPC::grpc++ protobuf::libprotobuf)

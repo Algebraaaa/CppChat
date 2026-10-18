@@ -826,5 +826,17 @@
     "data_changes": "仅隔离用户、群、消息、资源文件和缓存",
     "cleanup": "Cluster 回收测试进程容器及账号数据，保留脱敏失败证据",
     "implemented": true
+  },
+  {
+    "id": "AUDIO-MESSAGES",
+    "domain": "私聊和群聊语音消息",
+    "kind": "automated",
+    "automation": "integration/test_audio_messages.py",
+    "preconditions": "隔离 SQL/Redis、真实双节点与资源服务，Qt 回环夹具，不使用真实设备",
+    "inputs": "合成 1/60 秒 PCM、损坏格式、旧端协商、跨节点离线去重、群权限撤销、加密收藏及通话互斥",
+    "expected": "只接受规定格式，旧端显示升级提示，权限撤销拒绝请求，历史和收藏恢复音频，测试不打开设备",
+    "data_changes": "仅夹具账号、消息、资源与账号隔离的加密 SQLite v4",
+    "cleanup": "Cluster 和 QTemporaryDir 回收，设备服务退出时取消，保留脱敏失败证据",
+    "implemented": true
   }
 ]

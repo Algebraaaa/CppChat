@@ -2,6 +2,7 @@
 #include "common/chatstore.h"
 #include "common/imageloader.h"
 #include "ui_favoritespage.h"
+#include "widgets/audiobubble.h"
 #include <QButtonGroup>
 #include <QDateTime>
 #include <QDialog>
@@ -152,7 +153,9 @@ void FavoritesPage::Load(bool append)
         guard->_busy = false;
         guard->_hasMore = result.error.isEmpty() && result.more;
         for (const auto &value : result.favorites) {
-          const QString title = value.type == 1 ? guard->tr("[图片]") : value.content.left(250);
+          const QString title = value.type == 1   ? guard->tr("[图片]")
+                                : value.type == 3 ? guard->tr("[语音]")
+                                                  : value.content.left(250);
           const QString source =
               value.senderName + " · " +
               QDateTime::fromMSecsSinceEpoch(value.createdMs).toString("yyyy-MM-dd HH:mm");
@@ -203,6 +206,10 @@ void FavoritesPage::Open(bool resend)
       text->setReadOnly(true);
       text->setPlainText(value.content);
       layout->addWidget(text, 1);
+    } else if (value.type == 3) {
+      auto *audio = new AudioBubble(ChatRole::Other, dialog);
+      audio->SetSnapshot(value.media);
+      layout->addWidget(audio);
     } else {
       auto *image = new QLabel(guard->tr("正在读取图片…"), dialog);
       image->setAlignment(Qt::AlignCenter);

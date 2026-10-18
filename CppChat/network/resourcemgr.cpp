@@ -2,6 +2,7 @@
 #include "common/chatstore.h"
 #include "common/runtimepaths.h"
 #include "common/securitypolicy.h"
+#include "media/pcmwave.h"
 #include "usermgr.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -251,8 +252,14 @@ void ResourceMgr::uploadImage(const QByteArray &image, int recipient, const QStr
   startUpload({}, image, recipient, requestId, groupThread);
 }
 
+void ResourceMgr::uploadMedia(const QByteArray &bytes, int recipient, const QString &requestId,
+                              int groupThread, int mediaType)
+{
+  startUpload({}, bytes, recipient, requestId, groupThread, mediaType);
+}
+
 void ResourceMgr::startUpload(const QString &path, const QByteArray &bytes, int recipient,
-                              const QString &requestId, int groupThread)
+                              const QString &requestId, int groupThread, int mediaType)
 {
   rememberImage({}, {});
   const auto info = connectionInfo();
@@ -268,122 +275,129 @@ void ResourceMgr::startUpload(const QString &path, const QByteArray &bytes, int 
   const auto cancelled = _cancelled;
   qInfo() << "Image upload started:" << "request=" << requestId << "uid=" << info.uid
           << "recipient=" << recipient;
-  _uploadPool.start(QRunnable::create(
-      [this, path, bytes, recipient, requestId, info, generation, cancelled, groupThread] {
-        if (cancelled->load())
-          return;
-        QString error;
-        QString fileId;
-        QByteArray image = bytes;
-        if (!path.isEmpty()) {
-          QFile file(path);
-          if (!file.open(QIODevice::ReadOnly) || file.size() <= 0 || file.size() > kMaxImageSize) {
-            error = tr("图片无法读取或超过 20 MB");
-          } else {
-            image = file.readAll();
-            if (image.size() != file.size())
-              error = tr("图片读取失败");
-          }
-        }
-        if (error.isEmpty() && (image.isEmpty() || image.size() > kMaxImageSize))
-          error = tr("图片为空或超过 20 MB");
-        if (error.isEmpty()) {
-          const QByteArray scope = groupThread > 0 ? "group:" + QByteArray::number(groupThread)
-                                                   : QByteArray::number(recipient);
-          const QByteArray identity =
-              QByteArray::number(info.uid) + ':' + scope + ':' +
-              QCryptographicHash::hash(image, QCryptographicHash::Sha256).toHex();
-          fileId = QString::fromLatin1(
-              QCryptographicHash::hash(identity, QCryptographicHash::Sha256).toHex().left(32));
-        }
-        if (cancelled->load())
-          return;
-        if (error.isEmpty()) {
-          QSslSocket socket;
-          if (connectSocket(socket, info, error, cancelled)) {
-            auto init = baseRequest(info, fileId);
-            init.insert("recipient", recipient);
-            if (groupThread > 0)
-              init.insert("thread_id", groupThread);
-            init.insert("size", image.size());
-            init.insert("sha256",
-                        QString::fromLatin1(
-                            QCryptographicHash::hash(image, QCryptographicHash::Sha256).toHex()));
-            QJsonObject reply;
-            if (exchange(socket, 1050, init, reply, error, cancelled)) {
-              qint64 offset = reply.value("offset").toVariant().toLongLong();
-              if (offset < 0 || offset > image.size())
-                error = tr("资源服务返回了无效断点");
-              QElapsedTimer progressTimer;
-              progressTimer.start();
-              // 旧服务端没有协商字段时保持单分块模式。窗口有界，不改变分块大小。
-              const int window = qBound(1, reply.value("upload_window").toInt(1), 4);
-              while (error.isEmpty() && offset < image.size()) {
-                if (cancelled->load())
-                  return;
-                QVector<qint64> expectedOffsets;
-                qint64 sent = offset;
-                for (int index = 0; index < window && sent < image.size(); ++index) {
-                  const auto bytes = image.mid(sent, kChunkSize);
-                  auto chunk = baseRequest(info, fileId);
-                  chunk.insert("offset", double(sent));
-                  chunk.insert("data", QString::fromLatin1(bytes.toBase64()));
-                  if (!sendRequest(socket, 1052, chunk, error, cancelled))
-                    break;
-                  sent += bytes.size();
-                  expectedOffsets.append(sent);
-                }
-                for (const auto expected : expectedOffsets) {
-                  if (!error.isEmpty() || !receiveResponse(socket, 1052, reply, error, cancelled))
-                    break;
-                  const auto next = reply.value("offset").toVariant().toLongLong();
-                  if (next != expected) {
-                    error = tr("资源服务确认的上传断点与分块不一致");
-                    break;
-                  }
-                  offset = next;
-                }
-                if (!error.isEmpty())
-                  break;
-                if (offset == image.size() || progressTimer.elapsed() >= kProgressIntervalMs) {
-                  progressTimer.restart();
-                  const auto size = image.size();
-                  QMetaObject::invokeMethod(
-                      this,
-                      [this, requestId, offset, size, generation] {
-                        if (ChatStore::instance()->Generation() != generation)
-                          return;
-                        emit uploadProgress(requestId, offset, size);
-                      },
-                      Qt::QueuedConnection);
-                }
+  _uploadPool.start(QRunnable::create([this, path, bytes, recipient, requestId, info, generation,
+                                       cancelled, groupThread, mediaType] {
+    if (cancelled->load())
+      return;
+    QString error;
+    QString fileId;
+    QByteArray image = bytes;
+    if (!path.isEmpty()) {
+      QFile file(path);
+      if (!file.open(QIODevice::ReadOnly) || file.size() <= 0 || file.size() > kMaxImageSize) {
+        error = tr("图片无法读取或超过 20 MB");
+      } else {
+        image = file.readAll();
+        if (image.size() != file.size())
+          error = tr("图片读取失败");
+      }
+    }
+    if (error.isEmpty() && (image.isEmpty() || image.size() > kMaxImageSize))
+      error = tr("图片为空或超过 20 MB");
+    if (mediaType != 1 && mediaType != 3)
+      error = tr("不支持的媒体类型");
+    if (mediaType == 3 && cppchat::media::WaveDurationMs(
+                              std::string_view(image.constData(), image.size()), image.size()) == 0)
+      error = tr("语音必须为 1–60 秒的 16kHz 单声道 16 位 PCM/WAV");
+    if (error.isEmpty()) {
+      const QByteArray scope = groupThread > 0 ? "group:" + QByteArray::number(groupThread)
+                                               : QByteArray::number(recipient);
+      const QByteArray identity =
+          (mediaType == 3 ? QByteArray("audio:") : QByteArray()) + QByteArray::number(info.uid) +
+          ':' + scope + ':' + QCryptographicHash::hash(image, QCryptographicHash::Sha256).toHex();
+      fileId = QString::fromLatin1(
+          QCryptographicHash::hash(identity, QCryptographicHash::Sha256).toHex().left(32));
+    }
+    if (cancelled->load())
+      return;
+    if (error.isEmpty()) {
+      QSslSocket socket;
+      if (connectSocket(socket, info, error, cancelled)) {
+        auto init = baseRequest(info, fileId);
+        init.insert("recipient", recipient);
+        if (mediaType != 1)
+          init.insert("media_type", mediaType);
+        if (groupThread > 0)
+          init.insert("thread_id", groupThread);
+        init.insert("size", image.size());
+        init.insert("sha256",
+                    QString::fromLatin1(
+                        QCryptographicHash::hash(image, QCryptographicHash::Sha256).toHex()));
+        QJsonObject reply;
+        if (exchange(socket, 1050, init, reply, error, cancelled)) {
+          qint64 offset = reply.value("offset").toVariant().toLongLong();
+          if (offset < 0 || offset > image.size())
+            error = tr("资源服务返回了无效断点");
+          QElapsedTimer progressTimer;
+          progressTimer.start();
+          // 旧服务端没有协商字段时保持单分块模式。窗口有界，不改变分块大小。
+          const int window = qBound(1, reply.value("upload_window").toInt(1), 4);
+          while (error.isEmpty() && offset < image.size()) {
+            if (cancelled->load())
+              return;
+            QVector<qint64> expectedOffsets;
+            qint64 sent = offset;
+            for (int index = 0; index < window && sent < image.size(); ++index) {
+              const auto bytes = image.mid(sent, kChunkSize);
+              auto chunk = baseRequest(info, fileId);
+              chunk.insert("offset", double(sent));
+              chunk.insert("data", QString::fromLatin1(bytes.toBase64()));
+              if (!sendRequest(socket, 1052, chunk, error, cancelled))
+                break;
+              sent += bytes.size();
+              expectedOffsets.append(sent);
+            }
+            for (const auto expected : expectedOffsets) {
+              if (!error.isEmpty() || !receiveResponse(socket, 1052, reply, error, cancelled))
+                break;
+              const auto next = reply.value("offset").toVariant().toLongLong();
+              if (next != expected) {
+                error = tr("资源服务确认的上传断点与分块不一致");
+                break;
               }
-              if (error.isEmpty() && offset == image.size() && !(reply.value("complete").toBool()))
-                error = tr("资源服务未确认上传完成");
+              offset = next;
+            }
+            if (!error.isEmpty())
+              break;
+            if (offset == image.size() || progressTimer.elapsed() >= kProgressIntervalMs) {
+              progressTimer.restart();
+              const auto size = image.size();
+              QMetaObject::invokeMethod(
+                  this,
+                  [this, requestId, offset, size, generation] {
+                    if (ChatStore::instance()->Generation() != generation)
+                      return;
+                    emit uploadProgress(requestId, offset, size);
+                  },
+                  Qt::QueuedConnection);
             }
           }
+          if (error.isEmpty() && offset == image.size() && !(reply.value("complete").toBool()))
+            error = tr("资源服务未确认上传完成");
         }
-        QMetaObject::invokeMethod(
-            this,
-            [this, requestId, fileId, image, error, info, generation, cancelled] {
-              if (cancelled->load() || ChatStore::instance()->Generation() != generation)
-                return;
-              --_uploadTasks;
-              if (error.isEmpty() && UserMgr::GetInstance()->GetUid() == info.uid) {
-                rememberImage(fileId, image);
-                if (ChatStore::instance()->IsReady())
-                  ChatStore::instance()->SaveAttachment(fileId, image);
-              }
-              if (error.isEmpty())
-                qInfo() << "Image upload completed:" << "request=" << requestId
-                        << "file=" << fileId.left(8) << "bytes=" << image.size();
-              else
-                qWarning() << "Image upload failed:" << "request=" << requestId
-                           << "uid=" << info.uid << "reason=" << error;
-              emit uploadFinished(requestId, error.isEmpty() ? fileId : QString(), error);
-            },
-            Qt::QueuedConnection);
-      }));
+      }
+    }
+    QMetaObject::invokeMethod(
+        this,
+        [this, requestId, fileId, image, error, info, generation, cancelled] {
+          if (cancelled->load() || ChatStore::instance()->Generation() != generation)
+            return;
+          --_uploadTasks;
+          if (error.isEmpty() && UserMgr::GetInstance()->GetUid() == info.uid) {
+            rememberImage(fileId, image);
+            if (ChatStore::instance()->IsReady())
+              ChatStore::instance()->SaveAttachment(fileId, image);
+          }
+          if (error.isEmpty())
+            qInfo() << "Image upload completed:" << "request=" << requestId
+                    << "file=" << fileId.left(8) << "bytes=" << image.size();
+          else
+            qWarning() << "Image upload failed:" << "request=" << requestId << "uid=" << info.uid
+                       << "reason=" << error;
+          emit uploadFinished(requestId, error.isEmpty() ? fileId : QString(), error);
+        },
+        Qt::QueuedConnection);
+  }));
 }
 
 void ResourceMgr::fetchImage(const QString &fileId)

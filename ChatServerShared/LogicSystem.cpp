@@ -36,7 +36,7 @@ void FillUserJson(const UserInfo &user, Json::Value &value)
   UserService::WriteProfile(user, value);
 }
 
-void FillChatJson(const ChatMessage &message, Json::Value &value)
+void FillChatJson(const ChatMessage &message, Json::Value &value, bool voiceMessages = true)
 {
   value["message_id"] = message.message_id;
   value["thread_id"] = message.thread_id;
@@ -49,6 +49,7 @@ void FillChatJson(const ChatMessage &message, Json::Value &value)
   value["status"] = message.status;
   value["msg_type"] = message.msg_type;
   value["media_size"] = Json::UInt64(message.media_size);
+  MessageService::PresentMessage(value, voiceMessages);
 }
 
 bool DecodeAvatar(const std::string &encoded, std::string &decoded)
@@ -216,6 +217,9 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session, short,
         (request.isMember("login_chunks") && !request["login_chunks"].isBool())) {
       response["error"] = ErrorCodes::Error_Json;
     } else {
+      if (session->GetUserId() == 0)
+        session->SetVoiceMessages(request.get("voice_messages", false).isBool() &&
+                                  request.get("voice_messages", false).asBool());
       response =
           SessionService::Login(session, request["uid"].asInt(), request["token"].asString());
     }
@@ -447,6 +451,10 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session, short,
     message->chat_time = timestamp;
     message->status = 2;
     message->msg_type = item.get("msg_type", 0).asInt();
+    if (message->msg_type == 3 && !session->SupportsVoiceMessages()) {
+      response["error"] = ErrorCodes::Error_Json;
+      return;
+    }
     messages.push_back(std::move(message));
   }
   const int stored = MessageService::Store(from_uid, messages);
@@ -727,7 +735,7 @@ void LogicSystem::LoadChatMsg(std::shared_ptr<CSession> session, short,
   response["chat_datas"] = Json::Value(Json::arrayValue);
   for (const auto &message : page->messages) {
     Json::Value value;
-    FillChatJson(message, value);
+    FillChatJson(message, value, session->SupportsVoiceMessages());
     Json::Value candidate = response;
     candidate["chat_datas"].append(value);
     candidate["last_message_id"] = message.message_id;

@@ -2,6 +2,7 @@
 #include "dialogs/voicecalldialog.h"
 #include "services/voiceaudio.h"
 #include "services/voicecallservice.h"
+#include "services/voicemessageaudio.h"
 #include <QApplication>
 #include <QDir>
 #include <QPushButton>
@@ -19,6 +20,52 @@ class VoiceTests : public QObject {
         {"call_id", call.callId()}, {"peer", call.peer()}, {"action", action}, {"error", error}};
   }
 private slots:
+  void storedPcmWaveBoundariesAndTampering()
+  {
+    for (const int seconds : {1, 60}) {
+      const auto pcm = QByteArray(seconds * 32000, char(1));
+      const auto wav = VoiceMessageAudio::FromPcm(pcm);
+      QCOMPARE(wav.size(), pcm.size() + 44);
+      QCOMPARE(VoiceMessageAudio::DurationMs(wav), seconds * 1000);
+      QCOMPARE(wav.mid(44), pcm);
+      for (const int offset : {0, 4, 8, 12, 16, 20, 22, 24, 28, 32, 34, 36, 40}) {
+        auto damaged = wav;
+        damaged[offset] = char(quint8(damaged[offset]) ^ 0x40);
+        QCOMPARE(VoiceMessageAudio::DurationMs(damaged), 0);
+      }
+      QCOMPARE(VoiceMessageAudio::DurationMs(wav + 'x'), 0);
+      QCOMPARE(VoiceMessageAudio::DurationMs(wav.left(wav.size() - 2)), 0);
+    }
+    QVERIFY(VoiceMessageAudio::FromPcm(QByteArray(31998, '\0')).isEmpty());
+    QVERIFY(VoiceMessageAudio::FromPcm(QByteArray(1920002, '\0')).isEmpty());
+    QVERIFY(VoiceMessageAudio::FromPcm(QByteArray(32001, '\0')).isEmpty());
+    QCOMPARE(VoiceMessageAudio::DurationMs({}), 0);
+  }
+  void incomingCallExcludesStoredAudioWithoutOpeningDevices()
+  {
+    auto *audio = VoiceMessageAudio::instance();
+    audio->Cancel();
+    QVERIFY(!audio->Recording());
+    QVERIFY(audio->PlayingKey().isEmpty());
+    VoiceCallDialog dialog;
+    auto *service = dialog.findChild<VoiceCallService *>();
+    service->receive(QJsonObject{{"call_id", QString(32, 'd')},
+                                 {"peer", 15},
+                                 {"action", "invite"},
+                                 {"error", 0},
+                                 {"incoming", true}});
+    QVERIFY(audio->CallBusy());
+    QSignalSpy failed(audio, &VoiceMessageAudio::failed);
+    QVERIFY(!audio->StartRecording());
+    QVERIFY(!audio->Play(VoiceMessageAudio::FromPcm(QByteArray(32000, '\0')), "blocked"));
+    QCOMPARE(failed.size(), 2);
+    QVERIFY(!audio->Recording());
+    QVERIFY(audio->PlayingKey().isEmpty());
+    dialog.finish();
+    QVERIFY(!audio->CallBusy());
+    QVERIFY(!audio->Play("bad wave", "invalid"));
+    audio->Cancel();
+  }
   void initTestCase()
   {
     QString error;

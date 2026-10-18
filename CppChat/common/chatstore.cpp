@@ -289,7 +289,7 @@ SaveResult saveMessage(QSqlDatabase &database, const StoredMessage &message)
     query.addBindValue(message.senderUid);
   }
   run(query);
-  if (message.serverId > 0 && message.type == 1) {
+  if (message.serverId > 0 && (message.type == 1 || message.type == 3)) {
     QSqlQuery release(database);
     release.prepare("UPDATE messages SET local_image=NULL WHERE thread_id=? AND server_id=? "
                     "AND EXISTS(SELECT 1 FROM attachments WHERE file_id=messages.content)");
@@ -303,7 +303,9 @@ SaveResult saveMessage(QSqlDatabase &database, const StoredMessage &message)
                     "WHERE thread_id=? AND last_server_id<=?");
     summary.addBindValue(message.serverId);
     summary.addBindValue(message.time);
-    summary.addBindValue(message.type == 1 ? QStringLiteral("[图片]") : message.content);
+    summary.addBindValue(message.type == 1   ? QStringLiteral("[图片]")
+                         : message.type == 3 ? QStringLiteral("[语音]")
+                                             : message.content);
     summary.addBindValue(message.threadId);
     summary.addBindValue(message.serverId);
     run(summary);
@@ -334,7 +336,7 @@ StoredMessage StoredMessage::From(const std::shared_ptr<ChatDataBase> &message)
           message->GetUniqueId(),
           message->GetContent(),
           message->GetChatTime(),
-          message->GetMsgType() == ChatMsgType::PIC ? 1 : 0,
+          static_cast<int>(message->GetMsgType()),
           message->GetStatus(),
           {}};
 }
@@ -342,8 +344,8 @@ StoredMessage StoredMessage::From(const std::shared_ptr<ChatDataBase> &message)
 std::shared_ptr<TextChatData> StoredMessage::ToMessage() const
 {
   return std::make_shared<TextChatData>(serverId, uniqueId, threadId, ChatFormType::PRIVATE,
-                                        type == 1 ? ChatMsgType::PIC : ChatMsgType::TEXT, content,
-                                        senderUid, status, time);
+                                        static_cast<ChatMsgType>(type), content, senderUid, status,
+                                        time);
 }
 
 ChatStore *ChatStore::instance()
@@ -521,7 +523,8 @@ void ChatStore::OpenAccount(int uid, const QString &server, Callback callback)
         QSqlQuery version(database);
         checked(version.exec("PRAGMA user_version") && version.next(),
                 "Cannot read database version");
-        checked(version.value(0).toInt() <= 3, "Local database is newer than this client");
+        const int priorVersion = version.value(0).toInt();
+        checked(priorVersion <= 4, "Local database is newer than this client");
         version.finish();
         QFile schema(":/storage/chatstore-schema.sql");
         checked(schema.open(QIODevice::ReadOnly), "Local database schema is missing");
@@ -529,6 +532,10 @@ void ChatStore::OpenAccount(int uid, const QString &server, Callback callback)
         for (const auto &statement : QString::fromUtf8(schema.readAll()).split(';'))
           if (!statement.trimmed().isEmpty())
             sql(database, statement);
+        if (priorVersion < 4)
+          sql(database, "UPDATE sync_state SET confirmed_cursor=0 WHERE thread_id IN "
+                        "(SELECT thread_id FROM messages WHERE message_type=0 AND "
+                        "content='[语音消息] 请升级客户端以收听')");
         // 上次退出时仍未得到回执的消息只恢复为待核对，不在启动时自动重发。
         sql(database, "UPDATE messages SET send_state=2 WHERE server_id IS NULL AND send_state=0");
         transaction.Commit();
@@ -742,8 +749,9 @@ void ChatStore::SearchMessages(int thread, const QString &text, int type, Histor
             "SELECT " + kMessageColumns +
             " FROM messages m JOIN conversations c ON c.thread_id=m.thread_id "
             "WHERE m.thread_id=? AND (m.server_id IS NULL OR m.server_id>c.hidden_before_id) "
-            "AND (?<0 OR m.message_type=? OR (?=3 AND (m.content LIKE '%http://%' OR m.content "
-            "LIKE '%https://%'))) "
+            "AND (?<0 OR (?<>3 AND m.message_type=?) OR "
+            "(?=3 AND m.message_type=0 AND (m.content LIKE '%http://%' OR m.content LIKE "
+            "'%https://%'))) "
             "AND (?='' OR (m.chat_time>=? AND m.chat_time<?)) AND m.content LIKE ? ESCAPE '\\' "
             "AND COALESCE(m.server_id,2147483647)<=? "
             "AND (COALESCE(m.server_id,2147483647),m.local_id)<(?,?) "
@@ -751,6 +759,8 @@ void ChatStore::SearchMessages(int thread, const QString &text, int type, Histor
         query.addBindValue(thread);
         query.addBindValue(type);
         query.addBindValue(type);
+        // Search category 3 remains links; 4 is the new audio category.
+        query.addBindValue(type == 4 ? 3 : type);
         query.addBindValue(type);
         query.addBindValue(date.isNull() ? QStringLiteral("") : date);
         query.addBindValue(date.isNull() ? QStringLiteral("") : date);
@@ -907,9 +917,9 @@ void ChatStore::SaveAttachment(const QString &id, const QByteArray &image, Callb
               run(query);
               // 回执可能早于缓存写入完成；缓存可用后才清理已确认消息里的重复 BLOB。
               QSqlQuery release(database);
-              release.prepare(
-                  "UPDATE messages SET local_image=NULL WHERE content=? "
-                  "AND message_type=1 AND server_id IS NOT NULL AND local_image IS NOT NULL");
+              release.prepare("UPDATE messages SET local_image=NULL WHERE content=? "
+                              "AND message_type IN (1,3) AND server_id IS NOT NULL AND local_image "
+                              "IS NOT NULL");
               release.addBindValue(id);
               run(release);
               transaction.Commit();

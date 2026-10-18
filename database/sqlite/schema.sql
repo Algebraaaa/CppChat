@@ -27,6 +27,8 @@ CREATE INDEX IF NOT EXISTS messages_history_order
     ON messages(thread_id, COALESCE(server_id,2147483647) DESC, local_id DESC);
 CREATE INDEX IF NOT EXISTS messages_image_blob ON messages(content)
     WHERE message_type=1 AND server_id IS NOT NULL AND local_image IS NOT NULL;
+CREATE INDEX IF NOT EXISTS messages_audio_blob ON messages(content)
+    WHERE message_type=3 AND server_id IS NOT NULL AND local_image IS NOT NULL;
 CREATE TABLE IF NOT EXISTS sync_state (
     thread_id INTEGER PRIMARY KEY,
     confirmed_cursor INTEGER NOT NULL DEFAULT 0
@@ -69,4 +71,4 @@ CREATE TABLE IF NOT EXISTS favorites (
     created_ms INTEGER NOT NULL,
     UNIQUE(thread_id, server_id)
 );
-PRAGMA user_version = 3;
+PRAGMA user_version = 4;

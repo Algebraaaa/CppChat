@@ -25,7 +25,7 @@ public:
 signals:
   void savingChanged(bool saving);
   void outgoingSaved(int threadId);
-  void forwardPrepared(bool success);
+  void sendPrepared(bool success);
   void messagesChanged(int threadId, bool scrollToBottom);
   void messageStatusChanged(int threadId, const QString &uniqueId, int status);
   void status(int threadId, const QString &message);

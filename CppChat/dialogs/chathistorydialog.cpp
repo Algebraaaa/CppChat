@@ -3,6 +3,7 @@
 #include "network/resourcemgr.h"
 #include "network/usermgr.h"
 #include "ui_chathistorydialog.h"
+#include "widgets/audiobubble.h"
 #include "widgets/picturebubble.h"
 #include "widgets/textbubble.h"
 #include <QButtonGroup>
@@ -29,11 +30,13 @@ ChatHistoryDialog::ChatHistoryDialog(QWidget *parent)
   ui->empty_icon->setPixmap(QIcon(":/icons/favorites-message.svg").pixmap(48, 48));
   ui->voice_search_btn->setEnabled(false);
   ui->voice_search_btn->setToolTip(tr("暂不支持语音搜索"));
-  for (auto *button : {ui->files_btn, ui->music_btn, ui->miniapps_btn, ui->channels_btn}) {
+  for (auto *button : {ui->files_btn, ui->miniapps_btn, ui->channels_btn}) {
     button->setEnabled(false);
     button->setToolTip(tr("当前协议尚不支持此类消息"));
   }
-  for (auto *button : {ui->all_btn, ui->media_btn, ui->links_btn})
+  ui->music_btn->setText(tr("语音"));
+  ui->music_btn->setToolTip(tr("语音消息"));
+  for (auto *button : {ui->all_btn, ui->media_btn, ui->links_btn, ui->music_btn})
     _categories->addButton(button);
   connect(ui->all_btn, &QPushButton::clicked, this, [this] {
     _type = -1;
@@ -45,6 +48,10 @@ ChatHistoryDialog::ChatHistoryDialog(QWidget *parent)
   });
   connect(ui->links_btn, &QPushButton::clicked, this, [this] {
     _type = 3;
+    Query();
+  });
+  connect(ui->music_btn, &QPushButton::clicked, this, [this] {
+    _type = 4;
     Query();
   });
   connect(ui->date_btn, &QPushButton::clicked, this, [this] {
@@ -182,6 +189,10 @@ void ChatHistoryDialog::Query(bool reset)
             layout->addWidget(picture);
             const auto fileId = message.content;
             picture->loadImage(fileId);
+          } else if (message.type == 3) {
+            auto *audio = new AudioBubble(ChatRole::Other);
+            layout->addWidget(audio);
+            audio->Load(message.content);
           } else
             layout->addWidget(new TextBubble(ChatRole::Other, message.content));
           auto *item = new QListWidgetItem(guard->ui->results_list);

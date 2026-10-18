@@ -1,5 +1,35 @@
 # CppChat ResourceServer
 
+## Voice messages (2026-10-19, 0.1.16)
+
+Upload init `media_type=3` selects stored audio (default 1 remains image). The kind,
+sender, recipient/group, size and checksum are immutable for a file ID. Audio lives
+under `audio/`, inaccessible to old resource binaries after rollback. Ready records
+carry an `audio:` prefix so images cannot be relabeled as audio or vice versa.
+Only canonical RIFF/WAVE PCM, 16000 Hz, mono, 16-bit little endian, 1–60 seconds,
+is accepted; the service checks the final header and exact length before marking ready.
+The maximum canonical file is 1,920,044 bytes, below the 2 MiB limit.
+Group audio uses the same live membership RPC for every protected request.
+Chat type 3 is new; 0/1/2 retain their meanings. Login negotiates `voice_messages`;
+old sessions receive a text upgrade notice, while durable history retains real audio.
+Media metadata includes format, byte size and duration derived from the validated PCM
+length, so production MySQL needs no new columns or tables.
+Client SQLite upgrades idempotently to v4 with a pending-audio index. Threads holding
+old upgrade notices restart history synchronization once, retaining local deletion
+tombstones; old clients refuse the newer database rather than misreading audio as text.
+
+Reuse: the installed Qt 6.12.0 [QAudioSource](https://doc.qt.io/qt-6/qaudiosource.html)
+and [QAudioSink](https://doc.qt.io/qt-6/qaudiosink.html), existing transport/SQLite and
+the [RIFF format](https://learn.microsoft.com/en-us/windows/win32/xaudio2/resource-interchange-file-format--riff-).
+Reviewed Qt's [BSD-3-Clause recorder example](https://github.com/qt/qtmultimedia/blob/v6.12.0/examples/multimedia/audiorecorder/audiorecorder.cpp)
+for device/error lifecycle; no example source was copied or codec library added.
+The small shared canonical container validator avoids a general media parser and
+backend-dependent WAV encoder settings. It does not implement an audio codec.
+Capture is explicit and bounded, uses Qt's GUI-thread QIODevice interface, and
+rejects devices that cannot supply the required format. Real-time calls preempt
+stored recording/playback. Real device/permission, speaker and weak-network
+acceptance remains separate from synthetic PCM and loopback/cloud transport tests.
+
 ## Group images (2026-10-19, 0.1.15)
 
 An upload may specify `recipient=0, thread_id=<actual group>`; its metadata and ready

@@ -7,8 +7,11 @@
 #include "network/tcpmgr.h"
 #include "network/usermgr.h"
 #include "services/messagesender.h"
+#include "services/voicemessageaudio.h"
 #include "ui_chatpage.h"
 #include "voicecalldialog.h"
+#include "voicemessagedialog.h"
+#include "widgets/audiobubble.h"
 #include "widgets/chatitembase.h"
 #include "widgets/emojipicker.h"
 #include "widgets/picturebubble.h"
@@ -71,9 +74,8 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
 {
   ui->setupUi(this);
   _sender = new MessageSender(this);
-  connect(_sender, &MessageSender::forwardPrepared, this, [this](bool success) {
-    ShowStatus(success ? tr("已保存到本机待发送队列")
-                       : tr("转发保存失败，请从原消息或收藏重新发送"));
+  connect(_sender, &MessageSender::sendPrepared, this, [this](bool success) {
+    ShowStatus(success ? tr("已保存到本机待发送队列") : tr("消息保存失败，原内容未发送，请重试"));
   });
   _messageActions = new MessageActions(this);
   SetupSelection();
@@ -285,6 +287,8 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
 }
 ChatPage::~ChatPage()
 {
+  if (_voiceMessage)
+    delete _voiceMessage.data();
   // Finish while ui and status callbacks still exist; QObject deletes children later.
   _voice->finish();
   delete _voice;
@@ -307,10 +311,48 @@ void ChatPage::SetupMediaControls()
   ui->call_btn->setMenu(menu);
 
   // 输入工具与实时通话是独立入口，尚未接入的能力不打开通话窗口或设备。
-  for (auto *button : {ui->voice_transcribe_btn, ui->voice_message_btn}) {
+  for (auto *button : {ui->voice_transcribe_btn}) {
     connect(button, &QPushButton::clicked, this,
             [this, button] { ShowStatus(tr("%1功能暂未开放").arg(button->accessibleName())); });
   }
+  connect(ui->voice_message_btn, &QPushButton::clicked, this, &ChatPage::RecordVoiceMessage);
+}
+
+void ChatPage::RecordVoiceMessage()
+{
+  const auto data = _chat_data;
+  if (_voiceMessage) {
+    _voiceMessage->raise();
+    return;
+  }
+  if (!data || !ChatStore::instance()->IsReady() || !TcpMgr::GetInstance()->IsConnected() ||
+      !TcpMgr::GetInstance()->SupportsVoiceMessages() ||
+      VoiceMessageAudio::instance()->CallBusy()) {
+    ShowStatus(tr("请连接支持语音消息的服务器，并结束当前通话后重试"));
+    return;
+  }
+  auto *dialog = new VoiceMessageDialog(this);
+  _voiceMessage = dialog;
+  const QPointer<VoiceMessageDialog> guard(dialog);
+  connect(dialog, &VoiceMessageDialog::sendRequested, this,
+          [this, data, guard](const QByteArray &wave) {
+            if (!guard || _chat_data != data)
+              return;
+            MsgInfo input;
+            input.msgFlag = "audio";
+            input.imageData = wave;
+            if (!_sender->Send({input}, data, false))
+              guard->SetSending(false);
+          });
+  connect(_sender, &MessageSender::sendPrepared, dialog, [guard](bool success) {
+    if (!guard || !guard->Sending())
+      return;
+    if (success)
+      guard->accept();
+    else
+      guard->SetSending(false);
+  });
+  dialog->show();
 }
 
 void ChatPage::StartCall(bool video)
@@ -340,7 +382,11 @@ void ChatPage::UpdateMediaControls()
   ui->call_btn->setToolTip(_chat_data && _chat_data->IsGroup() ? tr("暂不支持群通话")
                                                                : tr("语音/视频通话"));
   ui->voice_transcribe_btn->setEnabled(bool(_chat_data));
-  ui->voice_message_btn->setEnabled(bool(_chat_data));
+  ui->voice_message_btn->setEnabled(bool(_chat_data) &&
+                                    TcpMgr::GetInstance()->SupportsVoiceMessages());
+  ui->voice_message_btn->setToolTip(TcpMgr::GetInstance()->SupportsVoiceMessages()
+                                        ? tr("录制并发送语音消息")
+                                        : tr("请升级服务器以发送语音消息"));
 }
 
 void ChatPage::StartScreenCapture()
@@ -410,10 +456,10 @@ bool ChatPage::ForwardSnapshots(const QVector<StoredFavorite> &snapshots,
     return false;
   QVector<MsgInfo> inputs;
   for (const auto &value : snapshots) {
-    if (value.type != 0 && value.type != 1)
+    if (value.type != 0 && value.type != 1 && value.type != 3)
       return false;
     MsgInfo input;
-    input.msgFlag = value.type == 1 ? "image" : "text";
+    input.msgFlag = value.type == 3 ? "audio" : value.type == 1 ? "image" : "text";
     input.content = value.type == 0 ? value.content : QString();
     input.imageData = value.media;
     inputs.append(input);
@@ -424,6 +470,9 @@ bool ChatPage::ForwardSnapshots(const QVector<StoredFavorite> &snapshots,
 
 void ChatPage::Reset()
 {
+  if (_voiceMessage)
+    _voiceMessage->reject();
+  VoiceMessageAudio::instance()->Cancel();
   EndSelection();
   if (_voice)
     _voice->finish();
@@ -466,6 +515,11 @@ void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
     return;
   }
   const bool changed = !_chat_data || _chat_data->GetThreadId() != data->GetThreadId();
+  if (changed) {
+    if (_voiceMessage)
+      _voiceMessage->reject();
+    VoiceMessageAudio::instance()->Cancel();
+  }
   const bool images = !data->IsGroup() || TcpMgr::GetInstance()->SupportsGroupImages();
   ui->file_btn->setEnabled(images);
   ui->file_btn->setToolTip(images ? tr("发送图片") : tr("请升级服务器以使用群图片"));
@@ -559,7 +613,8 @@ void ChatPage::RenderMessages(bool changed)
   QDateTime previousTime;
   const auto append = [&](const std::shared_ptr<ChatDataBase> &message) {
     if (!message ||
-        (message->GetMsgType() != ChatMsgType::TEXT && message->GetMsgType() != ChatMsgType::PIC))
+        (message->GetMsgType() != ChatMsgType::TEXT && message->GetMsgType() != ChatMsgType::PIC &&
+         message->GetMsgType() != ChatMsgType::AUDIO))
       return;
     const auto key = messageScrollKey(message);
     if (nextItems.contains(key))
@@ -716,6 +771,10 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
     pictureBubble = bubble;
     item->setWidget(bubble);
     bubble->loadImage(fileId);
+  } else if (message->GetMsgType() == ChatMsgType::AUDIO) {
+    auto *bubble = new AudioBubble(role);
+    item->setWidget(bubble);
+    bubble->Load(message->GetContent());
   } else
     item->setWidget(new TextBubble(role, message->GetContent()));
   const bool pending = message->GetMsgId() == 0;
@@ -746,6 +805,7 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
         auto *menu = new MessageMenu(item);
         _messageActions->Bind(menu, message);
         const bool imageMessage = message->GetMsgType() == ChatMsgType::PIC;
+        const bool audioMessage = message->GetMsgType() == ChatMsgType::AUDIO;
         connect(menu, &MessageMenu::copyRequested, this, [message, imageMessage, pictureBubble] {
           if (imageMessage && pictureBubble)
             pictureBubble->copyOriginal();
@@ -762,10 +822,10 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
         const bool canRetry = _sender->CanRetry() && (!data || !data->IsGroup() || !imageMessage ||
                                                       TcpMgr::GetInstance()->SupportsGroupImages());
         const MessageMenu::Options options{
-            !imageMessage || (pictureBubble && pictureBubble->hasImage()),
+            (!imageMessage && !audioMessage) || (pictureBubble && pictureBubble->hasImage()),
             showRetry,
             canRetry,
-            !imageMessage,
+            !imageMessage && !audioMessage,
             ui->chatEdit->isEnabled(),
             message->GetMsgId() > 0 && ChatStore::instance()->IsReady(),
             message->GetMsgId() > 0 && ChatStore::instance()->IsReady()};
@@ -942,6 +1002,8 @@ void ChatPage::showEvent(QShowEvent *event)
 
 void ChatPage::hideEvent(QHideEvent *event)
 {
+  if (_voiceMessage)
+    _voiceMessage->reject();
   EndSelection();
   for (auto *menu : findChildren<MessageMenu *>())
     menu->hide();

@@ -31,6 +31,8 @@ public:
   const std::string &GetSessionId() const;
   bool BindAuthenticatedUser(int uid);
   int GetUserId() const;
+  void SetVoiceMessages(bool enabled) { voice_messages_.store(enabled); }
+  bool SupportsVoiceMessages() const { return voice_messages_.load(); }
   // A retiring session may still flush its final notice, but cannot start work.
   bool IsClosed() const { return closed_.load() || retiring_.load(); }
 
@@ -68,6 +70,7 @@ private:
   bool drain_timer_active_ = false;
   std::vector<std::function<void()>> close_handlers_;
   std::atomic_bool closed_{false};
+  std::atomic_bool voice_messages_{false};
   std::atomic_bool retiring_{false};
   std::atomic_bool cleanup_started_{false};
   std::atomic_int user_id_{0};

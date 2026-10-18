@@ -193,7 +193,7 @@ inline QString gate_url_prefix;
 // 协议状态沿用参考项目；服务端回执只代表服务器已接收，不能据此声称对方已读。
 enum MsgStatus { UN_READ = 0, SEND_FAILED = 1, READED = 2 };
 enum class ChatFormType { PRIVATE = 0, GROUP = 1 };
-enum class ChatMsgType { TEXT = 0, PIC = 1, FILE = 2 };
+enum class ChatMsgType { TEXT = 0, PIC = 1, FILE = 2, AUDIO = 3 };
 inline constexpr int CHAT_COUNT_PER_PAGE = 13;
 
 #endif // GLOBAL_H

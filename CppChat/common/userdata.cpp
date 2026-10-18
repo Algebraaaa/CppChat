@@ -43,8 +43,7 @@ void ChatThreadData::AddMsg(std::shared_ptr<ChatDataBase> msg)
 {
   _msg_map.insert(msg->GetMsgId(), msg);
   if (msg->GetMsgId() >= _last_msg_id) {
-    _last_msg =
-        msg->GetMsgType() == ChatMsgType::PIC ? QStringLiteral("[图片]") : msg->GetMsgContent();
+    _last_msg = msg->Summary();
     _last_msg_id = msg->GetMsgId();
     if (!msg->GetChatTime().isEmpty())
       _last_chat_time = msg->GetChatTime();
@@ -118,8 +117,7 @@ void ChatThreadData::AppendMsg(int msg_id, std::shared_ptr<ChatDataBase> base_ms
 {
   _msg_map.insert(msg_id, base_msg);
   if (msg_id >= _last_msg_id) {
-    _last_msg = base_msg->GetMsgType() == ChatMsgType::PIC ? QStringLiteral("[图片]")
-                                                           : base_msg->GetMsgContent();
+    _last_msg = base_msg->Summary();
     _last_msg_id = msg_id;
     if (!base_msg->GetChatTime().isEmpty())
       _last_chat_time = base_msg->GetChatTime();
@@ -130,8 +128,7 @@ QString ChatThreadData::GetLastMsg()
 {
   if (!_pendingOrder.isEmpty()) {
     const auto pending = _msg_unrsp_map.value(_pendingOrder.last());
-    return pending->GetMsgType() == ChatMsgType::PIC ? QStringLiteral("[图片]")
-                                                     : pending->GetContent();
+    return pending->Summary();
   }
   return _last_msg;
 }
@@ -153,8 +150,7 @@ void ChatThreadData::AppendUnRspMsg(QString unique_id, std::shared_ptr<ChatDataB
   if (!_msg_unrsp_map.contains(unique_id))
     _pendingOrder.append(unique_id);
   _msg_unrsp_map.insert(unique_id, base_msg);
-  _last_msg = base_msg->GetMsgType() == ChatMsgType::PIC ? QStringLiteral("[图片]")
-                                                         : base_msg->GetContent();
+  _last_msg = base_msg->Summary();
 }
 
 std::vector<std::shared_ptr<ChatDataBase>> ChatThreadData::GetPendingMessages() const

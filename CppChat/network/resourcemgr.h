@@ -21,6 +21,10 @@ public:
                    int groupThread = 0);
   void uploadImage(const QByteArray &image, int recipient, const QString &requestId,
                    int groupThread = 0);
+  void uploadMedia(const QByteArray &bytes, int recipient, const QString &requestId,
+                   int groupThread, int mediaType);
+  void fetchMedia(const QString &fileId) { fetchImage(fileId); }
+  QByteArray cachedMedia(const QString &fileId) const { return cachedImage(fileId); }
   void fetchImage(const QString &fileId);
   void rememberImage(const QString &fileId, const QByteArray &bytes);
   QByteArray cachedImage(const QString &fileId) const;
@@ -35,7 +39,7 @@ private:
   void downloadImage(const QString &fileId);
   quint64 _cacheGeneration = 0;
   void startUpload(const QString &path, const QByteArray &bytes, int recipient,
-                   const QString &requestId, int groupThread);
+                   const QString &requestId, int groupThread, int mediaType = 1);
   QCache<QString, QByteArray> _cache;
   QHash<QString, QByteArray> _partials;
   QSet<QString> _fetching;

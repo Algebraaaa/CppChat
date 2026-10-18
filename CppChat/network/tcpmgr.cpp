@@ -92,7 +92,7 @@ std::vector<std::shared_ptr<TextChatData>> readMessages(const QJsonObject &objec
       continue;
     messages.push_back(std::make_shared<TextChatData>(
         id, msg["unique_id"].toString(), thread, ChatFormType::PRIVATE,
-        msg.value("msg_type").toInt() == 1 ? ChatMsgType::PIC : ChatMsgType::TEXT, content, sender,
+        static_cast<ChatMsgType>(msg.value("msg_type").toInt()), content, sender,
         msg["status"].toInt(), msg["chat_time"].toString()));
   }
   return messages;
@@ -174,6 +174,7 @@ void TcpMgr::resetConnectionState()
   _messageDedup = false;
   _groupChat = false;
   _groupImages = false;
+  _voiceMessages = false;
   _commonGroups = false;
   _voiceCall = false;
   _videoCall = false;
@@ -326,6 +327,8 @@ void TcpMgr::slot_send_data(ReqId id, QByteArray body)
       return;
     }
     request = document.object();
+    if (id == ID_CHAT_LOGIN)
+      request["voice_messages"] = true;
     // Every attempt has a new transport ID; message UUIDs remain unchanged.
     request["request_id"] = QUuid::createUuid().toString(QUuid::WithoutBraces);
     body = QJsonDocument(request).toJson(QJsonDocument::Compact);
@@ -490,6 +493,7 @@ void TcpMgr::initHandlers()
     _messageDedup = o["message_dedup"].toBool(false);
     _groupChat = o["group_chat"].toBool(false);
     _groupImages = _groupChat && o["group_images"].toBool(false);
+    _voiceMessages = o["voice_messages"].toBool(false);
     _commonGroups = o["common_groups"].toBool(false);
     _voiceCall = o["voice_call"].toBool(false);
     _videoCall = o["video_call"].toBool(false);
@@ -602,7 +606,7 @@ void TcpMgr::initHandlers()
       const auto content = row.contains("content") ? row["content"] : row["msg_content"];
       const int type = row["msg_type"].toInt(-1);
       if (!value.isObject() || !content.isString() || !row["chat_time"].isString() ||
-          (type != 0 && type != 1))
+          (type != 0 && type != 1 && type != 3))
         valid = false;
     }
     const auto messages = readMessages(o);

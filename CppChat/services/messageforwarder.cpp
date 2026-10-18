@@ -2,6 +2,7 @@
 #include "chatsyncservice.h"
 #include "common/chatstore.h"
 #include "dialogs/chatpage.h"
+#include "media/pcmwave.h"
 #include "network/tcpmgr.h"
 #include "network/usermgr.h"
 #include <QDialog>
@@ -80,8 +81,12 @@ void MessageForwarder::Begin(QVector<StoredFavorite> snapshots)
   for (const auto &value : snapshots) {
     images |= value.type == 1;
     bytes += value.media.size();
-    if ((value.type != 0 && value.type != 1) ||
-        (value.type == 1 && (value.media.isEmpty() || value.media.size() > 20 * 1024 * 1024))) {
+    if ((value.type != 0 && value.type != 1 && value.type != 3) ||
+        (value.type == 1 && (value.media.isEmpty() || value.media.size() > 20 * 1024 * 1024)) ||
+        (value.type == 3 && (!TcpMgr::GetInstance()->SupportsVoiceMessages() ||
+                             cppchat::media::WaveDurationMs(
+                                 std::string_view(value.media.constData(), value.media.size()),
+                                 value.media.size()) == 0))) {
       emit status(tr("媒体未能完整读取，无法转发"));
       return;
     }

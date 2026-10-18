@@ -677,7 +677,8 @@ private slots:
     page->SetChatData(std::make_shared<ChatThreadData>(102, 7, 0));
     QTRY_VERIFY(edit->isEnabled());
     edit->setPlainText(QStringLiteral("保留这段草稿"));
-    for (auto *button : {transcribe, voiceMessage}) {
+    QVERIFY(!voiceMessage->isEnabled()); // Legacy/offline server has not negotiated stored audio.
+    for (auto *button : {transcribe}) {
       button->click();
       QCOMPARE(status->text(), button->accessibleName() + QStringLiteral("功能暂未开放"));
       QCOMPARE(edit->toPlainText(), QStringLiteral("保留这段草稿"));

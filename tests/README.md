@@ -44,6 +44,14 @@
 [gRPC POSIX 实现](https://github.com/grpc/grpc/blob/v1.81.1/src/core/lib/iomgr/tcp_server_posix.cc)
 及 [Python 官方映射地址接口](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv6Address.ipv4_mapped)。
 
+语音消息增量：
+2026-10-19 语音消息覆盖：`integration/test_audio_messages.py` 使用标准库 `wave` 生成
+合成 1/60 秒 PCM，真实上传、双节点收发、去重、离线历史、旧端升级提示、权限撤销，
+拒绝时长、通道、采样率、编码和长度损坏。`client.voice` 验证固定容器边界及通话互斥；
+`client.features` 验证协商、群语音按新目标上传和实际语音气泡，打开录音窗口不启动设备；
+`client.favorites` 验证加密音频快照、原消息删除、重开和账号隔离，并防止音频误入链接搜索。
+这些测试不打开麦克风或扬声器，不能代替真实设备录放和弱网验收。
+
 首次准备 Python 3.12+ 虚拟环境和锁定依赖：
 
 ```powershell

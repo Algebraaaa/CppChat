@@ -2,6 +2,7 @@
 #include "CSession.h"
 #include "FriendService.h"
 #include "Logger.h"
+#include "MessageService.h"
 #include "MysqlMgr.h"
 #include "UserMgr.h"
 #include "const.h"
@@ -109,6 +110,7 @@ Status ChatServiceImpl::NotifyTextChatMsg(::grpc::ServerContext *context,
     element["status"] = msg.status();
     element["msg_type"] = msg.msg_type();
     element["media_size"] = Json::UInt64(msg.media_size());
+    MessageService::PresentMessage(element, session->SupportsVoiceMessages());
     chat_datas.append(element);
   }
   rtvalue["chat_datas"] = chat_datas;

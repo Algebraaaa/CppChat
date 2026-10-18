@@ -138,6 +138,12 @@ public:
   int GetThreadId() { return _thread_id; }
   ChatFormType GetFormType() { return _form_type; }
   ChatMsgType GetMsgType() { return _msg_type; }
+  QString Summary() const
+  {
+    return _msg_type == ChatMsgType::PIC     ? QStringLiteral("[图片]")
+           : _msg_type == ChatMsgType::AUDIO ? QStringLiteral("[语音]")
+                                             : _content;
+  }
   QString GetContent() { return _content; }
   void SetContent(const QString &content) { _content = content; }
   int GetSendUid() { return _send_uid; }

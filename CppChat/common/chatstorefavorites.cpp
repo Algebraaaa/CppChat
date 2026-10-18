@@ -1,4 +1,5 @@
 #include "chatstore.h"
+#include "media/pcmwave.h"
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QSqlDatabase>
@@ -75,7 +76,11 @@ void ChatStore::SaveFavorites(const QVector<StoredFavorite> &favorites, Callback
                       value.senderName.size() <= 256 && value.content.toUtf8().size() <= 65536 &&
                       ((value.type == 0 && value.media.isEmpty()) ||
                        (value.type == 1 && !value.media.isEmpty() &&
-                        value.media.size() <= kMediaLimit)),
+                        value.media.size() <= kMediaLimit) ||
+                       (value.type == 3 &&
+                        cppchat::media::WaveDurationMs(
+                            std::string_view(value.media.constData(), value.media.size()),
+                            value.media.size()) > 0)),
                   "Invalid favorite snapshot or missing media");
         }
         require(bytes <= kBatchLimit, "Favorite media exceeds the 64 MiB batch limit");

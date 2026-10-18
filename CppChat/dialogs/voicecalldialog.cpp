@@ -4,6 +4,7 @@
 #include "services/videomedia.h"
 #include "services/voiceaudio.h"
 #include "services/voicecallservice.h"
+#include "services/voicemessageaudio.h"
 #include "ui_voicecalldialog.h"
 #include <QApplication>
 #include <QCloseEvent>
@@ -134,6 +135,7 @@ void VoiceCallDialog::closeEvent(QCloseEvent *event)
 }
 void VoiceCallDialog::refresh()
 {
+  VoiceMessageAudio::instance()->SetCallBusy(service_->state() != VoiceCallService::State::Idle);
   const auto state = service_->state();
   if (state == VoiceCallService::State::Idle) {
     audio_->stop();

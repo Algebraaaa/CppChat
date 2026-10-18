@@ -1,6 +1,7 @@
 #include "ResourceStore.h"
 #include "Logger.h"
 #include "ResourceProtocol.h"
+#include "media/pcmwave.h"
 #ifdef _WIN32
 #include <winsock2.h>
 #else
@@ -72,16 +73,17 @@ bool Authenticated(const Settings &settings, int uid, const std::string &token)
 }
 
 bool MarkReady(const Settings &settings, const std::string &id, int sender, int recipient,
-               std::uint64_t size, int thread = 0)
+               std::uint64_t size, int thread = 0, int type = 1)
 {
   auto &connection = WorkerRedis(settings);
   if (!connection)
     return false;
   const std::string key = "resource_ready_" + id;
-  const std::string value = thread > 0 ? "group:" + std::to_string(sender) + ":" +
+  const std::string scope = thread > 0 ? "group:" + std::to_string(sender) + ":" +
                                              std::to_string(thread) + ":" + std::to_string(size)
                                        : std::to_string(sender) + ":" + std::to_string(recipient) +
                                              ":" + std::to_string(size);
+  const std::string value = (type == 3 ? "audio:" : "") + scope;
   RedisReply reply(static_cast<redisReply *>(redisCommand(connection.get(), "SET %s %b",
                                                           key.c_str(), value.data(), value.size())),
                    &freeReplyObject);
@@ -92,6 +94,14 @@ bool ValidId(const std::string &id)
 {
   return id.size() == 32 &&
          std::all_of(id.begin(), id.end(), [](unsigned char ch) { return std::isxdigit(ch) != 0; });
+}
+
+bool ValidWave(const fs::path &path)
+{
+  std::ifstream input(path, std::ios::binary);
+  std::string header(cppchat::media::WaveHeaderBytes, '\0');
+  return input.read(header.data(), header.size()) &&
+         cppchat::media::WaveDurationMs(header, fs::file_size(path)) > 0;
 }
 
 std::string Sha256(const fs::path &path)
@@ -161,6 +171,7 @@ ResourceStore::ResourceStore(Settings settings)
 {
   fs::create_directories(settings_.directory);
   fs::create_directories(settings_.directory / "groups");
+  fs::create_directories(settings_.directory / "audio");
 }
 
 Json::Value ResourceStore::Handle(std::uint16_t id, const Json::Value &request)
@@ -206,6 +217,9 @@ Json::Value ResourceStore::Handle(std::uint16_t id, const Json::Value &request)
 
 fs::path ResourceStore::MetaPath(const std::string &id) const
 {
+  const auto audio = settings_.directory / "audio" / (id + ".json");
+  if (fs::exists(audio))
+    return audio;
   const auto group = settings_.directory / "groups" / (id + ".json");
   if (fs::exists(group))
     return group;
@@ -233,8 +247,9 @@ Json::Value ResourceStore::ReadMeta(const std::string &id) const
 
 void ResourceStore::WriteMeta(const std::string &id, const Json::Value &meta)
 {
-  const auto directory =
-      meta.get("thread_id", 0).asInt() > 0 ? settings_.directory / "groups" : settings_.directory;
+  const auto directory = meta.get("media_type", 1).asInt() == 3 ? settings_.directory / "audio"
+                         : meta.get("thread_id", 0).asInt() > 0 ? settings_.directory / "groups"
+                                                                : settings_.directory;
   std::ofstream file(directory / (id + ".json"), std::ios::binary | std::ios::trunc);
   if (!file)
     throw std::runtime_error("cannot write metadata");
@@ -247,10 +262,14 @@ Json::Value ResourceStore::UploadInit(int uid, const std::string &id, const Json
 {
   const int recipient = request.get("recipient", 0).asInt();
   const int thread = request.get("thread_id", 0).asInt();
+  const int type = request.get("media_type", 1).asInt();
   const auto size = request.get("size", Json::UInt64(0)).asUInt64();
   const std::string sha = request.get("sha256", "").asString();
   if (thread < 0 || (thread > 0 ? recipient != 0 : (recipient <= 0 || recipient == uid)) ||
-      size == 0 || size > kMaximumImageSize || sha.size() != 64 ||
+      (type != 1 && type != 3) || size == 0 || size > kMaximumImageSize ||
+      (type == 3 && (size < cppchat::media::WaveHeaderBytes + cppchat::media::MinPcmBytes ||
+                     size > cppchat::media::WaveHeaderBytes + cppchat::media::MaxPcmBytes)) ||
+      sha.size() != 64 ||
       !std::all_of(sha.begin(), sha.end(), [](unsigned char ch) { return std::isxdigit(ch) != 0; }))
     return Error("invalid image metadata");
   if (thread > 0 && !authorizer_.GroupMember(uid, request["token"].asString(), thread))
@@ -261,11 +280,13 @@ Json::Value ResourceStore::UploadInit(int uid, const std::string &id, const Json
     meta["uid"] = uid;
     meta["recipient"] = recipient;
     meta["thread_id"] = thread;
+    meta["media_type"] = type;
     meta["size"] = Json::UInt64(size);
     meta["sha256"] = sha;
     WriteMeta(id, meta);
   } else if (meta.get("uid", 0).asInt() != uid || meta.get("recipient", 0).asInt() != recipient ||
              meta.get("thread_id", 0).asInt() != thread ||
+             meta.get("media_type", 1).asInt() != type ||
              meta.get("size", Json::UInt64(0)).asUInt64() != size ||
              meta.get("sha256", "").asString() != sha) {
     return Error("file id belongs to another upload");
@@ -274,14 +295,17 @@ Json::Value ResourceStore::UploadInit(int uid, const std::string &id, const Json
   bool complete = fs::exists(DonePath(id));
   if (!complete && fs::exists(PartPath(id)) && fs::file_size(PartPath(id)) >= size) {
     // 写完最后一块、改名前退出时，恢复初始化仍能确认完整文件。
-    if (fs::file_size(PartPath(id)) == size && Sha256(PartPath(id)) == sha) {
+    if (fs::file_size(PartPath(id)) == size && Sha256(PartPath(id)) == sha &&
+        (type != 3 || ValidWave(PartPath(id)))) {
       fs::rename(PartPath(id), DonePath(id));
       complete = true;
     } else {
       fs::remove(PartPath(id));
     }
   }
-  if (complete && !MarkReady(settings_, id, uid, recipient, size, thread))
+  if (complete && type == 3 && !ValidWave(DonePath(id)))
+    return Error("invalid PCM wave");
+  if (complete && !MarkReady(settings_, id, uid, recipient, size, thread, type))
     return Error("Redis is unavailable");
   const std::uint64_t offset =
       complete ? size : (fs::exists(PartPath(id)) ? fs::file_size(PartPath(id)) : 0);
@@ -305,8 +329,9 @@ Json::Value ResourceStore::UploadChunk(int uid, const std::string &id, const Jso
   if (thread > 0 && !authorizer_.GroupMember(uid, request["token"].asString(), thread))
     return Error("group access denied");
   const std::uint64_t size = meta["size"].asUInt64();
+  const int type = meta.get("media_type", 1).asInt();
   if (fs::exists(DonePath(id))) {
-    if (!MarkReady(settings_, id, uid, meta["recipient"].asInt(), size, thread))
+    if (!MarkReady(settings_, id, uid, meta["recipient"].asInt(), size, thread, type))
       return Error("Redis is unavailable");
     Json::Value reply;
     reply["ok"] = true;
@@ -339,8 +364,12 @@ Json::Value ResourceStore::UploadChunk(int uid, const std::string &id, const Jso
       fs::remove(PartPath(id));
       return Error("image checksum mismatch");
     }
+    if (type == 3 && !ValidWave(PartPath(id))) {
+      fs::remove(PartPath(id));
+      return Error("invalid PCM wave");
+    }
     fs::rename(PartPath(id), DonePath(id));
-    if (!MarkReady(settings_, id, uid, meta["recipient"].asInt(), size, thread))
+    if (!MarkReady(settings_, id, uid, meta["recipient"].asInt(), size, thread, type))
       return Error("Redis is unavailable");
     LOG_INFO("Resource upload completed: uid=", uid, ", recipient=", meta["recipient"].asInt(),
              ", file=", id.substr(0, 8), ", bytes=", size);

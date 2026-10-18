@@ -5,6 +5,8 @@
 #include "dialogs/favoritespage.h"
 #include "network/resourcemgr.h"
 #include "services/messagesnapshotservice.h"
+#include "services/voicemessageaudio.h"
+#include "widgets/audiobubble.h"
 #include <QBuffer>
 #include <QDialog>
 #include <QDir>
@@ -136,6 +138,82 @@ private slots:
     QVERIFY(next.favorites.first().id < last);
   }
 
+  void upgradeRefetchesOldAudioNoticesWithoutRevivingDeletedMessages()
+  {
+    StoredMessage notice;
+    notice.threadId = 7;
+    notice.senderUid = 102;
+    notice.serverId = 22;
+    notice.uniqueId = "old-audio-notice";
+    notice.content = "[语音消息] 请升级客户端以收听";
+    notice.time = "2026-10-19 06:00:00";
+    QVERIFY(
+        awaitStore([&](auto done) { store->SaveMessages({notice}, 7, 22, done); }).error.isEmpty());
+    sql("PRAGMA user_version=3");
+    store->CloseAccount();
+    auto opened = awaitStore([&](auto done) { store->OpenAccount(101, server, done); });
+    QVERIFY(opened.error.isEmpty());
+    QCOMPARE(opened.cursors.value(7), 0);
+    notice.type = 3;
+    notice.content = QString(32, 'a');
+    QVERIFY(
+        awaitStore([&](auto done) { store->SaveMessages({notice}, 7, 22, done); }).error.isEmpty());
+    const auto messages = awaitStore([&](auto done) { store->LoadMessages(7, 0, 10, done); });
+    QCOMPARE(messages.messages.size(), 1);
+    QCOMPARE(messages.messages.first().type, 3);
+    QVERIFY(awaitStore([&](auto done) { store->DeleteLocalMessage(7, 22, done); }).error.isEmpty());
+    QVERIFY(
+        awaitStore([&](auto done) { store->SaveMessages({notice}, 0, -1, done); }).error.isEmpty());
+    QVERIFY(awaitStore([&](auto done) { store->LoadMessages(7, 0, 10, done); }).messages.isEmpty());
+  }
+  void audioSnapshotsHistorySearchAndAccountIsolation()
+  {
+    auto audio = value(40, QString(32, 'b'));
+    audio.type = 3;
+    audio.media = VoiceMessageAudio::FromPcm(QByteArray(32000, '\0'));
+    StoredMessage message;
+    message.threadId = 7;
+    message.senderUid = 102;
+    message.serverId = 40;
+    message.uniqueId = "audio-original";
+    message.type = 3;
+    message.content = audio.content;
+    message.time = "2026-10-19 06:00:00";
+    QCOMPARE(StoredMessage::From(message.ToMessage()).type, 3);
+    QCOMPARE(message.ToMessage()->Summary(), QString("[语音]"));
+    auto result = awaitStore([&](auto done) { store->SaveMessages({message}, 7, 40, done); });
+    QVERIFY(result.error.isEmpty());
+    QVERIFY(save({audio}).error.isEmpty());
+    auto invalid = audio;
+    invalid.serverId = 41;
+    invalid.media[24] = 1;
+    QVERIFY(!save({invalid}).error.isEmpty());
+    result = awaitStore([&](auto done) { store->SearchMessages(7, {}, 3, {}, done); });
+    QVERIFY(result.error.isEmpty());
+    QVERIFY(result.messages.isEmpty()); // Links category must not accidentally match type 3 audio.
+    result = awaitStore([&](auto done) { store->SearchMessages(7, {}, 4, {}, done); });
+    QCOMPARE(result.messages.size(), 1);
+    QCOMPARE(result.messages.first().type, 3);
+    QVERIFY(awaitStore([&](auto done) { store->DeleteLocalMessage(7, 40, done); }).error.isEmpty());
+    result = list({}, FavoriteCategory::Audio);
+    QCOMPARE(result.favorites.size(), 1);
+    const auto id = result.favorites.first().id;
+    store->CloseAccount();
+    QVERIFY(awaitStore([&](auto done) { store->OpenAccount(101, server, done); }).error.isEmpty());
+    result = awaitStore([&](auto done) { store->GetFavorite(id, done); });
+    QCOMPARE(result.favorites.first().media, audio.media);
+    FavoritesPage page;
+    page.show();
+    QTRY_COMPARE(page.findChild<QListWidget *>("favoritesList")->count(), 1);
+    page.findChild<QListWidget *>("favoritesList")->setCurrentRow(0);
+    page.findChild<QPushButton *>("favoriteOpen")->click();
+    QTRY_VERIFY(page.findChild<AudioBubble *>());
+    QVERIFY(!VoiceMessageAudio::instance()->Recording());
+    QVERIFY(VoiceMessageAudio::instance()->PlayingKey().isEmpty());
+    store->CloseAccount();
+    QVERIFY(awaitStore([&](auto done) { store->OpenAccount(999, server, done); }).error.isEmpty());
+    QVERIFY(list({}, FavoriteCategory::Audio).favorites.isEmpty());
+  }
   void mediaIsIndependentAndChecksumFailureIsDetected()
   {
     auto image = value(3, QString(32, 'a'));

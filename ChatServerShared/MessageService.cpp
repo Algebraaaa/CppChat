@@ -7,8 +7,28 @@
 #include "RedisMgr.h"
 #include "UserMgr.h"
 #include "const.h"
+#include "media/pcmwave.h"
 #include <algorithm>
 #include <cctype>
+
+void MessageService::PresentMessage(Json::Value &message, bool voiceMessages)
+{
+  if (message.get("msg_type", 0).asInt() != 3)
+    return;
+  if (!voiceMessages) {
+    message["msg_type"] = 0;
+    message["content"] = "[语音消息] 请升级客户端以收听";
+    message["msg_content"] = message["content"];
+    message["media_size"] = 0;
+    return;
+  }
+  const auto size = message.get("media_size", Json::UInt64(0)).asUInt64();
+  message["media_format"] = "wav/pcm_s16le/16000/mono";
+  message["duration_ms"] = Json::UInt64(size >= cppchat::media::WaveHeaderBytes
+                                            ? (size - cppchat::media::WaveHeaderBytes) * 1000 /
+                                                  cppchat::media::PcmBytesPerSecond
+                                            : 0);
+}
 
 int MessageService::Store(int actor, std::vector<std::shared_ptr<ChatMessage>> &messages)
 {
@@ -24,9 +44,9 @@ int MessageService::Store(int actor, std::vector<std::shared_ptr<ChatMessage>> &
   for (const auto &message : messages) {
     if (!message || message->sender_id != actor || message->recv_id <= 0 || message->thread_id <= 0)
       return ErrorCodes::UidInvalid;
-    if (message->msg_type != 0 && message->msg_type != 1)
+    if (message->msg_type != 0 && message->msg_type != 1 && message->msg_type != 3)
       return ErrorCodes::Error_Json;
-    if (message->msg_type == 1) {
+    if (message->msg_type == 1 || message->msg_type == 3) {
       const auto &id = message->content;
       if (id.size() != 32 ||
           !std::all_of(id.begin(), id.end(), [](unsigned char c) { return std::isxdigit(c) != 0; }))
@@ -34,10 +54,11 @@ int MessageService::Store(int actor, std::vector<std::shared_ptr<ChatMessage>> &
       std::string ready;
       if (!RedisMgr::GetInstance()->Get("resource_ready_" + id, ready))
         return ErrorCodes::RedisError;
-      const auto prefix =
+      const std::string scope =
           isGroup
               ? "group:" + std::to_string(actor) + ":" + std::to_string(message->thread_id) + ":"
               : std::to_string(actor) + ":" + std::to_string(message->recv_id) + ":";
+      const std::string prefix = (message->msg_type == 3 ? "audio:" : "") + scope;
       if (ready.rfind(prefix, 0) != 0)
         return ErrorCodes::Error_Json;
       try {
@@ -45,6 +66,10 @@ int MessageService::Store(int actor, std::vector<std::shared_ptr<ChatMessage>> &
       } catch (...) {
         return ErrorCodes::Error_Json;
       }
+      if (message->msg_type == 3 &&
+          (message->media_size < cppchat::media::WaveHeaderBytes + cppchat::media::MinPcmBytes ||
+           message->media_size > cppchat::media::WaveHeaderBytes + cppchat::media::MaxPcmBytes))
+        return ErrorCodes::Error_Json;
     }
   }
   if (!isGroup) {
@@ -72,8 +97,12 @@ void MessageService::Deliver(int from, int to, int thread,
   if (!RedisMgr::GetInstance()->Get(std::string(USER_IP_PREFIX) + std::to_string(to), destination))
     return;
   if (destination == ConfigMgr::GetInstance()["SelfServer"]["Name"]) {
-    if (auto target = UserMgr::GetInstance()->GetSession(to))
-      target->Send(payload.toStyledString(), ID_NOTIFY_TEXT_CHAT_MSG_REQ);
+    if (auto target = UserMgr::GetInstance()->GetSession(to)) {
+      auto notification = payload;
+      for (auto &item : notification["chat_datas"])
+        PresentMessage(item, target->SupportsVoiceMessages());
+      target->Send(notification.toStyledString(), ID_NOTIFY_TEXT_CHAT_MSG_REQ);
+    }
     return;
   }
   message::TextChatMsgReq request;
