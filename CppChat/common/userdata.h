@@ -214,6 +214,9 @@ public:
   void MoveMsg(std::shared_ptr<ChatDataBase> msg);
   void SetLastMsgId(int msg_id);
   void SetLastChatSummary(int msg_id, const QString &chat_time);
+  void RemoveLocalMessage(int msg_id);
+  void ForgetPendingMessage(int senderUid, const QString &uniqueId);
+  void RestoreLocalSummary(int msg_id, const QString &summary);
   void SetOtherId(int other_id);
   int GetOtherId();
   QString GetGroupName();

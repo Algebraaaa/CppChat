@@ -49,6 +49,14 @@ ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog
           });
   connect(ui->contacts_section, &ContactsSection::sig_open_chat, this, &ChatDialog::OpenChat);
   connect(ui->contacts_section, &ContactsSection::sig_open_group, this, &ChatDialog::SelectThread);
+  connect(ui->contacts_section, &ContactsSection::sig_call_friend, this,
+          [this](int uid, bool video) {
+            const auto user = UserMgr::GetInstance()->GetFriendById(uid);
+            if (!user)
+              return;
+            OpenChat(user);
+            ui->conversation_section->Chat()->CallContact(uid, video);
+          });
   connect(ui->contacts_section, &ContactsSection::sig_unread_changed, ui->contact_unread_dot,
           &QWidget::setVisible);
 

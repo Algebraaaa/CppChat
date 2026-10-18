@@ -89,6 +89,10 @@ ChatHistoryDialog::ChatHistoryDialog(QWidget *parent)
     _searchTimer->start();
   });
   connect(ui->search_edit, &QLineEdit::returnPressed, this, [this] { Query(); });
+  connect(ChatStore::instance(), &ChatStore::localMessageDeleted, this, [this](int thread, int) {
+    if (_threadId == thread && isVisible())
+      Query();
+  });
   Reset();
 }
 

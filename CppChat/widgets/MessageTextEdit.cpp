@@ -31,6 +31,38 @@ MessageTextEdit::MessageTextEdit(QWidget *parent) : QTextEdit(parent)
 }
 MessageTextEdit::~MessageTextEdit() = default;
 
+void MessageTextEdit::insertQuote(const QString &sender, const QString &text)
+{
+  if (!isEnabled() || isReadOnly())
+    return;
+  QString excerpt = text.left(1024);
+  if (!excerpt.isEmpty() && excerpt.at(excerpt.size() - 1).isHighSurrogate())
+    excerpt.chop(1);
+  const bool shortened = excerpt.size() < text.size();
+  excerpt.replace("\r\n", "\n").replace('\r', '\n');
+  excerpt.replace(QChar::ParagraphSeparator, QLatin1Char('\n'));
+  excerpt.replace(QChar::LineSeparator, QLatin1Char('\n'));
+  auto lines = excerpt.split('\n');
+  const bool moreLines = lines.size() > 8;
+  lines = lines.mid(0, 8);
+  QString author = sender.simplified().left(64);
+  if (!author.isEmpty() && author.at(author.size() - 1).isHighSurrogate())
+    author.chop(1);
+  QString quote = QStringLiteral("> %1：\n").arg(author);
+  for (const auto &line : lines)
+    quote += QStringLiteral("> ") + line + QLatin1Char('\n');
+  if (shortened || moreLines)
+    quote += QStringLiteral("> …\n");
+  quote += QLatin1Char('\n');
+  // Insert before the draft, without replacing its current selection or attachments.
+  QTextCursor cursor(document());
+  cursor.beginEditBlock();
+  cursor.insertText(quote);
+  cursor.endEditBlock();
+  setTextCursor(cursor);
+  setFocus(Qt::OtherFocusReason);
+}
+
 QVector<MsgInfo> MessageTextEdit::messages() const
 {
   QVector<MsgInfo> result;

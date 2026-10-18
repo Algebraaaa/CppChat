@@ -71,6 +71,28 @@ void ChatThreadData::MoveMsg(std::shared_ptr<ChatDataBase> msg)
 
 void ChatThreadData::SetLastMsgId(int msg_id) { _last_msg_id = msg_id; }
 
+void ChatThreadData::RemoveLocalMessage(int msg_id)
+{
+  _msg_map.remove(msg_id);
+  if (_last_msg_id == msg_id)
+    _last_msg = QObject::tr("[本机已删除消息]");
+}
+
+void ChatThreadData::ForgetPendingMessage(int senderUid, const QString &uniqueId)
+{
+  const auto pending = _msg_unrsp_map.value(uniqueId);
+  if (pending && pending->GetSendUid() == senderUid) {
+    _msg_unrsp_map.remove(uniqueId);
+    _pendingOrder.removeAll(uniqueId);
+  }
+}
+
+void ChatThreadData::RestoreLocalSummary(int msg_id, const QString &summary)
+{
+  if (_last_msg_id == msg_id)
+    _last_msg = summary;
+}
+
 void ChatThreadData::SetLastChatSummary(int msg_id, const QString &chat_time)
 {
   if (msg_id < _last_msg_id)

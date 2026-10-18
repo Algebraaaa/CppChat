@@ -767,26 +767,26 @@ QDialog#ApplyFriend #cancel_btn:disabled {
 }
 
 /* Group creation and details use the shared theme; no system-palette dependent labels. */
-QDialog#groupDialog {
+QDialog[groupDialog="true"] {
     background: ${color.surface};
     color: ${color.text.body};
 }
-QDialog#groupDialog QLabel {
+QDialog[groupDialog="true"] QLabel {
     color: ${color.text.body};
     font-size: ${font.size.base};
 }
-QDialog#groupDialog QLabel#groupSummary {
+QDialog[groupDialog="true"] QLabel#groupSummary {
     font-size: ${font.size.subheading};
     font-weight: ${font.weight.medium};
 }
-QDialog#groupDialog QLabel#groupSelectionCount,
-QDialog#groupDialog QLabel#groupEmpty {
+QDialog[groupDialog="true"] QLabel#groupSelectionCount,
+QDialog[groupDialog="true"] QLabel#groupEmpty {
     color: ${color.text.muted};
 }
-QDialog#groupDialog QLabel#groupStatus {
+QDialog[groupDialog="true"] QLabel#groupStatus {
     color: ${color.secondary.text};
 }
-QDialog#groupDialog QLineEdit {
+QDialog[groupDialog="true"] QLineEdit {
     min-height: 34px;
     padding: 2px 10px;
     color: ${color.text.body};
@@ -794,41 +794,42 @@ QDialog#groupDialog QLineEdit {
     border: 1px solid ${color.border.input};
     border-radius: ${radius.control};
 }
-QDialog#groupDialog QLineEdit:focus {
+QDialog[groupDialog="true"] QLineEdit:focus {
     border-color: ${color.brand};
 }
-QDialog#groupDialog QListWidget {
+QDialog[groupDialog="true"] QListWidget,
+QDialog[groupDialog="true"] QPlainTextEdit {
     color: ${color.text.body};
     background: ${color.surface};
     border: 1px solid ${color.border.subtle};
     border-radius: ${radius.panel};
     outline: none;
 }
-QDialog#groupDialog QListWidget::item {
+QDialog[groupDialog="true"] QListWidget::item {
     padding: 0 8px;
     border-radius: ${radius.control};
 }
-QDialog#groupDialog QListWidget::item:hover {
+QDialog[groupDialog="true"] QListWidget::item:hover {
     background: ${color.surface.subtle};
 }
-QDialog#groupDialog QListWidget::item:selected {
+QDialog[groupDialog="true"] QListWidget::item:selected {
     background: ${color.selection};
     color: ${color.text.body};
 }
-QDialog#groupDialog QTabWidget::pane {
+QDialog[groupDialog="true"] QTabWidget::pane {
     border: none;
 }
-QDialog#groupDialog QTabBar::tab {
+QDialog[groupDialog="true"] QTabBar::tab {
     background: ${color.surface};
     color: ${color.text.muted};
     padding: 10px 16px;
     border-bottom: 2px solid ${color.border.subtle};
 }
-QDialog#groupDialog QTabBar::tab:selected {
+QDialog[groupDialog="true"] QTabBar::tab:selected {
     color: ${color.secondary.text};
     border-bottom-color: ${color.brand};
 }
-QDialog#groupDialog QPushButton {
+QDialog[groupDialog="true"] QPushButton {
     min-height: 34px;
     padding: 2px 14px;
     color: ${color.text.body};
@@ -836,18 +837,18 @@ QDialog#groupDialog QPushButton {
     border: 1px solid ${color.border.card};
     border-radius: ${radius.control};
 }
-QDialog#groupDialog QPushButton:hover {
+QDialog[groupDialog="true"] QPushButton:hover {
     background: ${color.surface.hover};
 }
-QDialog#groupDialog QPushButton[primary="true"] {
+QDialog[groupDialog="true"] QPushButton[primary="true"] {
     color: ${color.surface};
     background: ${color.brand};
     border-color: ${color.brand};
 }
-QDialog#groupDialog QPushButton[danger="true"] {
+QDialog[groupDialog="true"] QPushButton[danger="true"] {
     color: ${color.status.error};
 }
-QDialog#groupDialog QPushButton:disabled {
+QDialog[groupDialog="true"] QPushButton:disabled {
     color: ${color.text.disabled};
     background: ${color.surface.subtle};
     border-color: ${color.border.subtle};

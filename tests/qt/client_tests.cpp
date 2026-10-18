@@ -1,4 +1,5 @@
 #include "app/thememanager.h"
+#include "chatstorefixture.h"
 #include "common/chatstore.h"
 #include "common/conversationpreferences.h"
 #include "common/emojicatalog.h"
@@ -48,36 +49,7 @@
 #include <stdexcept>
 
 namespace {
-ChatStoreResult awaitStore(const std::function<void(ChatStore::Callback)> &operation)
-{
-  struct State {
-    bool complete = false;
-    bool guiThread = false;
-    ChatStoreResult result;
-  };
-  auto state = std::make_shared<State>();
-  QEventLoop loop;
-  QPointer<QEventLoop> guard(&loop);
-  QTimer deadline;
-  deadline.setSingleShot(true);
-  QObject::connect(&deadline, &QTimer::timeout, &loop, &QEventLoop::quit);
-  operation([state, guard](const ChatStoreResult &result) {
-    state->result = result;
-    state->complete = true;
-    state->guiThread = QThread::currentThread() == QCoreApplication::instance()->thread();
-    if (guard)
-      guard->quit();
-  });
-  if (!state->complete) {
-    deadline.start(8000);
-    loop.exec();
-  }
-  if (!state->complete)
-    throw std::runtime_error("ChatStore callback timed out");
-  if (!state->guiThread)
-    throw std::runtime_error("ChatStore callback left the GUI thread");
-  return state->result;
-}
+using QtFixtures::awaitStore;
 StoredMessage message(int id, const QString &text)
 {
   StoredMessage value;

@@ -11,6 +11,7 @@ class ScreenCapture;
 class ChatHistoryDialog;
 class MessageSender;
 class VoiceCallDialog;
+class MessageActions;
 namespace Ui {
 class ChatPage;
 }
@@ -26,6 +27,7 @@ public:
   void RemoveChatThread(int threadId);
   void SaveCurrentDraft();
   void SetThreadPinned(int threadId, bool pinned);
+  void CallContact(int uid, bool video);
 signals:
   void sig_group_settings(int threadId);
   void sig_reload_local(int threadId);
@@ -54,6 +56,7 @@ private:
   void UpdateSendButton();
   void PersistDraft(int threadId);
   MessageSender *_sender = nullptr;
+  MessageActions *_messageActions = nullptr;
   VoiceCallDialog *_voice = nullptr;
   Ui::ChatPage *ui;
   QTimer *_draftTimer = nullptr;

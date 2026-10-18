@@ -35,6 +35,7 @@ Json::Value SessionService::Login(const std::shared_ptr<CSession> &session, int 
   UserService::WriteProfile(*user, response);
   response["token"] = status_reply.token();
   response["group_chat"] = true;
+  response["common_groups"] = true;
   response["voice_call"] = true;
   response["video_call"] = true;
   response["message_dedup"] = true;

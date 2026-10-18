@@ -23,6 +23,7 @@ public:
 signals:
   void sig_open_chat(std::shared_ptr<UserInfo> user);
   void sig_open_group(int threadId);
+  void sig_call_friend(int uid, bool video);
   void sig_unread_changed(bool unread);
 
 protected:

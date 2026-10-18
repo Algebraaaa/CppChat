@@ -55,6 +55,7 @@ public:
   bool CreatePrivateChat(int user1_uid, int user2_uid, int &thread_id);
   std::shared_ptr<PageResult> LoadChatMsg(int thread_id, int last_message_id, int page_size);
   int GetGroup(int uid, int thread, Json::Value &group, bool members = false);
+  int CommonGroups(int uid, const Json::Value &request, Json::Value &result);
   int ChangeGroup(int uid, const Json::Value &request, Json::Value &group);
   bool AddChatMsg(std::vector<std::shared_ptr<ChatMessage>> &messages);
 

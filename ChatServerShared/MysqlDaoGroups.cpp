@@ -240,6 +240,59 @@ int MysqlDao::GetGroup(int uid, int thread, Json::Value &group, bool members)
   }
 }
 
+int MysqlDao::CommonGroups(int uid, const Json::Value &request, Json::Value &result)
+{
+  if (!request["friend_uid"].isInt() || request["friend_uid"].asInt() <= 0 ||
+      request["friend_uid"].asInt() == uid ||
+      (request.isMember("after") && (!request["after"].isInt() || request["after"].asInt() < 0)))
+    return ErrorCodes::Error_Json;
+  if (!_pool)
+    return ErrorCodes::DatabaseError;
+  MySqlConnectionGuard connection(_pool.get(), _pool->GetConnection());
+  if (!connection.Get())
+    return ErrorCodes::DatabaseError;
+  try {
+    MySqlTransaction transaction(connection.Get());
+    Statement relation(
+        connection.Get()->prepareStatement("SELECT 1 FROM friend WHERE self_id=? AND friend_id=?"));
+    relation->setInt(1, uid);
+    relation->setInt(2, request["friend_uid"].asInt());
+    Rows friends(relation->executeQuery());
+    if (!friends->next())
+      return ErrorCodes::FriendNotFound;
+    Statement query(connection.Get()->prepareStatement(
+        "SELECT g.thread_id,g.name,g.owner_uid FROM group_chat g "
+        "JOIN group_chat_member a ON a.thread_id=g.thread_id AND a.user_id=? "
+        "JOIN group_chat_member b ON b.thread_id=g.thread_id AND b.user_id=? "
+        "WHERE g.active=1 AND g.thread_id>? ORDER BY g.thread_id LIMIT 51"));
+    query->setInt(1, uid);
+    query->setInt(2, request["friend_uid"].asInt());
+    query->setInt(3, request.get("after", 0).asInt());
+    Rows rows(query->executeQuery());
+    result["friend_uid"] = request["friend_uid"];
+    result["groups"] = Json::Value(Json::arrayValue);
+    result["has_more"] = false;
+    result["next_thread_id"] = request.get("after", 0);
+    while (rows->next()) {
+      if (result["groups"].size() == 50) {
+        result["has_more"] = true;
+        break;
+      }
+      Json::Value group;
+      group["thread_id"] = rows->getInt("thread_id");
+      group["name"] = std::string(rows->getString("name"));
+      group["owner_uid"] = rows->getInt("owner_uid");
+      result["groups"].append(group);
+      result["next_thread_id"] = group["thread_id"];
+    }
+    transaction.Commit();
+    return ErrorCodes::Success;
+  } catch (const sql::SQLException &error) {
+    LogSqlError("MySQL common groups read failed", error);
+    return ErrorCodes::DatabaseError;
+  }
+}
+
 int MysqlDao::ChangeGroup(int uid, const Json::Value &request, Json::Value &group)
 {
   if (uid <= 0)
@@ -247,6 +300,8 @@ int MysqlDao::ChangeGroup(int uid, const Json::Value &request, Json::Value &grou
   if (!request["op"].isString())
     return ErrorCodes::Error_Json;
   const auto op = request["op"].asString();
+  if (op == "common")
+    return CommonGroups(uid, request, group);
   if (op != "create" && op != "info" && op != "rename" && op != "add" && op != "remove" &&
       op != "leave" && op != "transfer" && op != "disband")
     return ErrorCodes::Error_Json;

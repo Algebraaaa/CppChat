@@ -173,6 +173,7 @@ void TcpMgr::resetConnectionState()
   _loggedIn = false;
   _messageDedup = false;
   _groupChat = false;
+  _commonGroups = false;
   _voiceCall = false;
   _videoCall = false;
   _requestCorrelation = false;
@@ -466,7 +467,8 @@ void TcpMgr::handleMsg(ReqId id, const QByteArray &data)
 void TcpMgr::initHandlers()
 {
   _handlers.insert(ID_GROUP_RSP, [this](const QJsonObject &o) {
-    emit sig_group_info(o["group"].toObject());
+    if (o["op"] != "common")
+      emit sig_group_info(o["group"].toObject());
     emit sig_group_result(o);
   });
   _handlers.insert(ID_CHAT_LOGIN_RSP, [this](const QJsonObject &o) {
@@ -486,6 +488,7 @@ void TcpMgr::initHandlers()
     _loggedIn = true;
     _messageDedup = o["message_dedup"].toBool(false);
     _groupChat = o["group_chat"].toBool(false);
+    _commonGroups = o["common_groups"].toBool(false);
     _voiceCall = o["voice_call"].toBool(false);
     _videoCall = o["video_call"].toBool(false);
     _requestCorrelation = o["request_correlation"].toBool(false);

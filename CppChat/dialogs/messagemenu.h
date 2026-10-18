@@ -17,11 +17,22 @@ class MessageMenu : public QWidget {
 public:
   explicit MessageMenu(QWidget *parent = nullptr);
   ~MessageMenu() override;
-  void Popup(const QPoint &position, bool canCopy, bool showRetry, bool canRetry);
+  struct Options {
+    bool canCopy = false;
+    bool showRetry = false;
+    bool canRetry = false;
+    bool textMessage = false;
+    bool canQuote = false;
+    bool canDelete = false;
+  };
+  void Popup(const QPoint &position, const Options &options);
 
 signals:
   void copyRequested();
   void retryRequested();
+  void readRequested();
+  void quoteRequested();
+  void deleteRequested();
   void placeholderRequested(const QString &title);
 
 protected:

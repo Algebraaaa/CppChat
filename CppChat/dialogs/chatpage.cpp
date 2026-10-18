@@ -2,6 +2,7 @@
 #include "chathistorydialog.h"
 #include "common/attachmentpreparer.h"
 #include "common/chatstore.h"
+#include "messageactions.h"
 #include "messagemenu.h"
 #include "network/tcpmgr.h"
 #include "network/usermgr.h"
@@ -69,6 +70,16 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
 {
   ui->setupUi(this);
   _sender = new MessageSender(this);
+  _messageActions = new MessageActions(this);
+  connect(_messageActions, &MessageActions::quoteRequested, this,
+          [this](int thread, const QString &sender, const QString &text) {
+            if (_chat_data && _chat_data->GetThreadId() == thread && ui->chatEdit->isEnabled())
+              ui->chatEdit->insertQuote(sender, text);
+          });
+  connect(_messageActions, &MessageActions::status, this, [this](int thread, const QString &text) {
+    if (_chat_data && _chat_data->GetThreadId() == thread)
+      ShowStatus(text);
+  });
   connect(ui->chat_settings_panel, &ChatSettingsPanel::sig_members_requested, this, [this] {
     emit sig_group_settings(_chat_data && _chat_data->IsGroup() ? _chat_data->GetThreadId() : 0);
   });
@@ -279,7 +290,16 @@ void ChatPage::StartCall(bool video)
     ShowStatus(tr("请选择好友进行一对一通话"));
     return;
   }
-  _voice->call(_chat_data->GetOtherId(), video);
+  CallContact(_chat_data->GetOtherId(), video);
+}
+
+void ChatPage::CallContact(int uid, bool video)
+{
+  if (uid == UserMgr::GetInstance()->GetUid() || !UserMgr::GetInstance()->CheckFriendById(uid)) {
+    ShowStatus(tr("请选择好友进行一对一通话"));
+    return;
+  }
+  _voice->call(uid, video);
 }
 
 void ChatPage::UpdateMediaControls()
@@ -369,6 +389,7 @@ void ChatPage::Reset()
   ui->chat_more_btn->setEnabled(false);
   if (_screenCapture)
     _screenCapture->cancel();
+  _messageActions->SetConversation(nullptr);
   _chat_data.reset();
   UpdateMediaControls();
   _pendingItems.clear();
@@ -407,6 +428,7 @@ void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
   if (changed)
     SaveCurrentDraft();
   _chat_data = data;
+  _messageActions->SetConversation(data);
   UpdateMediaControls();
   if (changed) {
     _restoringDraft = true;
@@ -549,6 +571,7 @@ void ChatPage::RemoveChatThread(int threadId)
   ui->chat_more_btn->setEnabled(false);
   if (_screenCapture)
     _screenCapture->cancel();
+  _messageActions->SetConversation(nullptr);
   _chat_data.reset();
   UpdateMediaControls();
   _pendingItems.clear();
@@ -630,6 +653,7 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
             if (!message || _renderedItems.value(scrollKey) != item)
               return;
             auto *menu = new MessageMenu(item);
+            _messageActions->Bind(menu, message);
             const bool imageMessage = message->GetMsgType() == ChatMsgType::PIC;
             connect(menu, &MessageMenu::copyRequested, this,
                     [message, imageMessage, pictureBubble] {
@@ -646,8 +670,14 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
             const bool showRetry =
                 data && message->GetMsgId() == 0 && message->GetStatus() == SEND_FAILED;
             const bool canRetry = _sender->CanRetry();
-            menu->Popup(position, !imageMessage || (pictureBubble && pictureBubble->hasImage()),
-                        showRetry, canRetry);
+            const MessageMenu::Options options{
+                !imageMessage || (pictureBubble && pictureBubble->hasImage()),
+                showRetry,
+                canRetry,
+                !imageMessage,
+                ui->chatEdit->isEnabled(),
+                message->GetMsgId() > 0 && ChatStore::instance()->IsReady()};
+            menu->Popup(position, options);
           });
   return item;
 }
@@ -746,6 +776,9 @@ void ChatPage::showEvent(QShowEvent *event)
 
 void ChatPage::hideEvent(QHideEvent *event)
 {
+  for (auto *menu : findChildren<MessageMenu *>())
+    menu->hide();
+  _messageActions->CloseReader();
   ui->call_btn->menu()->close();
   ui->chat_settings_panel->Close(false);
   QWidget::hideEvent(event);

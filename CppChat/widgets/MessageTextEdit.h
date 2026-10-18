@@ -19,6 +19,7 @@ public:
   void insertFileFromUrl(const QStringList &urls);
   void insertImage(const QImage &image);
   void insertEmoji(const QString &id);
+  void insertQuote(const QString &sender, const QString &text);
   bool attachmentsReady() const;
 public slots:
   void clear();

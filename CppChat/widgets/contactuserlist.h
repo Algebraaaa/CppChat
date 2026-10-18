@@ -25,6 +25,10 @@ signals:
 private:
   void slot_item_clicked(QListWidgetItem *item);
   void SetContactsExpanded(bool expanded);
+  void SetStarredExpanded(bool expanded);
+  QListWidgetItem *_starredHeader = nullptr;
+  QVector<QListWidgetItem *> _starredRows;
+  bool _starredExpanded = true;
   void SetApplicationsExpanded(bool expanded);
   void SetGroupsExpanded(bool expanded);
   QListWidgetItem *_groupsHeader = nullptr;

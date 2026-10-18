@@ -58,6 +58,7 @@ struct ChatStoreResult {
   QVector<StoredConversation> conversations;
   QHash<int, int> cursors;
   QSet<QString> newMessageKeys;
+  QSet<QString> suppressedMessageKeys;
   QVector<MsgInfo> draft;
   QByteArray image;
   bool more = false;
@@ -90,9 +91,11 @@ public:
   void SaveAttachment(const QString &id, const QByteArray &image, Callback callback = {});
   void LoadAttachment(const QString &id, Callback callback);
   void ClearLocalHistory(int thread, Callback callback);
+  void DeleteLocalMessage(int thread, int serverId, Callback callback = {});
 
 signals:
   void storageError(const QString &message);
+  void localMessageDeleted(int thread, int serverId);
 
 private:
   explicit ChatStore(QObject *parent);

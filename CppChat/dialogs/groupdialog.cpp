@@ -112,6 +112,7 @@ void GroupDialog::BuildUi()
   const int threadId = _threadId;
   setWindowTitle(threadId ? tr("群聊详情") : tr("发起群聊"));
   setObjectName("groupDialog");
+  setProperty("groupDialog", true);
   resize(700, 650);
   setMinimumSize(580, 520);
   if (auto *display = screen()) {
@@ -370,6 +371,10 @@ void GroupDialog::Send(const QString &operation, QJsonObject fields)
 {
   if (_busy)
     return;
+  if (TcpMgr::GetInstance()->HasPendingRequest(ID_GROUP_REQ)) {
+    _status->setText(tr("另一个群聊请求正在处理中，请稍后重试"));
+    return;
+  }
   if (!TcpMgr::GetInstance()->SupportsGroupChat()) {
     _status->setText(tr("当前服务器尚未启用群聊，请先更新服务器"));
     return;

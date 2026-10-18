@@ -19,6 +19,15 @@ ChatSyncService::ChatSyncService(QObject *parent) : QObject(parent)
   connect(tcp.get(), &TcpMgr::sig_chat_msg_rsp, this,
           [this](int, const auto &messages) { ReceiveMessages(messages, true); });
   connect(tcp.get(), &TcpMgr::sig_group_info, this, &ChatSyncService::ReceiveGroup);
+  connect(ChatStore::instance(), &ChatStore::localMessageDeleted, this, [this](int thread, int id) {
+    if (!_storeReady)
+      return;
+    if (auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(thread)) {
+      data->RemoveLocalMessage(id);
+      emit messagesChanged(thread);
+      LoadLocalMessages(thread);
+    }
+  });
   _syncTimer.setInterval(60000);
   connect(&_syncTimer, &QTimer::timeout, this, [this] { RefreshAllHistory(true); });
   _groupTimer.setInterval(10000);
@@ -308,6 +317,8 @@ void ChatSyncService::ReadLocalMessages(int threadId)
           else if (!data->GetMsgUnRspRef().contains(stored.uniqueId))
             data->AppendUnRspMsg(stored.uniqueId, message);
         }
+        for (const auto &conversation : result.conversations)
+          data->RestoreLocalSummary(conversation.lastServerId, conversation.summary);
         emit guard->messagesChanged(threadId);
       });
 }
@@ -356,7 +367,11 @@ void ChatSyncService::ReceiveHistory(int threadId, int messageId, bool more,
         guard->_historyCursor = messageId;
         if (const auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(threadId))
           for (const auto &message : messages)
-            data->MoveMsg(message);
+            if (!result.suppressedMessageKeys.contains(QString::number(threadId) + ':' +
+                                                       QString::number(message->GetMsgId())))
+              data->MoveMsg(message);
+            else
+              data->ForgetPendingMessage(message->GetSendUid(), message->GetUniqueId());
         guard->LoadLocalMessages(threadId);
         if (more) {
           guard->SendHistoryRequest();
@@ -405,6 +420,12 @@ void ChatSyncService::ReceiveMessages(const std::vector<std::shared_ptr<TextChat
           if (!data || data != threads.value(thread) ||
               guard->_threadRevisions.value(thread) != threadRevisions.value(thread))
             continue;
+          if (result.suppressedMessageKeys.contains(QString::number(thread) + ':' +
+                                                    QString::number(message->GetMsgId()))) {
+            data->ForgetPendingMessage(message->GetSendUid(), message->GetUniqueId());
+            refresh.insert(thread);
+            continue;
+          }
           const bool known = !result.newMessageKeys.contains(QString::number(thread) + ':' +
                                                              QString::number(message->GetMsgId()));
           data->MoveMsg(message);

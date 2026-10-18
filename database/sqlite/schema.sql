@@ -45,9 +45,14 @@ CREATE TABLE IF NOT EXISTS attachments (
     sha256 TEXT NOT NULL,
     size INTEGER NOT NULL
 );
-PRAGMA user_version = 1;
-
 CREATE TABLE IF NOT EXISTS group_profiles (
     thread_id INTEGER PRIMARY KEY,
     metadata TEXT NOT NULL
 );
+-- Local deletions retain only stable identities so server history cannot restore them.
+CREATE TABLE IF NOT EXISTS deleted_messages (
+    thread_id INTEGER NOT NULL,
+    server_id INTEGER NOT NULL,
+    PRIMARY KEY(thread_id, server_id)
+);
+PRAGMA user_version = 2;

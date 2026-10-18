@@ -110,6 +110,12 @@ public:
         _star.paint(painter, QRect(area.left() + 42, area.center().y() - 9, 18, 18));
       painter->drawText(area.adjusted(kind == Starred ? 68 : 42, 0, -14, 0), Qt::AlignVCenter,
                         title);
+      if (kind == Starred) {
+        (index.data(ExpandedRole).toBool() ? _chevronDown : _chevronRight)
+            .paint(painter, QRect(area.left() + 20, area.center().y() - 9, 18, 18));
+        painter->drawText(area.adjusted(0, 0, -16, 0), Qt::AlignVCenter | Qt::AlignRight,
+                          index.data(UidRole).toString());
+      }
     } else {
       const auto &arrow = (kind == ContactsHeader || kind == NewFriends || kind == GroupsHeader) &&
                                   index.data(ExpandedRole).toBool()
@@ -146,6 +152,8 @@ ContactUserList::ContactUserList(QWidget *parent) : SmoothScrollList(parent)
   setItemDelegate(new ContactDelegate(this));
   setSpacing(0);
   connect(this, &QListWidget::itemClicked, this, &ContactUserList::slot_item_clicked);
+  connect(UserMgr::GetInstance().get(), &UserMgr::sig_starred_changed, this,
+          [this](int, bool) { Reload(); });
   connect(UserMgr::GetInstance().get(), &UserMgr::sig_avatar_ready, this, [this](int uid) {
     for (int i = 0; i < count(); ++i)
       if ((item(i)->data(KindRole).toInt() == Friend ||
@@ -160,16 +168,22 @@ void ContactUserList::Reload(bool preserveSelection)
   const QString selectedKey =
       preserveSelection && currentItem() ? currentItem()->data(KeyRole).toString() : QString();
   const int scroll = preserveSelection ? verticalScrollBar()->value() : 0;
+  const int selectedFriend =
+      preserveSelection && currentItem() && currentItem()->data(KindRole).toInt() == Friend
+          ? currentItem()->data(UidRole).toInt()
+          : 0;
   if (!preserveSelection) {
     _contactsExpanded = true;
     _applicationsExpanded = true;
     _groupsExpanded = true;
+    _starredExpanded = true;
     _redPoint = false;
   }
   clear();
   _contactRows.clear();
   _applicationRows.clear();
   _groupRows.clear();
+  _starredRows.clear();
   const auto addRow = [this](const QString &title, EntryKind kind, const QString &key, int height) {
     auto *row = new QListWidgetItem(title, this);
     row->setData(KindRole, kind);
@@ -177,7 +191,7 @@ void ContactUserList::Reload(bool preserveSelection)
     row->setSizeHint(QSize(0, height));
     row->setToolTip(title);
     if (kind == Alphabet || kind == ContactsHeader || kind == GroupsHeader || kind == NewFriends ||
-        kind == Empty)
+        kind == Empty || kind == Starred)
       row->setFlags(Qt::ItemIsEnabled);
     return row;
   };
@@ -247,7 +261,23 @@ void ContactUserList::Reload(bool preserveSelection)
   });
   _contactsHeader = addRow(tr("联系人"), ContactsHeader, "contacts", 44);
   _contactsHeader->setData(UidRole, static_cast<int>(friends.size()));
-  _contactRows.append(addRow(tr("星标朋友"), Starred, "starred", 40));
+  _starredHeader = addRow(tr("星标朋友"), Starred, "starred", 40);
+  _contactRows.append(_starredHeader);
+  int starredCount = 0;
+  for (const auto &user : friends) {
+    if (!UserMgr::GetInstance()->IsStarredFriend(user->_uid))
+      continue;
+    auto *row = addRow(contactName(user), Friend, "starred-" + QString::number(user->_uid), 64);
+    row->setData(UidRole, user->_uid);
+    row->setData(IconRole, user->_icon);
+    _starredRows.append(row);
+    ++starredCount;
+  }
+  _starredHeader->setData(UidRole, starredCount);
+  if (!starredCount)
+    _starredRows.append(addRow(tr("可在好友资料的更多菜单中设置星标"), Empty, "no-starred", 48));
+  for (auto *row : _starredRows)
+    _contactRows.append(row);
   QString previousGroup;
   for (const auto &user : friends) {
     const QString group = contactInitial(contactName(user));
@@ -268,6 +298,13 @@ void ContactUserList::Reload(bool preserveSelection)
       setCurrentItem(item(i));
       break;
     }
+  if (!currentItem() && selectedFriend > 0)
+    for (int i = 0; i < count(); ++i)
+      if (item(i)->data(KeyRole).toString() == QString::number(selectedFriend) &&
+          !item(i)->isHidden()) {
+        setCurrentItem(item(i));
+        break;
+      }
   verticalScrollBar()->setValue(scroll);
 }
 
@@ -278,6 +315,18 @@ void ContactUserList::SetContactsExpanded(bool expanded)
     _contactsHeader->setData(ExpandedRole, expanded);
   for (auto *row : _contactRows)
     row->setHidden(!expanded);
+  SetStarredExpanded(_starredExpanded);
+}
+
+void ContactUserList::SetStarredExpanded(bool expanded)
+{
+  _starredExpanded = expanded;
+  if (_starredHeader)
+    _starredHeader->setData(ExpandedRole, expanded);
+  if ((!expanded || !_contactsExpanded) && _starredRows.contains(currentItem()))
+    setCurrentItem(nullptr);
+  for (auto *row : _starredRows)
+    row->setHidden(!_contactsExpanded || !expanded);
 }
 
 void ContactUserList::SetGroupsExpanded(bool expanded)
@@ -354,6 +403,8 @@ void ContactUserList::slot_item_clicked(QListWidgetItem *item)
       emit sig_switch_friend_info_page(user);
     break;
   case Starred:
+    SetStarredExpanded(!_starredExpanded);
+    break;
   case Category:
     emit sig_show_placeholder(item->text(), tr("%1功能暂未开放").arg(item->text()));
     break;

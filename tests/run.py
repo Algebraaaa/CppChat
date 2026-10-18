@@ -283,6 +283,7 @@ def main():
     qt_reports = (
         "client-junit.xml",
         "features-junit.xml",
+        "messages-junit.xml",
         "updates-junit.xml",
         "security-junit.xml",
     )
@@ -332,6 +333,7 @@ def main():
         (args.server_build / "core-junit.xml", "cpp-junit.xml"),
         (args.qt_build / "client-junit.xml", "qt-junit.xml"),
         (args.qt_build / "features-junit.xml", "features-junit.xml"),
+        (args.qt_build / "messages-junit.xml", "messages-junit.xml"),
         (args.qt_build / "voice-junit.xml", "voice-junit.xml"),
         (args.qt_build / "video-junit.xml", "video-junit.xml"),
         (args.qt_build / "updates-junit.xml", "updates-junit.xml"),

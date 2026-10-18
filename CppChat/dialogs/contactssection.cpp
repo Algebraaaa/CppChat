@@ -57,6 +57,10 @@ ContactsSection::ContactsSection(QWidget *parent) : QWidget(parent), ui(new Ui::
   });
   connect(ui->friend_info_page, &FriendInfoPage::sig_jump_chat_item, this,
           &ContactsSection::sig_open_chat);
+  connect(ui->friend_info_page, &FriendInfoPage::sig_call_friend, this,
+          &ContactsSection::sig_call_friend);
+  connect(ui->friend_info_page, &FriendInfoPage::sig_open_group, this,
+          &ContactsSection::sig_open_group);
   connect(ui->friend_info_page, &FriendInfoPage::sig_show_placeholder, this,
           [this](const QString &title, const QString &description) {
             QMessageBox::information(this, title, description);

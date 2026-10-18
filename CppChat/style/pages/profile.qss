@@ -61,6 +61,19 @@ QDialog#ChatDialog #friend_info_page QPushButton[profileRole="placeholder"]:hove
     color: #63666f;
 }
 
+QDialog#ChatDialog #friend_info_page QPushButton[profileRole="link"] {
+    background: transparent;
+    border: none;
+    color: #576b95;
+    font-size: ${font.size.base};
+    text-align: left;
+    padding: 4px 0;
+}
+
+QDialog#ChatDialog #friend_info_page QPushButton[profileRole="link"]:hover {
+    text-decoration: underline;
+}
+
 QDialog#ChatDialog #friend_info_page #more_btn {
     background: transparent;
     border: none;

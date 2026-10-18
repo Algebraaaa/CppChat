@@ -18,6 +18,8 @@ class UserMgr : public QObject, public Singleton<UserMgr> {
 public:
   void Reset();
   void SetUserInfo(std::shared_ptr<UserInfo> user);
+  bool IsStarredFriend(int uid) const { return _starredFriends.contains(uid); }
+  bool SetStarredFriend(int uid, bool starred);
   void SetToken(QString token) { _token = token; }
   QString GetToken() const { return _token; }
   int GetUid() const;
@@ -65,9 +67,11 @@ private:
   void RequestAvatar(int uid);
 signals:
   void sig_avatar_ready(int uid);
+  void sig_starred_changed(int uid, bool starred);
 
 private:
   std::shared_ptr<UserInfo> _user_info;
+  QSet<int> _starredFriends;
   QString _token;
   std::vector<std::shared_ptr<ApplyInfo>> _apply_list;
   // 发起好友申请时已经查询到的对方资料，用于校正好友通过通知中的资料。

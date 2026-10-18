@@ -2,12 +2,14 @@
 #define FRIENDINFOPAGE_H
 
 #include "common/userdata.h"
+#include <QPointer>
 #include <QWidget>
 
 namespace Ui {
 class FriendInfoPage;
 }
 class QAction;
+class CommonGroupsDialog;
 
 class FriendInfoPage : public QWidget {
   Q_OBJECT
@@ -30,8 +32,13 @@ private:
   std::shared_ptr<UserInfo> _user_info;
   int _deletingUid = 0;
   QAction *_deleteFriendAction = nullptr;
+  QAction *_starAction = nullptr;
+  QPointer<CommonGroupsDialog> _commonGroups;
+  void UpdateActions();
 signals:
   void sig_jump_chat_item(std::shared_ptr<UserInfo> si);
+  void sig_call_friend(int uid, bool video);
+  void sig_open_group(int threadId);
   void sig_show_placeholder(const QString &title, const QString &description);
 };
 

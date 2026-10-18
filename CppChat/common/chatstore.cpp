@@ -201,7 +201,9 @@ StoredMessage readMessage(const QSqlQuery &query)
   return message;
 }
 
-bool saveMessage(QSqlDatabase &database, const StoredMessage &message)
+enum class SaveResult { Existing, New, Suppressed };
+
+SaveResult saveMessage(QSqlDatabase &database, const StoredMessage &message)
 {
   checked(message.threadId > 0 && message.senderUid > 0 &&
               (message.serverId > 0 || !message.uniqueId.isEmpty()),
@@ -220,7 +222,16 @@ bool saveMessage(QSqlDatabase &database, const StoredMessage &message)
     remove.addBindValue(message.senderUid);
     remove.addBindValue(message.uniqueId);
     run(remove);
-    return false;
+    return SaveResult::Suppressed;
+  }
+  if (message.serverId > 0) {
+    QSqlQuery deleted(database);
+    deleted.prepare("SELECT 1 FROM deleted_messages WHERE thread_id=? AND server_id=?");
+    deleted.addBindValue(message.threadId);
+    deleted.addBindValue(message.serverId);
+    run(deleted);
+    if (deleted.next())
+      return SaveResult::Suppressed;
   }
   // 先按 UUID 合并发送回执，再按服务端 ID 合并历史。空 UUID 不参与唯一约束。
   QSqlQuery find(database);
@@ -242,7 +253,7 @@ bool saveMessage(QSqlDatabase &database, const StoredMessage &message)
     duplicates.append(find.value(0));
   find.finish();
   if (confirmed && message.serverId <= 0)
-    return false; // 延迟的上传/超时回调不能把已确认消息改回待发送。
+    return SaveResult::Existing; // 延迟的上传/超时回调不能把已确认消息改回待发送。
   for (const auto &duplicate : duplicates) {
     QSqlQuery remove(database);
     remove.prepare("DELETE FROM messages WHERE local_id=?");
@@ -297,7 +308,7 @@ bool saveMessage(QSqlDatabase &database, const StoredMessage &message)
     summary.addBindValue(message.serverId);
     run(summary);
   }
-  return !confirmed;
+  return confirmed ? SaveResult::Existing : SaveResult::New;
 }
 } // namespace
 
@@ -509,7 +520,7 @@ void ChatStore::OpenAccount(int uid, const QString &server, Callback callback)
         QSqlQuery version(database);
         checked(version.exec("PRAGMA user_version") && version.next(),
                 "Cannot read database version");
-        checked(version.value(0).toInt() <= 1, "Local database is newer than this client");
+        checked(version.value(0).toInt() <= 2, "Local database is newer than this client");
         version.finish();
         QFile schema(":/storage/chatstore-schema.sql");
         checked(schema.open(QIODevice::ReadOnly), "Local database schema is missing");
@@ -628,10 +639,15 @@ void ChatStore::SaveMessages(const QVector<StoredMessage> &messages, int syncThr
           checked(cursor == last, "Invalid history page cursor");
         }
         ChatStoreResult result;
-        for (const auto &message : messages)
-          if (saveMessage(database, message) && message.serverId > 0)
-            result.newMessageKeys.insert(QString::number(message.threadId) + ':' +
-                                         QString::number(message.serverId));
+        for (const auto &message : messages) {
+          const auto outcome = saveMessage(database, message);
+          const auto key =
+              QString::number(message.threadId) + ':' + QString::number(message.serverId);
+          if (outcome == SaveResult::New && message.serverId > 0)
+            result.newMessageKeys.insert(key);
+          if (outcome == SaveResult::Suppressed)
+            result.suppressedMessageKeys.insert(key);
+        }
         if (syncThread > 0 && cursor >= 0) {
           QSqlQuery query(database);
           query.prepare("INSERT INTO sync_state(thread_id,confirmed_cursor) VALUES(?,?) "
@@ -684,6 +700,18 @@ void ChatStore::LoadMessages(int thread, int beforeId, int limit, Callback callb
           run(pending);
           while (pending.next())
             result.messages.append(readMessage(pending));
+          QSqlQuery summary(database);
+          summary.prepare("SELECT other_uid,last_server_id,last_time,summary FROM conversations "
+                          "WHERE thread_id=?");
+          summary.addBindValue(thread);
+          run(summary);
+          if (summary.next())
+            result.conversations.append({thread,
+                                         summary.value(0).toInt(),
+                                         summary.value(1).toInt(),
+                                         summary.value(2).toString(),
+                                         summary.value(3).toString(),
+                                         {}});
         }
         return result;
       },
@@ -955,4 +983,44 @@ void ChatStore::ClearLocalHistory(int thread, Callback callback)
         return ChatStoreResult{};
       },
       callback);
+}
+
+void ChatStore::DeleteLocalMessage(int thread, int serverId, Callback callback)
+{
+  Execute(
+      [thread, serverId](QSqlDatabase &database) {
+        checked(thread > 0 && serverId > 0, "Only confirmed messages can be deleted locally");
+        Transaction transaction(database);
+        QSqlQuery exists(database);
+        exists.prepare("SELECT 1 FROM conversations WHERE thread_id=?");
+        exists.addBindValue(thread);
+        run(exists);
+        checked(exists.next(), "Message conversation is missing");
+        QSqlQuery tombstone(database);
+        tombstone.prepare(
+            "INSERT OR IGNORE INTO deleted_messages(thread_id,server_id) VALUES(?,?)");
+        tombstone.addBindValue(thread);
+        tombstone.addBindValue(serverId);
+        run(tombstone);
+        QSqlQuery remove(database);
+        remove.prepare("DELETE FROM messages WHERE thread_id=? AND server_id=?");
+        remove.addBindValue(thread);
+        remove.addBindValue(serverId);
+        run(remove);
+        QSqlQuery summary(database);
+        summary.prepare(
+            "UPDATE conversations SET summary=? WHERE thread_id=? AND last_server_id=?");
+        summary.addBindValue(QObject::tr("[本机已删除消息]"));
+        summary.addBindValue(thread);
+        summary.addBindValue(serverId);
+        run(summary);
+        transaction.Commit();
+        return ChatStoreResult{};
+      },
+      [this, thread, serverId, callback](const ChatStoreResult &result) {
+        if (result.error.isEmpty())
+          emit localMessageDeleted(thread, serverId);
+        if (callback)
+          callback(result);
+      });
 }

@@ -1,5 +1,6 @@
 #include "usermgr.h"
 #include "common/avatarimage.h"
+#include "common/contactpreferences.h"
 #include "network/tcpmgr.h"
 #include <QJsonDocument>
 #include <QLabel>
@@ -21,6 +22,7 @@ void UserMgr::Reset()
   ++_avatarCacheGeneration;
   _avatarRevisions.clear();
   _user_info.reset();
+  _starredFriends.clear();
   _token.clear();
   _apply_list.clear();
   _outgoing_apply_map.clear();
@@ -34,7 +36,29 @@ void UserMgr::Reset()
   _avatarRequestGeneration.clear();
 }
 
-void UserMgr::SetUserInfo(std::shared_ptr<UserInfo> user) { _user_info = user; }
+void UserMgr::SetUserInfo(std::shared_ptr<UserInfo> user)
+{
+  _user_info = user;
+  _starredFriends = ContactPreferences::LoadStarred(GetUid(), gate_url_prefix);
+}
+
+bool UserMgr::SetStarredFriend(int uid, bool starred)
+{
+  if (!CheckFriendById(uid) || uid == GetUid() || GetUid() <= 0)
+    return false;
+  if (_starredFriends.contains(uid) == starred)
+    return true;
+  auto updated = _starredFriends;
+  if (starred)
+    updated.insert(uid);
+  else
+    updated.remove(uid);
+  if (!ContactPreferences::SaveStarred(GetUid(), gate_url_prefix, updated))
+    return false;
+  _starredFriends = updated;
+  emit sig_starred_changed(uid, starred);
+  return true;
+}
 
 int UserMgr::GetUid() const { return _user_info ? _user_info->_uid : 0; }
 QString UserMgr::GetName() const { return _user_info ? _user_info->_name : QString(); }
@@ -248,6 +272,9 @@ std::shared_ptr<UserInfo> UserMgr::GetFriendById(int uid) const { return _friend
 
 int UserMgr::RemoveFriend(int uid)
 {
+  if (_starredFriends.remove(uid) &&
+      !ContactPreferences::SaveStarred(GetUid(), gate_url_prefix, _starredFriends))
+    qWarning() << "Could not remove a local starred contact preference";
   _friend_map.remove(uid);
   _friend_list.erase(
       std::remove_if(_friend_list.begin(), _friend_list.end(),

@@ -38,9 +38,20 @@ MessageMenu::MessageMenu(QWidget *parent)
     hide();
     emit retryRequested();
   });
-  for (auto *button :
-       {ui->read_btn, ui->translate_btn, ui->search_btn, ui->forward_btn, ui->favorite_btn,
-        ui->select_btn, ui->remind_btn, ui->quote_btn, ui->delete_btn}) {
+  connect(ui->read_btn, &QPushButton::clicked, this, [this] {
+    hide();
+    emit readRequested();
+  });
+  connect(ui->quote_btn, &QPushButton::clicked, this, [this] {
+    hide();
+    emit quoteRequested();
+  });
+  connect(ui->delete_btn, &QPushButton::clicked, this, [this] {
+    hide();
+    emit deleteRequested();
+  });
+  for (auto *button : {ui->translate_btn, ui->search_btn, ui->forward_btn, ui->favorite_btn,
+                       ui->select_btn, ui->remind_btn}) {
     connect(button, &QPushButton::clicked, this, [this, button] {
       hide();
       emit placeholderRequested(button->text());
@@ -50,12 +61,17 @@ MessageMenu::MessageMenu(QWidget *parent)
 
 MessageMenu::~MessageMenu() { delete ui; }
 
-void MessageMenu::Popup(const QPoint &position, bool canCopy, bool showRetry, bool canRetry)
+void MessageMenu::Popup(const QPoint &position, const Options &options)
 {
-  ui->copy_btn->setEnabled(canCopy);
-  ui->retry_btn->setVisible(showRetry);
-  ui->retry_btn->setEnabled(canRetry);
-  ui->retry_separator->setVisible(showRetry);
+  ui->copy_btn->setEnabled(options.canCopy);
+  ui->retry_btn->setVisible(options.showRetry);
+  ui->retry_btn->setEnabled(options.canRetry);
+  ui->retry_separator->setVisible(options.showRetry);
+  ui->read_btn->setEnabled(options.textMessage);
+  ui->quote_btn->setEnabled(options.textMessage && options.canQuote);
+  ui->delete_btn->setEnabled(options.canDelete);
+  ui->delete_btn->setToolTip(options.canDelete ? tr("仅删除本机记录，保留服务器和其他设备的消息")
+                                               : tr("请等待消息确认且本地记录就绪后再删除"));
   ensurePolished();
   adjustSize();
   QPoint target = position - QPoint(8, 8);

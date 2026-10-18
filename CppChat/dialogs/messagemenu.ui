@@ -121,7 +121,7 @@
          <string>放大阅读</string>
         </property>
         <property name="toolTip">
-         <string>放大阅读（暂未实现）</string>
+         <string>以大字号查看完整文字</string>
         </property>
         <property name="cursor">
          <cursorShape>PointingHandCursor</cursorShape>
@@ -453,7 +453,7 @@
          <string>引用</string>
         </property>
         <property name="toolTip">
-         <string>引用（暂未实现）</string>
+         <string>将文字引用插入草稿，可编辑后发送</string>
         </property>
         <property name="cursor">
          <cursorShape>PointingHandCursor</cursorShape>
@@ -513,13 +513,13 @@
          </size>
         </property>
         <property name="text">
-         <string>删除</string>
+         <string>删除本机消息</string>
         </property>
         <property name="accessibleName">
-         <string>删除</string>
+         <string>删除本机消息</string>
         </property>
         <property name="toolTip">
-         <string>删除（暂未实现）</string>
+         <string>仅删除本机记录，服务器和其他设备的消息保留</string>
         </property>
         <property name="cursor">
          <cursorShape>PointingHandCursor</cursorShape>

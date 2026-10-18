@@ -12,8 +12,20 @@
 统一入口：`python tests/run.py --suite smoke|full|nightly|release`。业务构建默认关闭测试；测试不会读取 `.runtime`、开发配置或生产数据。所有 SQL 仍在 `database/`，测试只引用脚本。
 
 `client.features` 覆盖拼音分组、备注优先/清除、真实回环 HTTP/TCP 登录与备注保存、Windows DPAPI 凭据隔离/防篡改、成功登录后保存、取消、密码失效和退出清除；非 Windows 验证禁止密码落盘。
+联系人增量覆盖星标真实操作、折叠与选择、重登保存、服务器/账号隔离、删好友清理和写盘失败；
+资料页两种通话经实际主窗口和回环 TCP 发起并取消，不打开设备。
+共同群聊经回环 TCP 验证分页、失败重试、打开群及请求互斥；
+`integration/test_groups.py` 另用真实双节点/MySQL 验证双方资格、非好友拒绝、超过 50 个群分页、
+整页边界、解散/移出后即时撤销。自动通话验证不替代真人设备验收。
 `client.updates` 另覆盖仅显示高于当前版本且不超过清单版本的更新记录、数字版本降序、已是最新版/本机更高版本隐藏记录、旧清单兼容、重新检查失败后清空，以及结构化历史校验。打包历史通过
 `tests/packaging/test_release_history.ps1 -Artifacts build/release-history-tests` 验证，已接入 Windows CI。
+
+`client.messages`（`qt/message_actions_tests.cpp`，输出 `messages-junit.xml`）覆盖实际右键菜单的
+纯文本放大阅读、复制和字号调节、引用保留选区草稿/图片与一次撤销、Unicode/长文截断、
+本机删除取消/确认、失败事务回滚、搜索与会话摘要刷新、历史重放/重复通知不复活、
+清空历史后的晚到回执核销、v1 加密库升级和拒绝未来版本、重开/账号隔离及过期菜单边界。
+通过网络信号验证本机操作不发送请求；数据由 QTemporaryDir/ChatStore fixture 隔离回收。
+自动截图不能替代真实多屏、DPI、系统剪贴板及安装包人工验收。
 
 首次准备 Python 3.12+ 虚拟环境和锁定依赖：
 

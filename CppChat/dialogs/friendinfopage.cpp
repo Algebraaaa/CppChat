@@ -1,5 +1,6 @@
 #include "friendinfopage.h"
 #include "applyfriend.h"
+#include "commongroupsdialog.h"
 #include "network/tcpmgr.h"
 #include "network/usermgr.h"
 #include "ui_friendinfopage.h"
@@ -28,7 +29,19 @@ FriendInfoPage::FriendInfoPage(QWidget *parent)
   // 透明无框窗口让 QSS 圆角生效，同时去掉 Windows 的方形菜单框和硬阴影。
   menu->setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
   menu->setAttribute(Qt::WA_TranslucentBackground);
-  for (const auto &title : {tr("设为星标朋友"), tr("朋友权限")}) {
+  _starAction = menu->addAction(tr("设为星标朋友"));
+  _starAction->setObjectName("star_contact_action");
+  _starAction->setCheckable(true);
+  connect(_starAction, &QAction::triggered, this, [this](bool starred) {
+    if (!_user_info || !UserMgr::GetInstance()->SetStarredFriend(_user_info->_uid, starred)) {
+      ui->delete_status->setText(tr("星标保存失败，请检查本地存储后重试"));
+      ui->delete_status->show();
+    }
+    UpdateActions();
+  });
+  connect(UserMgr::GetInstance().get(), &UserMgr::sig_starred_changed, this,
+          [this](int, bool) { UpdateActions(); });
+  for (const auto &title : {tr("朋友权限")}) {
     auto *action = menu->addAction(title);
     connect(action, &QAction::triggered, this,
             [this, title] { emit sig_show_placeholder(title, tr("%1功能暂未开放").arg(title)); });
@@ -54,8 +67,7 @@ FriendInfoPage::FriendInfoPage(QWidget *parent)
   connect(ui->more_btn, &QPushButton::clicked, this, [this, menu] {
     menu->popup(ui->more_btn->mapToGlobal(QPoint(0, ui->more_btn->height())));
   });
-  for (auto *button :
-       {ui->permission_btn, ui->moments_btn, ui->channels_btn, ui->common_groups_btn}) {
+  for (auto *button : {ui->permission_btn, ui->moments_btn, ui->channels_btn}) {
     QString title;
     if (button == ui->permission_btn)
       title = tr("朋友权限");
@@ -63,20 +75,39 @@ FriendInfoPage::FriendInfoPage(QWidget *parent)
       title = tr("朋友圈");
     else if (button == ui->channels_btn)
       title = tr("视频号");
-    else
-      title = tr("共同群聊");
     connect(button, &QPushButton::clicked, this,
             [this, title] { emit sig_show_placeholder(title, tr("%1功能暂未开放").arg(title)); });
   }
+  ui->common_groups_btn->setText(tr("查看共同群聊"));
+  ui->common_groups_btn->setToolTip(tr("查询你与这位好友当前共同加入的群聊"));
+  connect(ui->common_groups_btn, &QPushButton::clicked, this, [this] {
+    if (!_user_info || !UserMgr::GetInstance()->CheckFriendById(_user_info->_uid))
+      return;
+    if (!_commonGroups) {
+      _commonGroups = new CommonGroupsDialog(_user_info->_uid, this);
+      _commonGroups->setAttribute(Qt::WA_DeleteOnClose);
+      connect(_commonGroups, &CommonGroupsDialog::groupOpened, this,
+              &FriendInfoPage::sig_open_group);
+    }
+    _commonGroups->show();
+    _commonGroups->raise();
+    _commonGroups->activateWindow();
+  });
   for (auto *button : {ui->voice_call_btn, ui->video_call_btn})
     connect(button, &QToolButton::clicked, this, [this, button] {
-      emit sig_show_placeholder(button->text(), tr("%1功能暂未开放").arg(button->text()));
+      if (_user_info && UserMgr::GetInstance()->CheckFriendById(_user_info->_uid))
+        emit sig_call_friend(_user_info->_uid, button == ui->video_call_btn);
     });
+  connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_connection_closed, this,
+          &FriendInfoPage::UpdateActions);
+  connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_swich_chatdlg, this,
+          &FriendInfoPage::UpdateActions);
   ui->delete_status->hide();
   connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_friend_deleted, this, [this](int uid) {
     if (uid != _deletingUid)
       return;
     _deletingUid = 0;
+    UpdateActions();
     _deleteFriendAction->setEnabled(_user_info != nullptr && _user_info->_uid != uid);
     ui->delete_status->hide();
   });
@@ -85,10 +116,12 @@ FriendInfoPage::FriendInfoPage(QWidget *parent)
             if (request != ID_DELETE_FRIEND_REQ || _deletingUid == 0)
               return;
             _deletingUid = 0;
+            UpdateActions();
             _deleteFriendAction->setEnabled(_user_info != nullptr);
             ui->delete_status->setText(message);
             ui->delete_status->show();
           });
+  UpdateActions();
 }
 
 FriendInfoPage::~FriendInfoPage() { delete ui; }
@@ -104,7 +137,12 @@ bool FriendInfoPage::eventFilter(QObject *watched, QEvent *event)
 
 void FriendInfoPage::SetInfo(std::shared_ptr<UserInfo> user_info)
 {
+  if (_commonGroups && (!_user_info || !user_info || _user_info->_uid != user_info->_uid)) {
+    _commonGroups->close();
+    _commonGroups.clear();
+  }
   _user_info = user_info;
+  UpdateActions();
   ui->delete_status->hide();
   _deleteFriendAction->setEnabled(user_info != nullptr && _deletingUid == 0);
   ui->more_btn->setEnabled(user_info != nullptr);
@@ -141,6 +179,26 @@ void FriendInfoPage::SetInfo(std::shared_ptr<UserInfo> user_info)
   ui->sex_lb->setVisible(!sexText.isEmpty());
 }
 
+void FriendInfoPage::UpdateActions()
+{
+  const auto mgr = UserMgr::GetInstance();
+  const bool available = _user_info && mgr->CheckFriendById(_user_info->_uid) && !_deletingUid;
+  const bool starred = available && mgr->IsStarredFriend(_user_info->_uid);
+  _starAction->setEnabled(available);
+  _starAction->setChecked(starred);
+  _starAction->setText(starred ? tr("取消星标朋友") : tr("设为星标朋友"));
+  const auto tcp = TcpMgr::GetInstance();
+  ui->common_groups_btn->setEnabled(available);
+  ui->voice_call_btn->setEnabled(available && tcp->IsConnected() && tcp->SupportsVoiceCall());
+  ui->video_call_btn->setEnabled(available && tcp->IsConnected() && tcp->SupportsVideoCall());
+  ui->voice_call_btn->setToolTip(ui->voice_call_btn->isEnabled()
+                                     ? tr("发起语音通话")
+                                     : tr("需要已连接且支持语音通话的服务器"));
+  ui->video_call_btn->setToolTip(ui->video_call_btn->isEnabled()
+                                     ? tr("发起视频通话")
+                                     : tr("需要已连接且支持视频通话的服务器"));
+}
+
 void FriendInfoPage::Reset()
 {
   _deletingUid = 0;
@@ -168,6 +226,7 @@ void FriendInfoPage::DeleteFriend()
   if (answer != QMessageBox::Yes || !UserMgr::GetInstance()->CheckFriendById(uid))
     return;
   _deletingUid = uid;
+  UpdateActions();
   _deleteFriendAction->setEnabled(false);
   ui->delete_status->setText(tr("正在删除好友…"));
   ui->delete_status->show();

@@ -928,7 +928,7 @@
              <item>
               <widget class="QPushButton" name="common_groups_btn">
                <property name="text">
-                <string>暂未开放</string>
+                <string>查看共同群聊</string>
                </property>
                <property name="flat">
                 <bool>true</bool>
@@ -940,7 +940,7 @@
                 <cursorShape>PointingHandCursor</cursorShape>
                </property>
                <property name="profileRole" stdset="0">
-                <string notr="true">placeholder</string>
+                <string notr="true">link</string>
                </property>
               </widget>
              </item>

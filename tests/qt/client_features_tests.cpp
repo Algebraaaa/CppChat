@@ -2,30 +2,39 @@
 #include "app/thememanager.h"
 #include "common/autologinstore.h"
 #include "common/contactnames.h"
+#include "common/contactpreferences.h"
 #include "common/runtimepaths.h"
 #include "dialogs/applyfriend.h"
 #include "dialogs/chatdialog.h"
+#include "dialogs/commongroupsdialog.h"
 #include "dialogs/friendinfopage.h"
+#include "dialogs/groupdialog.h"
 #include "dialogs/logindialog.h"
 #include "dialogs/updatedialog.h"
+#include "dialogs/voicecalldialog.h"
 #include "network/httpmgr.h"
 #include "network/tcpmgr.h"
 #include "network/usermgr.h"
 #include "services/clientupdateservice.h"
+#include "services/voicecallservice.h"
 #include "widgets/contactuserlist.h"
 #include <QAction>
 #include <QCheckBox>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QToolButton>
 #include <QtEndian>
+#include <algorithm>
 #include <memory>
 
 namespace {
@@ -37,6 +46,8 @@ public:
   QPointer<QTcpSocket> chatSocket;
   int error = 0;
   bool holdHttp = false, holdChat = false;
+  QJsonObject capabilities;
+  std::function<void(QJsonObject)> groupHandler;
   LoginPeer()
   {
     http.listen(QHostAddress::LocalHost);
@@ -90,6 +101,8 @@ public:
             request["error"] = 0;
             send(ID_SET_CONTACT_TAGS_RSP, request);
           }
+          if (id == ID_GROUP_REQ && groupHandler)
+            groupHandler(request);
         }
       });
     });
@@ -106,12 +119,15 @@ public:
   }
   void completeLogin()
   {
-    send(ID_CHAT_LOGIN_RSP, {{"error", 0},
-                             {"uid", 101},
-                             {"name", "fixture"},
-                             {"token", "fixture-session-token"},
-                             {"friend_list", QJsonArray()},
-                             {"apply_list", QJsonArray()}});
+    QJsonObject response{{"error", 0},
+                         {"uid", 101},
+                         {"name", "fixture"},
+                         {"token", "fixture-session-token"},
+                         {"friend_list", QJsonArray()},
+                         {"apply_list", QJsonArray()}};
+    for (auto it = capabilities.begin(); it != capabilities.end(); ++it)
+      response[it.key()] = it.value();
+    send(ID_CHAT_LOGIN_RSP, response);
   }
 };
 } // namespace
@@ -190,6 +206,208 @@ private slots:
     QCOMPARE(field->maxLength(), 64);
     FriendInfoPage profile;
     QVERIFY(profile.findChild<QAction *>("edit_contact_metadata_action"));
+  }
+  void starredContactsPersistAndStayAccountIsolated()
+  {
+    auto mgr = UserMgr::GetInstance();
+    gate_url_prefix = "https://contacts.example.test";
+    const auto self = std::make_shared<UserInfo>(101, "self", "");
+    const auto user = std::make_shared<UserInfo>(102, "friend", "");
+    user->_back = "项目同学";
+    mgr->SetUserInfo(self);
+    mgr->AddFriend(user);
+    ContactUserList list;
+    list.Reload();
+    FriendInfoPage profile;
+    profile.SetInfo(user);
+    auto *action = profile.findChild<QAction *>("star_contact_action");
+    QVERIFY(action && action->isEnabled());
+    action->trigger();
+    QVERIFY(mgr->IsStarredFriend(102));
+    QVERIFY(action->isChecked());
+    QCOMPARE(list.findItems("项目同学", Qt::MatchExactly).size(), 2);
+    const auto artifacts = qEnvironmentVariable("CPPCHAT_TEST_ARTIFACTS");
+    if (!artifacts.isEmpty()) {
+      QString error;
+      QVERIFY2(ThemeManager::apply(*qApp, &error), qPrintable(error));
+      list.resize(320, 720);
+      list.show();
+      QVERIFY(list.grab().save(artifacts + "/starred-contacts.png"));
+    }
+    auto *header = list.findItems("星标朋友", Qt::MatchExactly).first();
+    auto *starredRow = list.item(list.row(header) + 1);
+    QCOMPARE(starredRow->text(), QString("项目同学"));
+    QSignalSpy selected(&list, &ContactUserList::sig_switch_friend_info_page);
+    list.setCurrentItem(starredRow);
+    QVERIFY(list.ActivateCurrent());
+    QCOMPARE(selected.size(), 1);
+    list.itemClicked(header);
+    QVERIFY(starredRow->isHidden());
+    list.Reload();
+    header = list.findItems("星标朋友", Qt::MatchExactly).first();
+    QVERIFY(list.item(list.row(header) + 1)->isHidden());
+    mgr->Reset();
+    mgr->SetUserInfo(self);
+    mgr->AddFriend(user);
+    QVERIFY(mgr->IsStarredFriend(102));
+    mgr->SetUserInfo(std::make_shared<UserInfo>(201, "other", ""));
+    QVERIFY(!mgr->IsStarredFriend(102));
+    gate_url_prefix = "https://another.example.test";
+    mgr->SetUserInfo(self);
+    QVERIFY(!mgr->IsStarredFriend(102));
+    gate_url_prefix = "https://contacts.example.test";
+    mgr->SetUserInfo(self);
+    QVERIFY(mgr->IsStarredFriend(102));
+    mgr->RemoveFriend(102);
+    mgr->Reset();
+    mgr->SetUserInfo(self);
+    mgr->AddFriend(user);
+    QVERIFY(!mgr->IsStarredFriend(102));
+    profile.SetInfo(user);
+    action->trigger();
+    action->trigger();
+    QVERIFY(!mgr->IsStarredFriend(102));
+    QCOMPARE(list.findItems("项目同学", Qt::MatchExactly).size(), 1);
+  }
+  void starredWriteFailureDoesNotPretendToSucceed()
+  {
+    auto mgr = UserMgr::GetInstance();
+    mgr->SetUserInfo(std::make_shared<UserInfo>(101, "self", ""));
+    auto user = std::make_shared<UserInfo>(102, "friend", "");
+    mgr->AddFriend(user);
+    QVERIFY(QDir().mkpath(RuntimePaths::preferencesDirectory() + "/contacts.ini"));
+    FriendInfoPage profile;
+    profile.SetInfo(user);
+    auto *action = profile.findChild<QAction *>("star_contact_action");
+    action->trigger();
+    QVERIFY(!mgr->IsStarredFriend(102));
+    QVERIFY(!action->isChecked());
+    QVERIFY(ContactPreferences::LoadStarred(101, gate_url_prefix).isEmpty());
+    QVERIFY(!profile.findChild<QLabel *>("delete_status")->text().isEmpty());
+  }
+  void contactProfileStartsTheExistingCall_data()
+  {
+    QTest::addColumn<bool>("video");
+    QTest::newRow("audio") << false;
+    QTest::newRow("video") << true;
+  }
+  void contactProfileStartsTheExistingCall()
+  {
+    QFETCH(bool, video);
+    LoginPeer peer;
+    peer.capabilities = {{"voice_call", true}, {"video_call", true}};
+    gate_url_prefix = peer.url();
+    LoginDialog login;
+    login.findChild<QLineEdit *>("email_edit")->setText("user@example.invalid");
+    login.findChild<QLineEdit *>("pass_edit")->setText("Password123");
+    login.findChild<QPushButton *>("login_btn")->click();
+    QTRY_VERIFY(TcpMgr::GetInstance()->IsConnected());
+    auto user = std::make_shared<UserInfo>(102, "friend", "");
+    UserMgr::GetInstance()->AddFriend(user);
+    ChatDialog chat;
+    auto *profile = chat.findChild<FriendInfoPage *>();
+    profile->SetInfo(user);
+    auto *button = profile->findChild<QToolButton *>(video ? "video_call_btn" : "voice_call_btn");
+    QVERIFY(button->isEnabled());
+    button->click();
+    auto *call = chat.findChild<VoiceCallService *>();
+    QCOMPARE(call->state(), VoiceCallService::State::Outgoing);
+    QCOMPARE(call->peer(), 102);
+    QCOMPARE(call->isVideo(), video);
+    QTRY_VERIFY(
+        std::any_of(peer.chatRequests.cbegin(), peer.chatRequests.cend(), [video](const auto &r) {
+          return r["id"].toInt() == ID_VOICE_REQ && r["action"] == "invite" &&
+                 r["peer"].toInt() == 102 && r["video"].toBool() == video;
+        }));
+    chat.findChild<VoiceCallDialog *>()->reject();
+    QCOMPARE(call->state(), VoiceCallService::State::Idle);
+    peer.chatSocket->disconnectFromHost();
+    QTRY_VERIFY(!button->isEnabled());
+  }
+  void commonGroupsUseTcpPaginationRetryAndDoNotReplaceOtherRequests()
+  {
+    LoginPeer peer;
+    peer.capabilities = {
+        {"common_groups", true}, {"group_chat", true}, {"request_correlation", true}};
+    // The first login was sent before correlation support was negotiated.
+    gate_url_prefix = peer.url();
+    LoginDialog login;
+    login.findChild<QLineEdit *>("email_edit")->setText("user@example.invalid");
+    login.findChild<QLineEdit *>("pass_edit")->setText("Password123");
+    login.findChild<QPushButton *>("login_btn")->click();
+    QTRY_VERIFY(TcpMgr::GetInstance()->IsConnected());
+    UserMgr::GetInstance()->AddFriend(std::make_shared<UserInfo>(102, "friend", ""));
+    bool failPage = true;
+    QJsonObject held;
+    peer.groupHandler = [&](QJsonObject request) { held = request; };
+    CommonGroupsDialog dialog(102);
+    dialog.show();
+    QTRY_VERIFY(!held.isEmpty());
+    QCOMPARE(held["op"].toString(), QString("common"));
+    const int count = peer.chatRequests.size();
+    GroupDialog competing(301);
+    competing.show();
+    QTest::qWait(20);
+    QCOMPARE(peer.chatRequests.size(), count);
+    competing.close();
+    auto respond = [&](QJsonObject request) {
+      const int after = request["after"].toInt();
+      QJsonObject result{
+          {"friend_uid", 102},
+          {"has_more", after == 0},
+          {"next_thread_id", after == 0 ? 301 : 303},
+          {"groups", QJsonArray{QJsonObject{{"thread_id", after == 0 ? 301 : 303},
+                                            {"name", after == 0 ? "共同项目" : "讨论群"},
+                                            {"owner_uid", 101}}}}};
+      const bool fail = after != 0 && failPage;
+      if (fail)
+        failPage = false;
+      peer.send(ID_GROUP_RSP, {{"error", fail ? int(DatabaseError) : 0},
+                               {"request_id", request["request_id"]},
+                               {"op", "common"},
+                               {"group", result}});
+    };
+    peer.groupHandler = respond;
+    respond(held);
+    auto *list = dialog.findChild<QListWidget *>("commonGroupsList");
+    QTRY_COMPARE(list->count(), 1);
+    auto *more = dialog.findChild<QPushButton *>("loadMoreCommonGroups");
+    more->click();
+    QTRY_VERIFY(more->isEnabled());
+    QCOMPARE(list->count(), 1);
+    more->click();
+    QTRY_COMPARE(list->count(), 2);
+    QVERIFY(!more->isEnabled());
+    const auto artifacts = qEnvironmentVariable("CPPCHAT_TEST_ARTIFACTS");
+    if (!artifacts.isEmpty())
+      QVERIFY(dialog.grab().save(artifacts + "/common-groups.png"));
+    QSignalSpy opened(&dialog, &CommonGroupsDialog::groupOpened);
+    list->setCurrentRow(1);
+    dialog.findChild<QPushButton *>("openCommonGroup")->click();
+    QCOMPARE(opened.size(), 1);
+    QCOMPARE(opened.first().first().toInt(), 303);
+    QVERIFY(!TcpMgr::GetInstance()->HasPendingRequest(ID_GROUP_REQ));
+    TcpMgr::GetInstance()->CloseConnection();
+    QVERIFY(!TcpMgr::GetInstance()->SupportsCommonGroups());
+  }
+  void unavailableServerAndClosingCommonGroupsStayLocal()
+  {
+    CommonGroupsDialog dialog(102);
+    QSignalSpy requests(TcpMgr::GetInstance().get(), &TcpMgr::sig_send_data);
+    dialog.show();
+    QTest::qWait(10);
+    QCOMPARE(requests.size(), 0);
+    QVERIFY(dialog.findChild<QLabel *>("commonGroupsStatus")->text().contains("未支持"));
+    dialog.close();
+    CommonGroupsDialog closedBeforeLoad(102);
+    closedBeforeLoad.show();
+    closedBeforeLoad.close();
+    QTest::qWait(10);
+    QCOMPARE(requests.size(), 0);
+    FriendInfoPage profile;
+    profile.SetInfo(nullptr);
+    QVERIFY(!profile.findChild<QToolButton *>("voice_call_btn")->isEnabled());
+    QVERIFY(!profile.findChild<QToolButton *>("video_call_btn")->isEnabled());
   }
 #ifdef Q_OS_WIN
   void encryptedCredentialsAreIsolatedAndRejectTampering()

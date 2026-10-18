@@ -461,7 +461,7 @@
     "kind": "manual",
     "automation": "regression/test_acceptance.py",
     "preconditions": "Windows 桌面、隔离环境；测试构建和证据对应同一源码指纹",
-    "inputs": "尚未实现的视频等入口及联系人/会话/消息占位菜单逐个点击关闭；对比数据库、关系、历史和网络抓包",
+    "inputs": "尚未实现的语音转文字、语音消息、发现入口及联系人/会话/消息占位菜单逐个点击关闭；已实现的通话、星标、共同群聊、放大阅读、引用和本机删除另行验收；对比数据库、关系、历史和网络抓包",
     "expected": "提示准确、可关闭、状态正常；不改业务数据或发送未声明网络请求；对应功能记为未实现",
     "data_changes": "只允许测试账号、私有数据库和客户端目录变化",
     "cleanup": "注销两个测试客户端、回收本轮进程/容器；保留脱敏证据",
@@ -741,6 +741,42 @@
     "expected": "双方可见画面及听到声音，开关和结束释放设备，无后台采集；记录延迟与音画同步体验",
     "data_changes": "只允许隔离测试账号及数据变化",
     "cleanup": "退出测试账号和客户端，回收测试进程及临时数据",
+    "implemented": true
+  },
+  {
+    "id": "MESSAGE-READER",
+    "domain": "消息放大阅读",
+    "kind": "automated",
+    "automation": "qt/message_actions_tests.cpp",
+    "preconditions": "独立本地账号和加密数据库，不使用真实数据",
+    "inputs": "实际文本右键菜单、HTML 字面量、复制、字号调节、切换会话和图片菜单",
+    "expected": "纯文本大字阅读，不加载远程内容；字号真实改变，复制完整；切换后关闭，图片复用原查看器",
+    "data_changes": "仅临时夹具数据和系统剪贴板测试文字",
+    "cleanup": "QTemporaryDir、QObject 生命周期和 ChatStore 关闭回收",
+    "implemented": true
+  },
+  {
+    "id": "MESSAGE-QUOTE",
+    "domain": "可编辑纯文本引用",
+    "kind": "automated",
+    "automation": "qt/message_actions_tests.cpp",
+    "preconditions": "独立本地账号、草稿和测试图片",
+    "inputs": "已选中的草稿、图片、超长中文及 Unicode、一次撤销、过期菜单",
+    "expected": "摘要插入草稿开头，保留原文字和附件，可撤销及重开；截断有省略号，无破损代理对；不发送网络请求",
+    "data_changes": "仅夹具草稿",
+    "cleanup": "fixture 回收临时数据库、附件及页面",
+    "implemented": true
+  },
+  {
+    "id": "MESSAGE-LOCAL-DELETE",
+    "domain": "单条消息本机删除",
+    "kind": "automated",
+    "automation": "qt/message_actions_tests.cpp",
+    "preconditions": "隔离加密 SQLite，含旧版 v1 夹具、多个账号与会话",
+    "inputs": "取消及确认、事务失败、重复通知、历史重放、搜索、重开、晚到回执和未来数据库版本",
+    "expected": "成功提交才刷新，失败回滚；删除不复活且游标前进；账号隔离，v1 无损升级，拒绝未来版本；待确认禁删，本机操作无网络请求",
+    "data_changes": "临时 messages、conversations、deleted_messages 和同步游标",
+    "cleanup": "关闭 ChatStore 并回收独立夹具；不修改真实配置或数据",
     "implemented": true
   }
 ]

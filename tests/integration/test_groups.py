@@ -155,6 +155,82 @@ def test_group_membership_limit_and_validation(cluster, pair):
     require(change(a, "unknown").get("error") == 1001, "Unknown operation accepted")
 
 
+def test_common_groups_authorization_pagination_and_revocation(cluster, pair):
+    first, second, a, b, _ = pair
+    outsider = cluster.register()
+    stranger = cluster.login(outsider, "chat2")
+    require(
+        change(a, "common", friend_uid=outsider["uid"]).get("error") == 1017,
+        "Common groups exposed a nonfriend's memberships",
+    )
+    for invalid in (0, -1, first["uid"], None, "102"):
+        require(
+            change(a, "common", friend_uid=invalid).get("error") != 0, "Invalid friend accepted"
+        )
+    require(
+        change(a, "common", friend_uid=second["uid"], after=-1).get("error") != 0,
+        "Negative pagination cursor accepted",
+    )
+    private_group = create(a, [second["uid"]])["group"]["thread_id"]
+    expected = [private_group]
+    # Seed only this isolated fixture; exercise the actual 16 KiB wire response
+    # and SQL keyset pagination without issuing 50 registration/email requests.
+    with cluster.sql() as db, db.cursor() as cursor:
+        for number in range(53):
+            cursor.execute("INSERT INTO chat_thread(type) VALUES('group')")
+            thread = cursor.lastrowid
+            cursor.execute(
+                "INSERT INTO group_chat(thread_id,name,owner_uid,creator_uid,creation_key,creation_spec) "
+                "VALUES(%s,%s,%s,%s,%s,'[]')",
+                (thread, "中" * 20 + str(number), first["uid"], first["uid"], uuid.uuid4().hex),
+            )
+            cursor.executemany(
+                "INSERT INTO group_chat_member(thread_id,user_id) VALUES(%s,%s)",
+                [(thread, first["uid"]), (thread, second["uid"])],
+            )
+            expected.append(thread)
+        # Neither an active group with only one participant nor a disbanded
+        # group should appear, even when both memberships were once present.
+        cursor.execute(
+            "DELETE FROM group_chat_member WHERE thread_id=%s AND user_id=%s",
+            (expected[-1], second["uid"]),
+        )
+        cursor.execute("UPDATE group_chat SET active=0 WHERE thread_id=%s", (expected[-2],))
+    expected = expected[:-2]
+    page = change(a, "common", friend_uid=second["uid"])
+    require(page.get("error") == 0, "Common groups read failed")
+    result = page["group"]
+    require(
+        [g["thread_id"] for g in result["groups"]] == expected[:50], "Unauthorized group leaked"
+    )
+    require(result["has_more"] and result["next_thread_id"] == expected[49], "Missing page cursor")
+    tail = change(a, "common", friend_uid=second["uid"], after=result["next_thread_id"])["group"]
+    require(
+        [g["thread_id"] for g in tail["groups"]] == expected[50:],
+        "Pagination duplicated or dropped groups",
+    )
+    require(not tail["has_more"], "Last page incorrectly has more groups")
+    exact = change(a, "common", friend_uid=second["uid"], after=expected[1])["group"]
+    require(
+        len(exact["groups"]) == 50 and not exact["has_more"],
+        "Exact full page falsely claims another page",
+    )
+    # Revocation must take effect immediately on the same connected clients.
+    require(
+        change(a, "remove", private_group, member_uid=second["uid"]).get("error") == 0,
+        "Member removal failed",
+    )
+    result = change(b, "common", friend_uid=first["uid"])["group"]
+    require(
+        private_group not in [g["thread_id"] for g in result["groups"]],
+        "Removed member retained common group",
+    )
+    require(
+        change(stranger, "common", friend_uid=first["uid"]).get("error") == 1017,
+        "Forged actor accepted",
+    )
+
+
 def test_full_group_frame_budget_and_invitation_limit(cluster, pair):
     first, second, a, b, _ = pair
     ids = [second["uid"]]

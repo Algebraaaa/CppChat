@@ -172,6 +172,10 @@ StatusServer 删除了只在自身旧拷贝之间互相引用、没有服务调�
 群图片尚未开放，现有 ResourceServer 仍只授权两人资源，服务端拒绝群图片元数据。
 群资料及成员变化通过客户端 10 秒会话刷新和群管理查询恢复，群消息仍实时推送。
 
+共同群聊查询使用 `op=common`，只读核验当前好友关系、双方成员记录和 active 群；
+沿用已有 `(user_id,thread_id)` 成员索引，以 thread_id 游标分页最多 50 个，不依赖客户端缓存。
+查询不修改群或好友，不需要本次新增 SQL 迁移；登录能力位为 `common_groups`。
+
 已有 MySQL 库需由维护账号先执行 `database/mysql/20261018_group_chat.sql`，
 然后配套更新两个聊天节点和客户端；运行账号不增加 DDL 权限，不重导全库。
 协议及兼容约定见 `CppChat/docs/protocol-contract.md`。
