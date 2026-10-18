@@ -24,11 +24,14 @@
 #include "services/voicecallservice.h"
 #include "widgets/MessageTextEdit.h"
 #include "widgets/contactuserlist.h"
+#include "widgets/picturebubble.h"
 #include <QAction>
+#include <QBuffer>
 #include <QCheckBox>
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
+#include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLabel>
@@ -317,6 +320,88 @@ private slots:
     forwarder.Begin({message});
     store->CloseAccount();
     QVERIFY(!page.findChild<QDialog *>("forwardDialog")->isVisible());
+  }
+
+  void groupImagesRequireCapabilityAndUseScopedUpload_data()
+  {
+    QTest::addColumn<bool>("supported");
+    QTest::newRow("legacy-server") << false;
+    QTest::newRow("group-images-server") << true;
+  }
+  void groupImagesRequireCapabilityAndUseScopedUpload()
+  {
+    QFETCH(bool, supported);
+    LoginPeer peer, media;
+    peer.capabilities = {{"group_chat", true}, {"group_images", supported}};
+    gate_url_prefix = peer.url();
+    LoginDialog login;
+    login.findChild<QLineEdit *>("email_edit")->setText("user@example.invalid");
+    login.findChild<QLineEdit *>("pass_edit")->setText("Password123");
+    login.findChild<QPushButton *>("login_btn")->click();
+    QTRY_VERIFY(TcpMgr::GetInstance()->IsConnected());
+    QCOMPARE(TcpMgr::GetInstance()->SupportsGroupImages(), supported);
+    auto *store = ChatStore::instance();
+    auto result = QtFixtures::awaitStore(
+        [&](auto done) { store->OpenAccount(101, "https://group-images.example.test", done); });
+    QVERIFY(result.error.isEmpty());
+    result = QtFixtures::awaitStore([&](auto done) { store->SaveConversations({{301, 0}}, done); });
+    QVERIFY(result.error.isEmpty());
+    auto group = std::make_shared<ChatThreadData>(0, 301, 0);
+    group->SetGroup({{"thread_id", 301},
+                     {"name", "群图片验证"},
+                     {"owner_uid", 101},
+                     {"members", QJsonArray{QJsonObject{{"uid", 101}, {"name", "self"}},
+                                            QJsonObject{{"uid", 102}, {"name", "friend"}}}}});
+    auto mgr = UserMgr::GetInstance();
+    mgr->AddChatThreadData(group, 0);
+    QSettings settings(RuntimePaths::configFile(), QSettings::IniFormat);
+    settings.setValue("ResourceServer/port", media.chat.serverPort());
+    settings.sync();
+    StoredFavorite image;
+    image.type = 1;
+    image.content = QString(32, 'a');
+    QImage pixels(24, 24, QImage::Format_RGB32);
+    pixels.fill(Qt::blue);
+    QBuffer buffer(&image.media);
+    QVERIFY(buffer.open(QIODevice::WriteOnly));
+    QVERIFY(pixels.save(&buffer, "PNG"));
+    ChatPage page;
+    page.SetChatData(group);
+    page.show();
+    QTRY_VERIFY(page.findChild<MessageTextEdit *>()->isEnabled());
+    QCOMPARE(page.findChild<QPushButton *>("file_btn")->isEnabled(), supported);
+    QCOMPARE(page.ForwardSnapshots({image}, group), supported);
+    if (supported) {
+      QTRY_VERIFY(!media.chatRequests.isEmpty());
+      const auto init = media.chatRequests.first();
+      QCOMPARE(init["thread_id"].toInt(), 301);
+      QCOMPARE(init["recipient"].toInt(), 0);
+      QVERIFY(init["file_id"].toString() != image.content);
+      // Exercise the already-complete resume path of the existing upload protocol.
+      media.send(1051,
+                 QJsonObject{{"ok", true}, {"offset", image.media.size()}, {"complete", true}});
+      const auto messages = [&] {
+        QList<QJsonObject> values;
+        for (const auto &r : peer.chatRequests)
+          if (r["id"].toInt() == ID_TEXT_CHAT_MSG_REQ)
+            values.append(r);
+        return values;
+      };
+      QTRY_COMPARE(messages().size(), 1);
+      QCOMPARE(messages().first()["thread_id"].toInt(), 301);
+      QCOMPARE(messages().first()["touid"].toInt(), 0);
+      const auto body = messages().first()["text_array"].toArray().first().toObject();
+      QCOMPARE(body["msg_type"].toInt(), 1);
+      QCOMPARE(body["content"], init["file_id"]);
+      QTRY_VERIFY(page.findChild<PictureBubble *>());
+      QTRY_VERIFY(page.findChild<PictureBubble *>()->hasImage());
+    } else {
+      QTest::qWait(25);
+      QVERIFY(media.chatRequests.isEmpty());
+      QVERIFY(group->GetPendingMessages().empty());
+    }
+    TcpMgr::GetInstance()->CloseConnection();
+    QVERIFY(!TcpMgr::GetInstance()->SupportsGroupImages());
   }
 
   void pinyinInitials_data()

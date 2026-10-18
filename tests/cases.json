@@ -814,5 +814,17 @@
     "data_changes": "仅夹具 messages、favorites、deleted_messages",
     "cleanup": "QObject 和数据库线程退出后回收 QTemporaryDir",
     "implemented": true
+  },
+  {
+    "id": "GROUP-IMAGES",
+    "domain": "群图片传输与实时成员授权",
+    "kind": "automated",
+    "automation": "integration/test_group_images.py",
+    "preconditions": "隔离 MySQL/Redis、真实双节点与资源服务，Qt 回环夹具",
+    "inputs": "续传、跨节点、离线、去重、私聊/跨群 ID、移除退群解散及授权服务故障",
+    "expected": "只允许当前成员读写实际群资源；权限撤销后后续请求拒绝；故障关闭，健康节点可回退",
+    "data_changes": "仅隔离用户、群、消息、资源文件和缓存",
+    "cleanup": "Cluster 回收测试进程容器及账号数据，保留脱敏失败证据",
+    "implemented": true
   }
 ]

@@ -17,8 +17,10 @@ public:
   static ResourceMgr *instance();
   ~ResourceMgr() override;
   void ResetSession();
-  void uploadImage(const QString &path, int recipient, const QString &requestId);
-  void uploadImage(const QByteArray &image, int recipient, const QString &requestId);
+  void uploadImage(const QString &path, int recipient, const QString &requestId,
+                   int groupThread = 0);
+  void uploadImage(const QByteArray &image, int recipient, const QString &requestId,
+                   int groupThread = 0);
   void fetchImage(const QString &fileId);
   void rememberImage(const QString &fileId, const QByteArray &bytes);
   QByteArray cachedImage(const QString &fileId) const;
@@ -33,7 +35,7 @@ private:
   void downloadImage(const QString &fileId);
   quint64 _cacheGeneration = 0;
   void startUpload(const QString &path, const QByteArray &bytes, int recipient,
-                   const QString &requestId);
+                   const QString &requestId, int groupThread);
   QCache<QString, QByteArray> _cache;
   QHash<QString, QByteArray> _partials;
   QSet<QString> _fetching;

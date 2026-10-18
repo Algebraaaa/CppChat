@@ -173,6 +173,7 @@ void TcpMgr::resetConnectionState()
   _loggedIn = false;
   _messageDedup = false;
   _groupChat = false;
+  _groupImages = false;
   _commonGroups = false;
   _voiceCall = false;
   _videoCall = false;
@@ -488,6 +489,7 @@ void TcpMgr::initHandlers()
     _loggedIn = true;
     _messageDedup = o["message_dedup"].toBool(false);
     _groupChat = o["group_chat"].toBool(false);
+    _groupImages = _groupChat && o["group_images"].toBool(false);
     _commonGroups = o["common_groups"].toBool(false);
     _voiceCall = o["voice_call"].toBool(false);
     _videoCall = o["video_call"].toBool(false);

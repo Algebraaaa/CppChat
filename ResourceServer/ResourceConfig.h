@@ -1,6 +1,7 @@
 #pragma once
 #include <filesystem>
 #include <string>
+#include <vector>
 namespace cppchat::resource {
 struct Settings {
   Settings();
@@ -14,5 +15,6 @@ struct Settings {
   int queueLimit;
   int maxConnections;
   int timeoutSeconds;
+  std::vector<unsigned short> mediaAuthorizationPorts;
 };
 } // namespace cppchat::resource

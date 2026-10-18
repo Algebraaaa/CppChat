@@ -239,18 +239,20 @@ void ResourceMgr::rememberImage(const QString &fileId, const QByteArray &bytes)
     _cache.insert(key, new QByteArray(bytes), int(cost));
 }
 
-void ResourceMgr::uploadImage(const QString &path, int recipient, const QString &requestId)
+void ResourceMgr::uploadImage(const QString &path, int recipient, const QString &requestId,
+                              int groupThread)
 {
-  startUpload(path, {}, recipient, requestId);
+  startUpload(path, {}, recipient, requestId, groupThread);
 }
 
-void ResourceMgr::uploadImage(const QByteArray &image, int recipient, const QString &requestId)
+void ResourceMgr::uploadImage(const QByteArray &image, int recipient, const QString &requestId,
+                              int groupThread)
 {
-  startUpload({}, image, recipient, requestId);
+  startUpload({}, image, recipient, requestId, groupThread);
 }
 
 void ResourceMgr::startUpload(const QString &path, const QByteArray &bytes, int recipient,
-                              const QString &requestId)
+                              const QString &requestId, int groupThread)
 {
   rememberImage({}, {});
   const auto info = connectionInfo();
@@ -266,8 +268,8 @@ void ResourceMgr::startUpload(const QString &path, const QByteArray &bytes, int 
   const auto cancelled = _cancelled;
   qInfo() << "Image upload started:" << "request=" << requestId << "uid=" << info.uid
           << "recipient=" << recipient;
-  _uploadPool.start(
-      QRunnable::create([this, path, bytes, recipient, requestId, info, generation, cancelled] {
+  _uploadPool.start(QRunnable::create(
+      [this, path, bytes, recipient, requestId, info, generation, cancelled, groupThread] {
         if (cancelled->load())
           return;
         QString error;
@@ -286,8 +288,10 @@ void ResourceMgr::startUpload(const QString &path, const QByteArray &bytes, int 
         if (error.isEmpty() && (image.isEmpty() || image.size() > kMaxImageSize))
           error = tr("图片为空或超过 20 MB");
         if (error.isEmpty()) {
+          const QByteArray scope = groupThread > 0 ? "group:" + QByteArray::number(groupThread)
+                                                   : QByteArray::number(recipient);
           const QByteArray identity =
-              QByteArray::number(info.uid) + ':' + QByteArray::number(recipient) + ':' +
+              QByteArray::number(info.uid) + ':' + scope + ':' +
               QCryptographicHash::hash(image, QCryptographicHash::Sha256).toHex();
           fileId = QString::fromLatin1(
               QCryptographicHash::hash(identity, QCryptographicHash::Sha256).toHex().left(32));
@@ -299,6 +303,8 @@ void ResourceMgr::startUpload(const QString &path, const QByteArray &bytes, int 
           if (connectSocket(socket, info, error, cancelled)) {
             auto init = baseRequest(info, fileId);
             init.insert("recipient", recipient);
+            if (groupThread > 0)
+              init.insert("thread_id", groupThread);
             init.insert("size", image.size());
             init.insert("sha256",
                         QString::fromLatin1(

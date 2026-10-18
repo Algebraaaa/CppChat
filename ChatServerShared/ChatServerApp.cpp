@@ -10,6 +10,7 @@
 #include "ChatServiceImpl.h"
 #include "ConfigMgr.h"
 #include "Logger.h"
+#include "MediaAuthorizationService.h"
 #include "MysqlMgr.h"
 #include "RedisMgr.h"
 #include "StatusGrpcClient.h"
@@ -24,6 +25,8 @@ int RunChatServer()
   std::shared_ptr<CServer> tcp_server;
   std::unique_ptr<ChatServiceImpl> chat_service;
   std::unique_ptr<grpc::Server> grpc_server;
+  std::unique_ptr<MediaAuthorizationService> media_service;
+  std::unique_ptr<grpc::Server> media_server;
   bool stopped = false;
   const auto network_grace = std::chrono::seconds(5);
 
@@ -42,6 +45,8 @@ int RunChatServer()
     }
     if (grpc_server)
       grpc_server->Shutdown(std::chrono::system_clock::now() + network_grace);
+    if (media_server)
+      media_server->Shutdown(std::chrono::system_clock::now() + network_grace);
     // Active SQL has no command deadline yet; joining it safely is not a
     // promise that the ENTIRE process exits within the network grace period.
     if (logic_system) {
@@ -87,6 +92,30 @@ int RunChatServer()
     grpc_server = builder.BuildAndStart();
     if (!grpc_server)
       throw std::runtime_error("Unable to start ChatServer gRPC service at " + rpc_address);
+    const auto configured_media_port = config["MediaAuthorization"]["Port"];
+    const std::string media_port_text = configured_media_port.empty()
+                                            ? std::to_string(std::stoul(rpc_port) + 5)
+                                            : configured_media_port;
+    consumed = 0;
+    const auto media_port = std::stoul(media_port_text, &consumed);
+    if (consumed != media_port_text.size() || media_port == 0 || media_port > 65535)
+      throw std::runtime_error("MediaAuthorization.Port must be in range 1-65535");
+    media_service = std::make_unique<MediaAuthorizationService>();
+    grpc::ServerBuilder media_builder;
+    const auto media_address = "127.0.0.1:" + std::to_string(media_port);
+    media_builder.AddListeningPort(media_address, grpc::InsecureServerCredentials());
+    media_builder.SetMaxReceiveMessageSize(1024);
+    media_builder.SetMaxSendMessageSize(1024);
+    media_builder.SetCompressionAlgorithmSupportStatus(GRPC_COMPRESS_GZIP, false);
+    media_builder.SetCompressionAlgorithmSupportStatus(GRPC_COMPRESS_DEFLATE, false);
+    media_builder.AddChannelArgument("grpc.max_concurrent_streams", 4);
+    media_builder.SetSyncServerOption(grpc::ServerBuilder::SyncServerOption::MIN_POLLERS, 1);
+    media_builder.SetSyncServerOption(grpc::ServerBuilder::SyncServerOption::MAX_POLLERS, 4);
+    media_builder.RegisterService(media_service.get());
+    media_server = media_builder.BuildAndStart();
+    if (!media_server)
+      throw std::runtime_error("Unable to start loopback media authorization at " + media_address);
+    LOG_INFO("Group media authorization listening at ", media_address, '.');
     if (!tcp_server->PublishHealth())
       throw std::runtime_error("Cannot register chat node; check Redis or duplicate node name.");
     LOG_INFO("ChatServer gRPC service listening at ", rpc_address, '.');
@@ -109,6 +138,8 @@ int RunChatServer()
     result = EXIT_FAILURE;
   }
 
+  media_server.reset();
+  media_service.reset();
   grpc_server.reset();
   chat_service.reset();
   tcp_server.reset();

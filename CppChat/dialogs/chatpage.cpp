@@ -216,11 +216,12 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
       ShowStatus(tr("请先选择会话并连接聊天服务器"));
       return;
     }
-    if (_chat_data->IsGroup()) {
-      ShowStatus(tr("群聊暂支持文字和表情，图片发送尚未开放"));
+    if (_chat_data->IsGroup() && !TcpMgr::GetInstance()->SupportsGroupImages()) {
+      ShowStatus(tr("服务器尚不支持群图片，请升级服务器后重试"));
       return;
     }
-    if (!UserMgr::GetInstance()->CheckFriendById(_chat_data->GetOtherId())) {
+    if (!_chat_data->IsGroup() &&
+        !UserMgr::GetInstance()->CheckFriendById(_chat_data->GetOtherId())) {
       ShowStatus(errorCodeMessage(FriendNotFound));
       return;
     }
@@ -350,11 +351,12 @@ void ChatPage::StartScreenCapture()
     ShowStatus(tr("请先选择会话并连接聊天服务器"));
     return;
   }
-  if (_chat_data->IsGroup()) {
-    ShowStatus(tr("群聊暂支持文字和表情，图片发送尚未开放"));
+  if (_chat_data->IsGroup() && !TcpMgr::GetInstance()->SupportsGroupImages()) {
+    ShowStatus(tr("服务器尚不支持群图片，请升级服务器后重试"));
     return;
   }
-  if (!UserMgr::GetInstance()->CheckFriendById(_chat_data->GetOtherId())) {
+  if (!_chat_data->IsGroup() &&
+      !UserMgr::GetInstance()->CheckFriendById(_chat_data->GetOtherId())) {
     ShowStatus(errorCodeMessage(FriendNotFound));
     return;
   }
@@ -367,7 +369,9 @@ void ChatPage::StartScreenCapture()
     // 截屏期间网络和会话仍能变化，不向另一段会话插入图片。
     if (_sender->SavingMessages() || _chat_data != conversation ||
         !TcpMgr::GetInstance()->IsConnected() ||
-        !UserMgr::GetInstance()->CheckFriendById(conversation->GetOtherId())) {
+        (conversation->IsGroup()
+             ? !TcpMgr::GetInstance()->SupportsGroupImages()
+             : !UserMgr::GetInstance()->CheckFriendById(conversation->GetOtherId()))) {
       ShowStatus(tr("会话已变化，请重新选择会话后截屏"));
       return;
     }
@@ -462,8 +466,9 @@ void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
     return;
   }
   const bool changed = !_chat_data || _chat_data->GetThreadId() != data->GetThreadId();
-  ui->file_btn->setEnabled(!data->IsGroup());
-  ui->file_btn->setToolTip(data->IsGroup() ? tr("群图片尚未开放") : tr("发送图片"));
+  const bool images = !data->IsGroup() || TcpMgr::GetInstance()->SupportsGroupImages();
+  ui->file_btn->setEnabled(images);
+  ui->file_btn->setToolTip(images ? tr("发送图片") : tr("请升级服务器以使用群图片"));
   if (changed) {
     EndSelection();
     ui->call_btn->menu()->close();
@@ -731,40 +736,41 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
       _selected.remove(value->GetMsgId());
     UpdateSelection();
   });
-  connect(item, &ChatItemBase::messageContextMenuRequested, this,
-          [this, item, scrollKey, data, pictureBubble](const QPoint &position) {
-            // 复用控件后必须读取最新消息，避免重试仍使用发送确认前的旧对象。
-            const auto message = _renderedMessages.value(scrollKey);
-            if (!message || _renderedItems.value(scrollKey) != item)
-              return;
-            auto *menu = new MessageMenu(item);
-            _messageActions->Bind(menu, message);
-            const bool imageMessage = message->GetMsgType() == ChatMsgType::PIC;
-            connect(menu, &MessageMenu::copyRequested, this,
-                    [message, imageMessage, pictureBubble] {
-                      if (imageMessage && pictureBubble)
-                        pictureBubble->copyOriginal();
-                      else if (!imageMessage)
-                        QGuiApplication::clipboard()->setText(message->GetContent());
-                    });
-            connect(menu, &MessageMenu::placeholderRequested, this,
-                    [this](const QString &title) { ShowStatus(tr("%1功能暂未实现").arg(title)); });
-            connect(menu, &MessageMenu::retryRequested, this, [this, message, data] {
-              _sender->RetryMessage(std::static_pointer_cast<TextChatData>(message), data);
-            });
-            const bool showRetry =
-                data && message->GetMsgId() == 0 && message->GetStatus() == SEND_FAILED;
-            const bool canRetry = _sender->CanRetry();
-            const MessageMenu::Options options{
-                !imageMessage || (pictureBubble && pictureBubble->hasImage()),
-                showRetry,
-                canRetry,
-                !imageMessage,
-                ui->chatEdit->isEnabled(),
-                message->GetMsgId() > 0 && ChatStore::instance()->IsReady(),
-                message->GetMsgId() > 0 && ChatStore::instance()->IsReady()};
-            menu->Popup(position, options);
-          });
+  connect(
+      item, &ChatItemBase::messageContextMenuRequested, this,
+      [this, item, scrollKey, data, pictureBubble](const QPoint &position) {
+        // 复用控件后必须读取最新消息，避免重试仍使用发送确认前的旧对象。
+        const auto message = _renderedMessages.value(scrollKey);
+        if (!message || _renderedItems.value(scrollKey) != item)
+          return;
+        auto *menu = new MessageMenu(item);
+        _messageActions->Bind(menu, message);
+        const bool imageMessage = message->GetMsgType() == ChatMsgType::PIC;
+        connect(menu, &MessageMenu::copyRequested, this, [message, imageMessage, pictureBubble] {
+          if (imageMessage && pictureBubble)
+            pictureBubble->copyOriginal();
+          else if (!imageMessage)
+            QGuiApplication::clipboard()->setText(message->GetContent());
+        });
+        connect(menu, &MessageMenu::placeholderRequested, this,
+                [this](const QString &title) { ShowStatus(tr("%1功能暂未实现").arg(title)); });
+        connect(menu, &MessageMenu::retryRequested, this, [this, message, data] {
+          _sender->RetryMessage(std::static_pointer_cast<TextChatData>(message), data);
+        });
+        const bool showRetry =
+            data && message->GetMsgId() == 0 && message->GetStatus() == SEND_FAILED;
+        const bool canRetry = _sender->CanRetry() && (!data || !data->IsGroup() || !imageMessage ||
+                                                      TcpMgr::GetInstance()->SupportsGroupImages());
+        const MessageMenu::Options options{
+            !imageMessage || (pictureBubble && pictureBubble->hasImage()),
+            showRetry,
+            canRetry,
+            !imageMessage,
+            ui->chatEdit->isEnabled(),
+            message->GetMsgId() > 0 && ChatStore::instance()->IsReady(),
+            message->GetMsgId() > 0 && ChatStore::instance()->IsReady()};
+        menu->Popup(position, options);
+      });
   return item;
 }
 

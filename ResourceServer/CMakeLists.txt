@@ -5,7 +5,8 @@ add_executable(ResourceServer ${mapped_sources})
 target_include_directories(ResourceServer PRIVATE "${CPPCHAT_BINARY_DIR}/sources/ResourceServer"
   "${CMAKE_CURRENT_SOURCE_DIR}" "${CPPCHAT_SOURCE_DIR}/ChatServerShared")
 target_link_libraries(ResourceServer PRIVATE Boost::asio Boost::filesystem JsonCpp::JsonCpp
-  hiredis::hiredis OpenSSL::SSL OpenSSL::Crypto)
+  hiredis::hiredis OpenSSL::SSL OpenSSL::Crypto gRPC::grpc++ protobuf::libprotobuf)
+cppchat_add_protocol(ResourceServer ChatServerShared)
 if(WIN32)
   target_link_libraries(ResourceServer PRIVATE ws2_32 crypt32)
 endif()

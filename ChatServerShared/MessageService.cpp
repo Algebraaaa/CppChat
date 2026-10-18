@@ -24,7 +24,7 @@ int MessageService::Store(int actor, std::vector<std::shared_ptr<ChatMessage>> &
   for (const auto &message : messages) {
     if (!message || message->sender_id != actor || message->recv_id <= 0 || message->thread_id <= 0)
       return ErrorCodes::UidInvalid;
-    if ((isGroup && message->msg_type != 0) || (message->msg_type != 0 && message->msg_type != 1))
+    if (message->msg_type != 0 && message->msg_type != 1)
       return ErrorCodes::Error_Json;
     if (message->msg_type == 1) {
       const auto &id = message->content;
@@ -34,7 +34,10 @@ int MessageService::Store(int actor, std::vector<std::shared_ptr<ChatMessage>> &
       std::string ready;
       if (!RedisMgr::GetInstance()->Get("resource_ready_" + id, ready))
         return ErrorCodes::RedisError;
-      const auto prefix = std::to_string(actor) + ":" + std::to_string(message->recv_id) + ":";
+      const auto prefix =
+          isGroup
+              ? "group:" + std::to_string(actor) + ":" + std::to_string(message->thread_id) + ":"
+              : std::to_string(actor) + ":" + std::to_string(message->recv_id) + ":";
       if (ready.rfind(prefix, 0) != 0)
         return ErrorCodes::Error_Json;
       try {

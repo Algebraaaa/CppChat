@@ -116,7 +116,7 @@ void MessageForwarder::Begin(QVector<StoredFavorite> snapshots)
     item->setData(Qt::UserRole, user->_uid);
     item->setData(Qt::UserRole + 1, 0);
   }
-  if (!images)
+  if (!images || TcpMgr::GetInstance()->SupportsGroupImages())
     for (const auto &data : mgr->GetChatThreads()) {
       if (!data || !data->IsGroup())
         continue;
@@ -127,7 +127,9 @@ void MessageForwarder::Begin(QVector<StoredFavorite> snapshots)
   layout->addWidget(_list, 1);
   _status = new QLabel(tr("将 %1 条消息逐条发送，保留目标会话已有草稿。%2")
                            .arg(_messages.size())
-                           .arg(images ? tr("图片当前仅支持发送给好友。") : QString()),
+                           .arg(images && !TcpMgr::GetInstance()->SupportsGroupImages()
+                                    ? tr("当前服务器未支持群图片，只列出好友。")
+                                    : QString()),
                        dialog);
   _status->setTextFormat(Qt::PlainText);
   _status->setWordWrap(true);

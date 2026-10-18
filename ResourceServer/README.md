@@ -1,5 +1,44 @@
 # CppChat ResourceServer
 
+## Group images (2026-10-19, 0.1.15)
+
+An upload may specify `recipient=0, thread_id=<actual group>`; its metadata and ready
+record are bound to that group. Existing private uploads retain their original format.
+Group files live in a separate `groups/` namespace, so rolling back to a previous
+resource binary cannot treat a group upload as an uploader-owned private resource.
+Every group upload init, chunk/resume and download checks current membership through
+`MediaAuthorization.AuthorizeGroup`. The uploader has no exemption after leaving.
+Removing a member or disbanding denies subsequent requests; bytes already downloaded
+to a device cannot be revoked. No MySQL table changes are needed.
+
+The authority is a separate listener hard-bound to `127.0.0.1`, using the existing
+chat-node token and transactional `MysqlMgr::GetGroup` policy. Its default port is
+`SelfServer.RPCPort + 5`, overridden by `[MediaAuthorization] Port` if necessary.
+ResourceServer reads up to two ports from `CPPCHAT_MEDIA_AUTH_PORTS` (default
+`50060,50061`), always using loopback. Each RPC has a one-second deadline; unavailable
+nodes may fall back, but a membership denial is final. All authorities unavailable
+means denial, never trust in file ownership or cached membership. Request/response
+sizes, concurrency and polling threads are bounded; compression is disabled.
+
+Reuse: existing [gRPC C++ services](https://grpc.io/docs/languages/cpp/basics/) and
+[deadlines](https://grpc.io/docs/guides/deadlines/), with the existing Apache-2.0
+gRPC/Protobuf toolchain; no upstream implementation was copied. The
+[Matrix authenticated-media proposal](https://github.com/matrix-org/matrix-spec-proposals/blob/main/proposals/3916-authentication-for-media.md)
+informed endpoint authentication, not this project's group policy. Reusing the
+current DAO and transport avoids importing another application's storage/protocol stack.
+
+Dependency review: local vcpkg gRPC is 1.81.1. The upstream
+[HTTP/2 memory exhaustion advisory](https://github.com/grpc/grpc/security/advisories/GHSA-hf3w-6hpw-qp67)
+includes this version; patched releases are 1.82.2/1.83.1. This change does not claim
+to patch gRPC itself. The new endpoint must remain trusted local IPC, with no public
+proxy or forwarded port. Public resource packets cannot select an RPC destination or
+provide raw gRPC traffic. An overall dependency upgrade remains separate work.
+
+Tests: real SQL/Redis and two chat nodes cover loopback binding, scoped ready records,
+cross-node notification/history, resume, duplicate sends, private/group scope refusal,
+nonmembers, removal/leave/disband, authority failover and fail-closed behavior.
+Qt tests cover the capability gate, target-scoped upload and picture rendering.
+
 ResourceServer is a backend module at the repository root, alongside GateServer,
 StatusServer and the chat nodes. Its `CMakeLists.txt` reuses the shared helpers in
 `cmake/` and is included by the root server build. Configure from the repository

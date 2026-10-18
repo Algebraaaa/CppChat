@@ -269,7 +269,18 @@ class Cluster:
             response.raise_for_status()
         _, self.sql_service_port = self.endpoint(self.proxy, 8666)
         _, self.redis_service_port = self.endpoint(self.proxy, 8667)
-        for name in ("gate", "verify", "status", "chat1", "chat2", "rpc1", "rpc2", "resource"):
+        for name in (
+            "gate",
+            "verify",
+            "status",
+            "chat1",
+            "chat2",
+            "rpc1",
+            "rpc2",
+            "media1",
+            "media2",
+            "resource",
+        ):
             self.ports[name] = free_port()
         # No defaults from checked-out developer configs are inherited.
         config = configparser.ConfigParser()
@@ -325,6 +336,9 @@ class Cluster:
                 "RPCPort": str(self.ports[rpc]),
             }
             config["PeerServer"] = {"Servers": "Peer"}
+            config["MediaAuthorization"] = {
+                "Port": str(self.ports["media1" if name == "ChatServer" else "media2"])
+            }
             config["Peer"] = {"Name": peer, "Host": "127.0.0.1", "Port": str(self.ports[peer_rpc])}
             self.write_config(name, config)
         for name in ("StatusServer", "GateServer"):
@@ -359,6 +373,7 @@ class Cluster:
         self.spawn("ChatServer")
         self.spawn("ChatServer2")
         resource_env = {
+            "CPPCHAT_MEDIA_AUTH_PORTS": str(self.ports["media1"]) + "," + str(self.ports["media2"]),
             "CPPCHAT_RESOURCE_LISTEN": "127.0.0.1",
             "CPPCHAT_RESOURCE_PORT": str(self.ports["resource"]),
             "CPPCHAT_RESOURCE_DIR": str(self.directory / "ResourceServer/images"),

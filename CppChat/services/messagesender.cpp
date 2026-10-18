@@ -165,8 +165,8 @@ bool MessageSender::Send(const QVector<MsgInfo> &inputs,
   QVector<StoredMessage> records;
   for (const auto &input : inputs) {
     const bool image = input.msgFlag == "image";
-    if (image && data->IsGroup()) {
-      emit status(data->GetThreadId(), tr("群聊暂支持文字和表情，请移除图片后发送"));
+    if (image && data->IsGroup() && !TcpMgr::GetInstance()->SupportsGroupImages()) {
+      emit status(data->GetThreadId(), tr("服务器尚不支持群图片，请升级服务器后重试"));
       return false;
     }
     if (image && (input.imageData.isEmpty() || input.imageData.size() > 20 * 1024 * 1024)) {
@@ -269,6 +269,11 @@ void MessageSender::RetryMessage(const std::shared_ptr<TextChatData> &message,
       !TcpMgr::GetInstance()->SupportsMessageDedup() || !TcpMgr::GetInstance()->IsConnected() ||
       UserMgr::GetInstance()->GetChatThreadByThreadId(data->GetThreadId()) != data)
     return;
+  if (data->IsGroup() && message->GetMsgType() == ChatMsgType::PIC &&
+      !TcpMgr::GetInstance()->SupportsGroupImages()) {
+    emit status(data->GetThreadId(), tr("服务器尚不支持群图片，请升级服务器后重试"));
+    return;
+  }
   const auto id = message->GetUniqueId();
   _retryingIds.insert(id);
   const QPointer<MessageSender> guard(this);
@@ -340,7 +345,8 @@ void MessageSender::SendNextMessage()
     if (item.content.msgFlag == "image") {
       const auto id = item.message->GetUniqueId();
       _imageUploads.insert(id, item);
-      ResourceMgr::instance()->uploadImage(item.content.imageData, data->GetOtherId(), id);
+      ResourceMgr::instance()->uploadImage(item.content.imageData, data->GetOtherId(), id,
+                                           data->IsGroup() ? data->GetThreadId() : 0);
       return;
     }
     SendStoredMessage(item.message, data);

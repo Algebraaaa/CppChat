@@ -72,14 +72,16 @@ bool Authenticated(const Settings &settings, int uid, const std::string &token)
 }
 
 bool MarkReady(const Settings &settings, const std::string &id, int sender, int recipient,
-               std::uint64_t size)
+               std::uint64_t size, int thread = 0)
 {
   auto &connection = WorkerRedis(settings);
   if (!connection)
     return false;
   const std::string key = "resource_ready_" + id;
-  const std::string value =
-      std::to_string(sender) + ":" + std::to_string(recipient) + ":" + std::to_string(size);
+  const std::string value = thread > 0 ? "group:" + std::to_string(sender) + ":" +
+                                             std::to_string(thread) + ":" + std::to_string(size)
+                                       : std::to_string(sender) + ":" + std::to_string(recipient) +
+                                             ":" + std::to_string(size);
   RedisReply reply(static_cast<redisReply *>(redisCommand(connection.get(), "SET %s %b",
                                                           key.c_str(), value.data(), value.size())),
                    &freeReplyObject);
@@ -154,9 +156,11 @@ std::string EncodeBase64(const std::string &bytes)
 
 } // namespace
 
-ResourceStore::ResourceStore(Settings settings) : settings_(std::move(settings))
+ResourceStore::ResourceStore(Settings settings)
+    : settings_(std::move(settings)), authorizer_(settings_)
 {
   fs::create_directories(settings_.directory);
+  fs::create_directories(settings_.directory / "groups");
 }
 
 Json::Value ResourceStore::Handle(std::uint16_t id, const Json::Value &request)
@@ -202,17 +206,20 @@ Json::Value ResourceStore::Handle(std::uint16_t id, const Json::Value &request)
 
 fs::path ResourceStore::MetaPath(const std::string &id) const
 {
+  const auto group = settings_.directory / "groups" / (id + ".json");
+  if (fs::exists(group))
+    return group;
   return settings_.directory / (id + ".json");
 }
 
 fs::path ResourceStore::PartPath(const std::string &id) const
 {
-  return settings_.directory / (id + ".part");
+  return MetaPath(id).parent_path() / (id + ".part");
 }
 
 fs::path ResourceStore::DonePath(const std::string &id) const
 {
-  return settings_.directory / (id + ".bin");
+  return MetaPath(id).parent_path() / (id + ".bin");
 }
 
 Json::Value ResourceStore::ReadMeta(const std::string &id) const
@@ -226,7 +233,9 @@ Json::Value ResourceStore::ReadMeta(const std::string &id) const
 
 void ResourceStore::WriteMeta(const std::string &id, const Json::Value &meta)
 {
-  std::ofstream file(MetaPath(id), std::ios::binary | std::ios::trunc);
+  const auto directory =
+      meta.get("thread_id", 0).asInt() > 0 ? settings_.directory / "groups" : settings_.directory;
+  std::ofstream file(directory / (id + ".json"), std::ios::binary | std::ios::trunc);
   if (!file)
     throw std::runtime_error("cannot write metadata");
   file << meta;
@@ -237,21 +246,26 @@ void ResourceStore::WriteMeta(const std::string &id, const Json::Value &meta)
 Json::Value ResourceStore::UploadInit(int uid, const std::string &id, const Json::Value &request)
 {
   const int recipient = request.get("recipient", 0).asInt();
+  const int thread = request.get("thread_id", 0).asInt();
   const auto size = request.get("size", Json::UInt64(0)).asUInt64();
   const std::string sha = request.get("sha256", "").asString();
-  if (recipient <= 0 || recipient == uid || size == 0 || size > kMaximumImageSize ||
-      sha.size() != 64 ||
+  if (thread < 0 || (thread > 0 ? recipient != 0 : (recipient <= 0 || recipient == uid)) ||
+      size == 0 || size > kMaximumImageSize || sha.size() != 64 ||
       !std::all_of(sha.begin(), sha.end(), [](unsigned char ch) { return std::isxdigit(ch) != 0; }))
     return Error("invalid image metadata");
+  if (thread > 0 && !authorizer_.GroupMember(uid, request["token"].asString(), thread))
+    return Error("group access denied");
 
   Json::Value meta = ReadMeta(id);
   if (meta.isNull()) {
     meta["uid"] = uid;
     meta["recipient"] = recipient;
+    meta["thread_id"] = thread;
     meta["size"] = Json::UInt64(size);
     meta["sha256"] = sha;
     WriteMeta(id, meta);
   } else if (meta.get("uid", 0).asInt() != uid || meta.get("recipient", 0).asInt() != recipient ||
+             meta.get("thread_id", 0).asInt() != thread ||
              meta.get("size", Json::UInt64(0)).asUInt64() != size ||
              meta.get("sha256", "").asString() != sha) {
     return Error("file id belongs to another upload");
@@ -267,7 +281,7 @@ Json::Value ResourceStore::UploadInit(int uid, const std::string &id, const Json
       fs::remove(PartPath(id));
     }
   }
-  if (complete && !MarkReady(settings_, id, uid, recipient, size))
+  if (complete && !MarkReady(settings_, id, uid, recipient, size, thread))
     return Error("Redis is unavailable");
   const std::uint64_t offset =
       complete ? size : (fs::exists(PartPath(id)) ? fs::file_size(PartPath(id)) : 0);
@@ -287,9 +301,12 @@ Json::Value ResourceStore::UploadChunk(int uid, const std::string &id, const Jso
   const Json::Value meta = ReadMeta(id);
   if (meta.isNull() || meta.get("uid", 0).asInt() != uid)
     return Error("upload not initialized");
+  const int thread = meta.get("thread_id", 0).asInt();
+  if (thread > 0 && !authorizer_.GroupMember(uid, request["token"].asString(), thread))
+    return Error("group access denied");
   const std::uint64_t size = meta["size"].asUInt64();
   if (fs::exists(DonePath(id))) {
-    if (!MarkReady(settings_, id, uid, meta["recipient"].asInt(), size))
+    if (!MarkReady(settings_, id, uid, meta["recipient"].asInt(), size, thread))
       return Error("Redis is unavailable");
     Json::Value reply;
     reply["ok"] = true;
@@ -323,7 +340,7 @@ Json::Value ResourceStore::UploadChunk(int uid, const std::string &id, const Jso
       return Error("image checksum mismatch");
     }
     fs::rename(PartPath(id), DonePath(id));
-    if (!MarkReady(settings_, id, uid, meta["recipient"].asInt(), size))
+    if (!MarkReady(settings_, id, uid, meta["recipient"].asInt(), size, thread))
       return Error("Redis is unavailable");
     LOG_INFO("Resource upload completed: uid=", uid, ", recipient=", meta["recipient"].asInt(),
              ", file=", id.substr(0, 8), ", bytes=", size);
@@ -338,8 +355,11 @@ Json::Value ResourceStore::UploadChunk(int uid, const std::string &id, const Jso
 Json::Value ResourceStore::Download(int uid, const std::string &id, const Json::Value &request)
 {
   const Json::Value meta = ReadMeta(id);
-  if (meta.isNull() ||
-      (meta.get("uid", 0).asInt() != uid && meta.get("recipient", 0).asInt() != uid))
+  if (meta.isNull())
+    return Error("access denied");
+  const int thread = meta.get("thread_id", 0).asInt();
+  if (thread > 0 ? !authorizer_.GroupMember(uid, request["token"].asString(), thread)
+                 : (meta.get("uid", 0).asInt() != uid && meta.get("recipient", 0).asInt() != uid))
     return Error("access denied");
   if (!fs::exists(DonePath(id)))
     return Error("image is not ready");

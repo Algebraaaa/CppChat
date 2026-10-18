@@ -1,4 +1,5 @@
 #pragma once
+#include "ResourceAuthorizer.h"
 #include "ResourceConfig.h"
 #include <array>
 #include <cstdint>
@@ -23,6 +24,7 @@ private:
   Json::Value UploadChunk(int uid, const std::string &id, const Json::Value &request);
   Json::Value Download(int uid, const std::string &id, const Json::Value &request);
   Settings settings_;
+  ResourceAuthorizer authorizer_;
   std::array<std::mutex, 64> fileLocks_;
 };
 } // namespace cppchat::resource
