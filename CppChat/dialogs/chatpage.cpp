@@ -20,9 +20,12 @@
 #include <QHideEvent>
 #include <QImage>
 #include <QImageReader>
+#include <QJsonArray>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
 #include <QResizeEvent>
@@ -72,6 +75,7 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
   setAttribute(Qt::WA_StyledBackground);
   ui->chat_data_wid->setAttribute(Qt::WA_StyledBackground);
   ui->title_wid->setAttribute(Qt::WA_StyledBackground);
+  ui->title_label->installEventFilter(this);
   ui->composer_wid->setAttribute(Qt::WA_StyledBackground);
   ui->composer_card->setAttribute(Qt::WA_StyledBackground);
   ui->tool_wid->setAttribute(Qt::WA_StyledBackground);
@@ -171,10 +175,6 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
       return;
     if (!_chat_data || !TcpMgr::GetInstance()->IsConnected()) {
       ShowStatus(tr("请先选择会话并连接聊天服务器"));
-      return;
-    }
-    if (_chat_data->IsGroup()) {
-      ShowStatus(tr("群聊暂支持文字和表情，图片发送尚未开放"));
       return;
     }
     if (_chat_data->IsGroup()) {
@@ -288,6 +288,8 @@ void ChatPage::UpdateMediaControls()
   if (!canCall)
     ui->call_btn->menu()->close();
   ui->call_btn->setEnabled(canCall);
+  ui->call_btn->setToolTip(_chat_data && _chat_data->IsGroup() ? tr("暂不支持群通话")
+                                                               : tr("语音/视频通话"));
   ui->voice_transcribe_btn->setEnabled(bool(_chat_data));
   ui->voice_message_btn->setEnabled(bool(_chat_data));
 }
@@ -391,6 +393,8 @@ void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
     return;
   }
   const bool changed = !_chat_data || _chat_data->GetThreadId() != data->GetThreadId();
+  ui->file_btn->setEnabled(!data->IsGroup());
+  ui->file_btn->setToolTip(data->IsGroup() ? tr("群图片尚未开放") : tr("发送图片"));
   if (changed) {
     ui->call_btn->menu()->close();
     if (_historyDialog)
@@ -431,13 +435,18 @@ void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
   const auto user = UserMgr::GetInstance()->GetFriendById(data->GetOtherId());
   ui->chat_settings_panel->SetUser(user);
   if (data->IsGroup())
-    ui->chat_settings_panel->SetGroup(data->GetGroupName());
+    ui->chat_settings_panel->SetGroup(data);
   ui->chat_more_btn->setEnabled(true);
   ui->chat_history_btn->setEnabled(true);
   ui->title_label->setTextFormat(Qt::PlainText);
-  ui->title_label->setText(data->IsGroup() ? data->GetGroupName()
-                           : user          ? (user->_back.isEmpty() ? user->_name : user->_back)
-                                           : tr("用户 %1").arg(data->GetOtherId()));
+  ui->title_label->setCursor(data->IsGroup() ? Qt::PointingHandCursor : Qt::ArrowCursor);
+  ui->title_label->setFocusPolicy(data->IsGroup() ? Qt::StrongFocus : Qt::NoFocus);
+  ui->title_label->setToolTip(data->IsGroup() ? tr("查看群成员和群聊详情") : QString());
+  ui->title_label->setText(
+      data->IsGroup()
+          ? tr("%1（%2）").arg(data->GetGroupName()).arg(data->Group()["members"].toArray().size())
+      : user ? (user->_back.isEmpty() ? user->_name : user->_back)
+             : tr("用户 %1").arg(data->GetOtherId()));
   ui->chatEdit->setEnabled(!_sender->SavingMessages() &&
                            !_loadingDrafts.contains(data->GetThreadId()));
   ui->screenshot_btn->setEnabled(!_screenCapture);
@@ -505,6 +514,7 @@ void ChatPage::RenderMessages(bool changed)
         item->property("message_type").toInt() != static_cast<int>(message->GetMsgType()) ||
         item->property("message_sender").toInt() != message->GetSendUid())
       item = CreateChatItem(message);
+    item->setUserName(SenderName(message->GetSendUid()));
     item->setStatus(message->GetMsgId() == 0 && message->GetStatus() != SEND_FAILED
                         ? -1
                         : message->GetStatus());
@@ -553,6 +563,30 @@ void ChatPage::RemoveChatThread(int threadId)
   ui->title_label->setText(tr("选择好友开始聊天"));
 }
 
+bool ChatPage::eventFilter(QObject *watched, QEvent *event)
+{
+  if (watched == ui->title_label && _chat_data && _chat_data->IsGroup()) {
+    const bool keyboard = event->type() == QEvent::KeyPress &&
+                          (static_cast<QKeyEvent *>(event)->key() == Qt::Key_Return ||
+                           static_cast<QKeyEvent *>(event)->key() == Qt::Key_Space);
+    const bool mouse = event->type() == QEvent::MouseButtonRelease &&
+                       static_cast<QMouseEvent *>(event)->button() == Qt::LeftButton;
+    if (mouse || keyboard) {
+      emit sig_group_settings(_chat_data->GetThreadId());
+      return true;
+    }
+  }
+  return QWidget::eventFilter(watched, event);
+}
+
+QString ChatPage::SenderName(int uid) const
+{
+  if (!_chat_data || !_chat_data->IsGroup() || uid == UserMgr::GetInstance()->GetUid())
+    return {};
+  const auto user = UserMgr::GetInstance()->GetFriendById(uid);
+  return user ? (user->_back.isEmpty() ? user->_name : user->_back) : _chat_data->MemberName(uid);
+}
+
 ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &message)
 {
   const auto mgr = UserMgr::GetInstance();
@@ -565,11 +599,8 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
   item->setProperty("message_content", message->GetContent());
   item->setProperty("message_type", static_cast<int>(message->GetMsgType()));
   item->setProperty("message_sender", message->GetSendUid());
-  // 当前只有一对一会话，微信式私聊气泡不重复显示发送者姓名。
-  item->setUserName(_chat_data->IsGroup() && !self
-                        ? (user ? (user->_back.isEmpty() ? user->_name : user->_back)
-                                : _chat_data->MemberName(message->GetSendUid()))
-                        : QString());
+  // Group messages identify the sender; private bubbles omit redundant names.
+  item->setUserName(SenderName(message->GetSendUid()));
   const int senderUid = message->GetSendUid();
   const QString fallback = user ? user->_icon : QString();
   QPixmap icon = mgr->AvatarPixmap(senderUid, fallback);

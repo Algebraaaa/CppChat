@@ -34,6 +34,7 @@ signals:
   void sig_thread_pin_changed(int threadId, bool pinned);
 
 protected:
+  bool eventFilter(QObject *watched, QEvent *event) override;
   void paintEvent(QPaintEvent *) override;
   void resizeEvent(QResizeEvent *event) override;
   void showEvent(QShowEvent *event) override;
@@ -41,6 +42,7 @@ protected:
 
 private:
   void RenderMessages(bool changed);
+  QString SenderName(int uid) const;
   ChatItemBase *CreateChatItem(const std::shared_ptr<ChatDataBase> &message);
   void UpdateSettingsRect();
   void OpenHistory();

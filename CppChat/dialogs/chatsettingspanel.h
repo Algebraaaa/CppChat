@@ -23,7 +23,7 @@ public:
   void SetAvailableRect(const QRect &rect);
   void SetToggleButton(QWidget *button);
   void SetUser(const std::shared_ptr<UserInfo> &user);
-  void SetGroup(const QString &name);
+  void SetGroup(const std::shared_ptr<ChatThreadData> &group);
   void SetPinned(bool pinned);
   qreal revealProgress() const;
   void setRevealProgress(qreal progress);
@@ -47,5 +47,7 @@ private:
   QRect _availableRect;
   qreal _progress = 0;
   bool _openRequested = false;
+  QWidget *_groupPreview = nullptr;
+  QJsonObject _groupMetadata;
 };
 #endif

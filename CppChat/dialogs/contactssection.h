@@ -16,11 +16,13 @@ public:
   ~ContactsSection() override;
   void Reset();
   void Refresh();
+  void RefreshGroups();
   void AddApply(std::shared_ptr<AddFriendApply> apply);
   void FriendRemoved(int uid);
 
 signals:
   void sig_open_chat(std::shared_ptr<UserInfo> user);
+  void sig_open_group(int threadId);
   void sig_unread_changed(bool unread);
 
 protected:
@@ -34,5 +36,6 @@ private:
   void ShowPlaceholder(const QString &title, const QString &description);
   Ui::ContactsSection *ui;
   QTimer _searchTimer;
+  QMap<int, QString> _groupNames;
 };
 #endif

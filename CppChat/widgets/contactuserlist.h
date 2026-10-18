@@ -20,11 +20,16 @@ signals:
   void sig_switch_friend_info_page(std::shared_ptr<UserInfo> user);
   void sig_open_friend_apply(std::shared_ptr<ApplyInfo> apply);
   void sig_show_placeholder(const QString &title, const QString &description);
+  void sig_open_group(int threadId);
 
 private:
   void slot_item_clicked(QListWidgetItem *item);
   void SetContactsExpanded(bool expanded);
   void SetApplicationsExpanded(bool expanded);
+  void SetGroupsExpanded(bool expanded);
+  QListWidgetItem *_groupsHeader = nullptr;
+  QVector<QListWidgetItem *> _groupRows;
+  bool _groupsExpanded = true;
   QListWidgetItem *_newFriends = nullptr;
   QListWidgetItem *_contactsHeader = nullptr;
   QVector<QListWidgetItem *> _contactRows;
