@@ -31,7 +31,9 @@ QDialog#ChatDialog #chat_page #emo_btn,
 QDialog#ChatDialog #chat_page #favorites_btn,
 QDialog#ChatDialog #chat_page #file_btn,
 QDialog#ChatDialog #chat_page #screenshot_btn,
-QDialog#ChatDialog #chat_page #voice_btn,
+QDialog#ChatDialog #chat_page #voice_transcribe_btn,
+QDialog#ChatDialog #chat_page #call_btn,
+QDialog#ChatDialog #chat_page #voice_message_btn,
 QDialog#ChatDialog #chat_page #chat_history_btn,
 QDialog#ChatDialog #chat_page #chat_more_btn {
     background: transparent;
@@ -62,7 +64,9 @@ QDialog#ChatDialog #chat_page #emo_btn:hover,
 QDialog#ChatDialog #chat_page #favorites_btn:hover,
 QDialog#ChatDialog #chat_page #file_btn:hover,
 QDialog#ChatDialog #chat_page #screenshot_btn:hover,
-QDialog#ChatDialog #chat_page #voice_btn:hover,
+QDialog#ChatDialog #chat_page #voice_transcribe_btn:hover,
+QDialog#ChatDialog #chat_page #call_btn:hover,
+QDialog#ChatDialog #chat_page #voice_message_btn:hover,
 QDialog#ChatDialog #chat_page #chat_more_btn:hover,
 QDialog#ChatDialog #chat_page #chat_history_btn:hover,
 QDialog#ChatDialog #add_btn:hover {
@@ -73,7 +77,9 @@ QDialog#ChatDialog #chat_page #emo_btn:pressed,
 QDialog#ChatDialog #chat_page #file_btn:pressed,
 QDialog#ChatDialog #chat_page #favorites_btn:pressed,
 QDialog#ChatDialog #chat_page #screenshot_btn:pressed,
-QDialog#ChatDialog #chat_page #voice_btn:pressed,
+QDialog#ChatDialog #chat_page #voice_transcribe_btn:pressed,
+QDialog#ChatDialog #chat_page #call_btn:pressed,
+QDialog#ChatDialog #chat_page #voice_message_btn:pressed,
 QDialog#ChatDialog #chat_page #chat_more_btn:pressed,
 QDialog#ChatDialog #chat_page #chat_history_btn:pressed,
 QDialog#ChatDialog #add_btn:pressed {
@@ -185,12 +191,12 @@ QDialog#ChatDialog #chat_page #screenshot_btn:pressed {
     border-image: url(:/icons/scissors-hover.svg);
 }
 
-QDialog#ChatDialog #chat_page #voice_btn {
+QDialog#ChatDialog #chat_page #voice_transcribe_btn {
     border-image: url(:/icons/mic-normal.svg);
 }
 
-QDialog#ChatDialog #chat_page #voice_btn:hover,
-QDialog#ChatDialog #chat_page #voice_btn:pressed {
+QDialog#ChatDialog #chat_page #voice_transcribe_btn:hover,
+QDialog#ChatDialog #chat_page #voice_transcribe_btn:pressed {
     border-image: url(:/icons/mic-hover.svg);
 }
 
@@ -226,12 +232,26 @@ QDialog#ChatDialog #side_bar #contact_unread_dot {
     border-radius: ${radius.dot};
 }
 
-QDialog#ChatDialog #chat_page #video_btn {
-    image: url(:/icons/contact-video.svg);
-    image-position: center;
-    border: none;
-    border-radius: ${radius.control};
+/* 通话入口和语音消息沿用同一 34px 画布及灰色状态。 */
+QDialog#ChatDialog #chat_page #call_btn {
+    border-image: url(:/icons/call-entry-normal.svg);
 }
-QDialog#ChatDialog #chat_page #video_btn:hover {
-    background-color: ${color.surface.hover};
+
+QDialog#ChatDialog #chat_page #call_btn:hover,
+QDialog#ChatDialog #chat_page #call_btn:pressed {
+    border-image: url(:/icons/call-entry-hover.svg);
+}
+
+QDialog#ChatDialog #chat_page #call_btn::menu-indicator {
+    image: none;
+    width: 0;
+}
+
+QDialog#ChatDialog #chat_page #voice_message_btn {
+    border-image: url(:/icons/voice-message-normal.svg);
+}
+
+QDialog#ChatDialog #chat_page #voice_message_btn:hover,
+QDialog#ChatDialog #chat_page #voice_message_btn:pressed {
+    border-image: url(:/icons/voice-message-hover.svg);
 }

@@ -316,3 +316,22 @@ QDialog#ChatDialog #chat_page ChatSettingsPanel QCheckBox::indicator {
 QDialog#ChatDialog #chat_page ChatSettingsPanel QCheckBox::indicator:checked {
     image: url(:/icons/settings-switch-on.svg);
 }
+
+/* 标题栏通话菜单由 Qt 管理键盘、焦点、屏幕边界和关闭行为。 */
+QMenu#chat_call_menu {
+    background: ${color.surface};
+    color: ${color.text.primary};
+    border: 1px solid ${color.border.card};
+    border-radius: ${radius.panel};
+    padding: 6px;
+    font-size: ${font.size.base};
+}
+
+QMenu#chat_call_menu::item {
+    border-radius: ${radius.compact};
+    padding: 10px 24px 10px 12px;
+}
+
+QMenu#chat_call_menu::item:selected {
+    background: ${color.surface.hover};
+}

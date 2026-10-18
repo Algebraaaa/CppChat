@@ -44,6 +44,9 @@ private:
   ChatItemBase *CreateChatItem(const std::shared_ptr<ChatDataBase> &message);
   void UpdateSettingsRect();
   void OpenHistory();
+  void SetupMediaControls();
+  void StartCall(bool video);
+  void UpdateMediaControls();
   void StartScreenCapture();
   void on_send_btn_clicked();
   void UpdateSendButton();

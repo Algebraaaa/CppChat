@@ -4,11 +4,14 @@
 #include "common/emojicatalog.h"
 #include "common/inputvalidator.h"
 #include "common/runtimepaths.h"
+#include "dialogs/chatpage.h"
 #include "dialogs/discoverpage.h"
 #include "dialogs/favoritespage.h"
 #include "dialogs/logindialog.h"
 #include "dialogs/registerdialog.h"
 #include "dialogs/resetdialog.h"
+#include "dialogs/voicecalldialog.h"
+#include "services/voicecallservice.h"
 #include "widgets/capturegeometry.h"
 #include "widgets/textbubble.h"
 #include <QApplication>
@@ -22,6 +25,7 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
 #include <QPalette>
 #include <QProcess>
 #include <QProcessEnvironment>
@@ -38,6 +42,7 @@
 #include <QTest>
 #include <QTextCursor>
 #include <QTimer>
+#include <QToolButton>
 #include <QUuid>
 #include <QVBoxLayout>
 #include <stdexcept>
@@ -663,6 +668,51 @@ private slots:
                       response);
     connection->disconnectFromHost();
     QTRY_VERIFY(login->isEnabled());
+  }
+  void voiceInputDoesNotStartCallsOrChangeDraft()
+  {
+    inspectedWidget = std::make_unique<ChatPage>();
+    auto *page = static_cast<ChatPage *>(inspectedWidget.get());
+    auto *call = page->findChild<QToolButton *>("call_btn");
+    auto *transcribe = page->findChild<QPushButton *>("voice_transcribe_btn");
+    auto *voiceMessage = page->findChild<QPushButton *>("voice_message_btn");
+    auto *edit = page->findChild<QTextEdit *>("chatEdit");
+    auto *status = page->findChild<QLabel *>("chat_status");
+    auto *dialog = page->findChild<VoiceCallDialog *>();
+    QVERIFY(call && transcribe && voiceMessage && edit && status && dialog);
+    auto *service = dialog->findChild<VoiceCallService *>();
+    QVERIFY(service);
+    QSignalSpy sent(service, &VoiceCallService::send);
+    QVERIFY(!call->isEnabled());
+    QVERIFY(!transcribe->isEnabled());
+    QVERIFY(!voiceMessage->isEnabled());
+
+    page->SetChatData(std::make_shared<ChatThreadData>(102, 7, 0));
+    QTRY_VERIFY(edit->isEnabled());
+    edit->setPlainText(QStringLiteral("保留这段草稿"));
+    for (auto *button : {transcribe, voiceMessage}) {
+      button->click();
+      QCOMPARE(status->text(), button->accessibleName() + QStringLiteral("功能暂未开放"));
+      QCOMPARE(edit->toPlainText(), QStringLiteral("保留这段草稿"));
+      QCOMPARE(service->state(), VoiceCallService::State::Idle);
+      QCOMPARE(sent.size(), 0);
+      QVERIFY(!dialog->isVisible());
+    }
+
+    page->resize(820, 620);
+    page->show();
+    QVERIFY(call->isEnabled());
+    call->menu()->popup(call->mapToGlobal(QPoint(0, call->height())));
+    QTRY_VERIFY(call->menu()->isVisible());
+    QTest::keyClick(call->menu(), Qt::Key_Escape);
+    QVERIFY(!call->menu()->isVisible());
+    call->menu()->popup(call->mapToGlobal(QPoint(0, call->height())));
+    page->SetChatData(std::make_shared<ChatThreadData>(0, 8, 0));
+    QVERIFY(!call->menu()->isVisible());
+    QVERIFY(!call->isEnabled());
+    page->RemoveChatThread(8);
+    QVERIFY(!transcribe->isEnabled());
+    QVERIFY(!voiceMessage->isEnabled());
   }
   void placeholdersRemainLocal()
   {

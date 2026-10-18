@@ -35,7 +35,9 @@
 | `emo_lb` | `smile` | 表情面板 |
 | `file_lb` | `folder-open` | 选择图片 |
 | `screenshot_btn` | `scissors` | 截图 |
-| `voice_btn` | `mic` | 语音消息 |
+| `voice_transcribe_btn` | `mic` | 语音转文字 |
+| `voice_message_btn` | `circle` + `audio-lines` | 发送语音消息 |
+| `call_btn` | `phone` + `video` | 标题栏语音/视频通话菜单 |
 | `chat_more_btn` | `ellipsis` | 会话设置 |
 
 ## 快捷菜单与添加朋友窗口
@@ -117,3 +119,21 @@ Lucide 固定提交 `f12b0de177fbc2a6795e99be065887e72b237123` 的 `plus.svg`、
 `mail-open`、`bell-off`、`external-link`、`eye-off`、`trash-2`。保留原始 24×24
 画布和路径，仅调整灰色描边，删除项使用红色描边。菜单图标显示为 18×18，
 会话列表的置顶标记显示为 16×16；共用本目录的 `LICENSE.txt`。
+
+## 通话与语音输入入口（2026-10-18）
+
+通话入口位于聊天标题栏的聊天记录与更多按钮之间，复用上述固定 Lucide 提交的
+[`phone.svg`](https://github.com/lucide-icons/lucide/blob/f12b0de177fbc2a6795e99be065887e72b237123/icons/phone.svg)
+和 [`video.svg`](https://github.com/lucide-icons/lucide/blob/f12b0de177fbc2a6795e99be065887e72b237123/icons/video.svg)
+路径组合为 `call-entry-normal/hover.svg`。菜单的 `call-phone.svg` / `call-video.svg`
+复用联系人已有路径，仅改为深灰，保留 24×24 画布；不使用联系人操作的蓝色资源。
+
+输入区左侧 `voice_transcribe_btn` 沿用 `mic-normal/hover.svg`；右侧发送按钮前的
+`voice_message_btn` 使用 `voice-message-normal/hover.svg`，由同一提交的
+[`circle.svg`](https://github.com/lucide-icons/lucide/blob/f12b0de177fbc2a6795e99be065887e72b237123/icons/circle.svg)
+与已有 `audio-lines` 路径组合。组合资源只做位置、缩放及配套描边调整，保持 34×34
+点击区域、约 24px 图形、灰色 normal 和深灰 hover/pressed，继续附带本目录 ISC 许可。
+路径均为静态 SVG，不包含脚本、外部资源或新的图标运行库；没有更新现有 Qt/Lucide 依赖版本。
+
+采用现有图标体系，避免引入另一套样式和依赖。Qt 的 QToolButton/QMenu 管理菜单动作、
+键盘与生命周期；通话逻辑继续由已有 VoiceCallDialog/VoiceCallService 负责。

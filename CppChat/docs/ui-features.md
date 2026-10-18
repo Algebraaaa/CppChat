@@ -2,6 +2,31 @@
 
 聊天、通讯录与输入工具的界面和行为说明。项目目录见 [项目说明](project-guide.md)。
 
+## 通话与语音输入入口（2026-10-18）
+
+- 标题栏从左至右为聊天记录、通话、更多设置。通话按钮立即展开“语音通话 / 视频通话”
+  菜单，共用 `ChatPage::StartCall(bool)`，复用既有 `VoiceCallDialog` 和服务层，不改变通话协议。
+  未选择会话或群聊时禁用通话；切换会话、删除当前会话、退出账号或隐藏页面时关闭菜单。
+- 输入框左侧麦克风为“语音转文字”；右侧发送按钮前的圆形声波为“发送语音消息”。
+  两项当前均未实现，点击分别提示功能暂未开放，不发起通话、不采集设备、不改动草稿。
+  未选择会话时禁用，群聊保留相同提示。
+- 固定位置和尺寸在 `chatpage.ui`，图标状态在 `components/icons.qss`，菜单外观在
+  `pages/chat.qss`。菜单用 Qt 自带 QAction 表达命令并由 QObject 父子关系管理生命周期；
+  没有新增按钮专属服务类，媒体处理仍留在现有服务层。
+
+检索并参考 [qTox 聊天标题栏](https://github.com/qTox/qTox/blob/master/src/widget/chatformheader.cpp)
+把呼叫入口与编辑器输入分开的组织方式。该仓库已归档、采用 GPL-3.0，本次只参考交互分工，
+没有复制其代码或引入 Tox 依赖。菜单直接复用现有 Qt Widgets 的
+[QToolButton::InstantPopup / QMenu](https://doc.qt.io/qt-6/qtoolbutton.html#ToolButtonPopupMode-enum)，
+兼容项目的 Qt 6.12 Windows/Linux Kit，沿用现有 Qt 动态库及许可。
+图标复用项目已锁定的 Lucide 0.468.0 静态路径和 ISC 许可；来源、提交和适配范围见
+[图标说明](../Resources/icons/README.md#通话与语音输入入口2026-10-18)。
+已核对上游许可和维护状态及 [Lucide 安全页面](https://github.com/lucide-icons/lucide/security)，
+本次不引入外部媒体解析或新的可执行依赖；静态检查不能替代 Windows 实际缩放和菜单验收。
+
+`client.regression` 覆盖输入区两项占位操作不发起呼叫、不改变草稿，及菜单 Esc 关闭、
+切换群聊关闭并禁用通话、删除会话后禁用输入工具。真实设备和公网通话仍按已有清单验收。
+
 ## 表单校验
 
 登录、注册、重置密码共用 `common/formfeedback` 管理提示，输入规则继续使用

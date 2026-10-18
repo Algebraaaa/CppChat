@@ -145,6 +145,12 @@
         <file alias="message-circle-selected.svg">Resources/icons/message-circle-selected.svg</file>
         <file alias="mic-hover.svg">Resources/icons/mic-hover.svg</file>
         <file alias="mic-normal.svg">Resources/icons/mic-normal.svg</file>
+        <file alias="call-phone.svg">Resources/icons/call-phone.svg</file>
+        <file alias="call-video.svg">Resources/icons/call-video.svg</file>
+        <file alias="call-entry-normal.svg">Resources/icons/call-entry-normal.svg</file>
+        <file alias="call-entry-hover.svg">Resources/icons/call-entry-hover.svg</file>
+        <file alias="voice-message-normal.svg">Resources/icons/voice-message-normal.svg</file>
+        <file alias="voice-message-hover.svg">Resources/icons/voice-message-hover.svg</file>
         <file alias="scissors-hover.svg">Resources/icons/scissors-hover.svg</file>
         <file alias="scissors-normal.svg">Resources/icons/scissors-normal.svg</file>
         <file alias="smartphone-hover.svg">Resources/icons/smartphone-hover.svg</file>

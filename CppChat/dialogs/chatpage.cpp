@@ -21,6 +21,7 @@
 #include <QImage>
 #include <QImageReader>
 #include <QLabel>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPainter>
 #include <QPushButton>
@@ -29,6 +30,7 @@
 #include <QStyleOption>
 #include <QTextCursor>
 #include <QTimer>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <utility>
 
@@ -84,20 +86,7 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
   connect(ui->favorites_btn, &QPushButton::clicked, this, &ChatPage::sig_open_favorites);
   _voice = new VoiceCallDialog(this);
   connect(_voice, &VoiceCallDialog::status, this, &ChatPage::ShowStatus);
-  ui->voice_btn->setAccessibleName(tr("语音通话"));
-  connect(ui->voice_btn, &QPushButton::clicked, this, [this] {
-    if (_chat_data && !_chat_data->IsGroup())
-      _voice->call(_chat_data->GetOtherId());
-    else
-      ShowStatus(tr("请选择好友进行一对一语音通话"));
-  });
-  ui->video_btn->setAccessibleName(tr("视频通话"));
-  connect(ui->video_btn, &QPushButton::clicked, this, [this] {
-    if (_chat_data && !_chat_data->IsGroup())
-      _voice->call(_chat_data->GetOtherId(), true);
-    else
-      ShowStatus(tr("请选择好友进行一对一视频通话"));
-  });
+  SetupMediaControls();
   ui->screenshot_btn->setCursor(Qt::PointingHandCursor);
   ui->chat_more_btn->setCursor(Qt::PointingHandCursor);
   ui->chat_more_btn->setAccessibleName(tr("聊天设置"));
@@ -266,6 +255,43 @@ ChatPage::~ChatPage()
   delete ui;
 }
 
+void ChatPage::SetupMediaControls()
+{
+  auto *menu = new QMenu(ui->call_btn);
+  menu->setObjectName("chat_call_menu");
+  auto *audio = menu->addAction(QIcon(":/icons/call-phone.svg"), tr("语音通话"));
+  auto *video = menu->addAction(QIcon(":/icons/call-video.svg"), tr("视频通话"));
+  connect(audio, &QAction::triggered, this, [this] { StartCall(false); });
+  connect(video, &QAction::triggered, this, [this] { StartCall(true); });
+  connect(menu, &QMenu::aboutToShow, this, [this] { ui->chat_settings_panel->Close(false); });
+  ui->call_btn->setMenu(menu);
+
+  // 输入工具与实时通话是独立入口，尚未接入的能力不打开通话窗口或设备。
+  for (auto *button : {ui->voice_transcribe_btn, ui->voice_message_btn}) {
+    connect(button, &QPushButton::clicked, this,
+            [this, button] { ShowStatus(tr("%1功能暂未开放").arg(button->accessibleName())); });
+  }
+}
+
+void ChatPage::StartCall(bool video)
+{
+  if (!_chat_data || _chat_data->IsGroup()) {
+    ShowStatus(tr("请选择好友进行一对一通话"));
+    return;
+  }
+  _voice->call(_chat_data->GetOtherId(), video);
+}
+
+void ChatPage::UpdateMediaControls()
+{
+  const bool canCall = _chat_data && !_chat_data->IsGroup();
+  if (!canCall)
+    ui->call_btn->menu()->close();
+  ui->call_btn->setEnabled(canCall);
+  ui->voice_transcribe_btn->setEnabled(bool(_chat_data));
+  ui->voice_message_btn->setEnabled(bool(_chat_data));
+}
+
 void ChatPage::StartScreenCapture()
 {
   if (_screenCapture || !ui->chatEdit->isEnabled())
@@ -327,8 +353,6 @@ void ChatPage::Reset()
 {
   if (_voice)
     _voice->finish();
-  ui->voice_btn->setEnabled(false);
-  ui->video_btn->setEnabled(false);
   AttachmentPreparer::instance()->FinishPending();
   SaveCurrentDraft();
   for (int threadId : _dirtyDrafts.values())
@@ -344,6 +368,7 @@ void ChatPage::Reset()
   if (_screenCapture)
     _screenCapture->cancel();
   _chat_data.reset();
+  UpdateMediaControls();
   _pendingItems.clear();
   _renderedItems.clear();
   _renderedMessages.clear();
@@ -366,9 +391,8 @@ void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
     return;
   }
   const bool changed = !_chat_data || _chat_data->GetThreadId() != data->GetThreadId();
-  ui->voice_btn->setEnabled(!data->IsGroup());
-  ui->video_btn->setEnabled(!data->IsGroup());
   if (changed) {
+    ui->call_btn->menu()->close();
     if (_historyDialog)
       _historyDialog->reject();
     ui->chat_settings_panel->Close(false);
@@ -379,6 +403,7 @@ void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
   if (changed)
     SaveCurrentDraft();
   _chat_data = data;
+  UpdateMediaControls();
   if (changed) {
     _restoringDraft = true;
     ui->chatEdit->setMessages(_drafts.value(data->GetThreadId()));
@@ -515,6 +540,7 @@ void ChatPage::RemoveChatThread(int threadId)
   if (_screenCapture)
     _screenCapture->cancel();
   _chat_data.reset();
+  UpdateMediaControls();
   _pendingItems.clear();
   _renderedItems.clear();
   _renderedMessages.clear();
@@ -689,6 +715,7 @@ void ChatPage::showEvent(QShowEvent *event)
 
 void ChatPage::hideEvent(QHideEvent *event)
 {
+  ui->call_btn->menu()->close();
   ui->chat_settings_panel->Close(false);
   QWidget::hideEvent(event);
 }
