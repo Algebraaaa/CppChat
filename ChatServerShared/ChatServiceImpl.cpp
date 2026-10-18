@@ -10,6 +10,26 @@
 #include <json/value.h>
 ChatServiceImpl::ChatServiceImpl() {}
 
+Status ChatServiceImpl::RelayVoice(ServerContext *context, const message::VoiceRelayReq *request,
+                                   message::VoiceRelayRsp *reply)
+{
+  reply->set_error(ErrorCodes::VoiceOffline);
+  const auto peer = context->peer();
+  if (peer.rfind("ipv4:127.0.0.1:", 0) != 0 && peer.rfind("ipv6:[::1]:", 0) != 0)
+    return Status(grpc::StatusCode::PERMISSION_DENIED, "Voice RPC requires loopback");
+  if ((request->audio() && request->video()) ||
+      request->payload().size() > (request->video() ? 9000 : 2048))
+    return Status(grpc::StatusCode::INVALID_ARGUMENT, "Voice payload too large");
+  if (auto target = UserMgr::GetInstance()->GetSession(request->uid());
+      target && !target->IsClosed() && target->GetSessionId() == request->session_id()) {
+    target->Send(request->payload(), request->video()   ? ID_VIDEO_IMAGE
+                                     : request->audio() ? ID_VOICE_AUDIO
+                                                        : ID_VOICE_EVENT);
+    reply->set_error(ErrorCodes::Success);
+  }
+  return Status::OK;
+}
+
 Status ChatServiceImpl::NotifyAddFriend(ServerContext *context, const AddFriendReq *request,
                                         AddFriendRsp *reply)
 {

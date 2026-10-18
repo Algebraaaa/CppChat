@@ -25,6 +25,8 @@ using message::TextChatMsgRsp;
 class ChatServiceImpl final : public ChatService::Service {
 public:
   ChatServiceImpl();
+  Status RelayVoice(ServerContext *, const message::VoiceRelayReq *,
+                    message::VoiceRelayRsp *) override;
   Status NotifyAddFriend(ServerContext *context, const AddFriendReq *request,
                          AddFriendRsp *reply) override;
 

@@ -225,3 +225,13 @@ QDialog#ChatDialog #side_bar #contact_unread_dot {
     border: none;
     border-radius: ${radius.dot};
 }
+
+QDialog#ChatDialog #chat_page #video_btn {
+    image: url(:/icons/contact-video.svg);
+    image-position: center;
+    border: none;
+    border-radius: ${radius.control};
+}
+QDialog#ChatDialog #chat_page #video_btn:hover {
+    background-color: ${color.surface.hover};
+}

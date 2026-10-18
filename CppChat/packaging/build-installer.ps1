@@ -1,5 +1,5 @@
 param(
-  [ValidatePattern('^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$')][string]$Version = '0.1.9',
+  [ValidatePattern('^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$')][string]$Version = '0.1.10',
   [ValidateLength(0,8000)][string]$ReleaseNotes = '',
   [string]$SigningConfig,
   [switch]$RequireSigning,
@@ -129,6 +129,8 @@ try {
 
   $licenses = Join-Path $stage 'licenses'
   New-Item -ItemType Directory -Path $licenses -Force | Out-Null
+  $opusSource = Get-BuildSetting 'CPPCHAT_OPUS_SOURCE'
+  Copy-Item -LiteralPath (Join-Path $opusSource 'COPYING') -Destination (Join-Path $licenses 'Opus-BSD.txt')
   $cipherSources = Join-Path $licenses 'Encrypted-SQLite-Source'
   New-Item -ItemType Directory -Path $cipherSources | Out-Null
   $driverSource = Get-BuildSetting 'CPPCHAT_MC_DRIVER_SOURCE'
@@ -155,13 +157,13 @@ try {
   }
   Copy-Item -LiteralPath (Join-Path (Split-Path $IsccPath -Parent) 'license.txt') -Destination (Join-Path $licenses 'Inno-Setup.txt')
   New-Item -ItemType Directory -Path (Join-Path $licenses 'Qt-SBOM') -Force | Out-Null
-  foreach ($module in @('qtbase','qtsvg')) {
+  foreach ($module in @('qtbase','qtsvg','qtmultimedia')) {
     Get-ChildItem -LiteralPath (Join-Path $qtRoot 'sbom') -Filter "$module-*.spdx" |
       Copy-Item -Destination (Join-Path $licenses 'Qt-SBOM')
   }
-  $notice = "CppChat $Version`nQt runtime deployed from the selected Kit using windeployqt.`nQt sources: https://code.qt.io/qt/qtbase.git/ and https://code.qt.io/qt/qtsvg.git/ (exact build revisions are in Qt-SBOM).`nQt modules are dynamically linked; the DLLs can be replaced with compatible builds.`nInstaller: Inno Setup 6.7.3, https://jrsoftware.org/ (license included).`nFonts and UI icon licenses are included.`n"
+  $notice = "CppChat $Version`nQt runtime deployed from the selected Kit using windeployqt.`nQt sources: https://code.qt.io/qt/qtbase.git/, https://code.qt.io/qt/qtsvg.git/ and https://code.qt.io/qt/qtmultimedia.git/ (exact build revisions are in Qt-SBOM).`nQt modules are dynamically linked; the DLLs can be replaced with compatible builds.`nOpus 1.5.2: https://opus-codec.org/release/stable/2024/04/12/libopus-1_5_2.html (unmodified BSD codec, COPYING included).`nInstaller: Inno Setup 6.7.3, https://jrsoftware.org/ (license included).`nFonts and UI icon licenses are included.`n"
   [IO.File]::WriteAllText((Join-Path $licenses 'THIRD-PARTY-NOTICES.txt'),$notice,[Text.UTF8Encoding]::new($false))
-  foreach ($file in @('CppChat.exe','Qt6Core.dll','Qt6Widgets.dll','platforms\qwindows.dll',
+  foreach ($file in @('CppChat.exe','Qt6Core.dll','Qt6Widgets.dll','Qt6Multimedia.dll','imageformats\qjpeg.dll','licenses\Opus-BSD.txt','platforms\qwindows.dll',
                       'sqldrivers\qsqlite.dll','sqldrivers\CppChatSqliteCipher.dll','tls\qschannelbackend.dll','config.ini','qt.conf')) {
     if (-not (Test-Path -LiteralPath (Join-Path $stage $file))) { throw "Missing package runtime: $file" }
   }

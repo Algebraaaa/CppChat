@@ -7,6 +7,7 @@
 #include "network/usermgr.h"
 #include "services/messagesender.h"
 #include "ui_chatpage.h"
+#include "voicecalldialog.h"
 #include "widgets/chatitembase.h"
 #include "widgets/emojipicker.h"
 #include "widgets/picturebubble.h"
@@ -81,11 +82,22 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
   ui->favorites_btn->setCursor(Qt::PointingHandCursor);
   ui->favorites_btn->setAccessibleName(tr("收藏"));
   connect(ui->favorites_btn, &QPushButton::clicked, this, &ChatPage::sig_open_favorites);
-  for (auto *button : {ui->voice_btn}) {
-    button->setCursor(Qt::PointingHandCursor);
-    button->setAccessibleName(button->toolTip());
-    connect(button, &QPushButton::clicked, this, [this, button] { ShowStatus(button->toolTip()); });
-  }
+  _voice = new VoiceCallDialog(this);
+  connect(_voice, &VoiceCallDialog::status, this, &ChatPage::ShowStatus);
+  ui->voice_btn->setAccessibleName(tr("语音通话"));
+  connect(ui->voice_btn, &QPushButton::clicked, this, [this] {
+    if (_chat_data && !_chat_data->IsGroup())
+      _voice->call(_chat_data->GetOtherId());
+    else
+      ShowStatus(tr("请选择好友进行一对一语音通话"));
+  });
+  ui->video_btn->setAccessibleName(tr("视频通话"));
+  connect(ui->video_btn, &QPushButton::clicked, this, [this] {
+    if (_chat_data && !_chat_data->IsGroup())
+      _voice->call(_chat_data->GetOtherId(), true);
+    else
+      ShowStatus(tr("请选择好友进行一对一视频通话"));
+  });
   ui->screenshot_btn->setCursor(Qt::PointingHandCursor);
   ui->chat_more_btn->setCursor(Qt::PointingHandCursor);
   ui->chat_more_btn->setAccessibleName(tr("聊天设置"));
@@ -244,6 +256,10 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
 }
 ChatPage::~ChatPage()
 {
+  // Finish while ui and status callbacks still exist; QObject deletes children later.
+  _voice->finish();
+  delete _voice;
+  _voice = nullptr;
   SaveCurrentDraft();
   // 截屏控制器的回调依赖 ui，先释放控制器，再释放页面控件。
   delete _screenCapture.data();
@@ -309,6 +325,10 @@ void ChatPage::OpenHistory()
 
 void ChatPage::Reset()
 {
+  if (_voice)
+    _voice->finish();
+  ui->voice_btn->setEnabled(false);
+  ui->video_btn->setEnabled(false);
   AttachmentPreparer::instance()->FinishPending();
   SaveCurrentDraft();
   for (int threadId : _dirtyDrafts.values())
@@ -346,6 +366,8 @@ void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
     return;
   }
   const bool changed = !_chat_data || _chat_data->GetThreadId() != data->GetThreadId();
+  ui->voice_btn->setEnabled(!data->IsGroup());
+  ui->video_btn->setEnabled(!data->IsGroup());
   if (changed) {
     if (_historyDialog)
       _historyDialog->reject();

@@ -461,7 +461,7 @@
     "kind": "manual",
     "automation": "regression/test_acceptance.py",
     "preconditions": "Windows 桌面、隔离环境；测试构建和证据对应同一源码指纹",
-    "inputs": "收藏、发现、语音/视频、群入口及联系人/会话/消息占位菜单逐个点击关闭；对比数据库、关系、历史和网络抓包",
+    "inputs": "尚未实现的视频等入口及联系人/会话/消息占位菜单逐个点击关闭；对比数据库、关系、历史和网络抓包",
     "expected": "提示准确、可关闭、状态正常；不改业务数据或发送未声明网络请求；对应功能记为未实现",
     "data_changes": "只允许测试账号、私有数据库和客户端目录变化",
     "cleanup": "注销两个测试客户端、回收本轮进程/容器；保留脱敏证据",
@@ -693,6 +693,54 @@
     "expected": "群消息唯一落库并实时/补拉送达；非成员禁读禁发；仅群主可管理；本地重启恢复群资料",
     "data_changes": "隔离库的 group_chat/group_chat_member/chat_message 与临时加密本地库",
     "cleanup": "fixture 回收所属进程/容器，QTemporaryDir 回收本地数据",
+    "implemented": true
+  },
+  {
+    "id": "VOICE-CALL",
+    "domain": "一对一语音通话",
+    "kind": "automated",
+    "automation": "integration/test_voice_calls.py",
+    "preconditions": "本轮隔离账号与数据、对应源码和 Qt Kit；禁止使用生产账号",
+    "inputs": "隔离双节点与两份 Qt 客户端；合成 Opus 音频，正常/非法呼叫及登录替换",
+    "expected": "接听前无媒体；仅好友、当前会话和有效通话参与者可操作；双方至少 40 帧解码成功，挂机释放占用",
+    "data_changes": "仅临时 Redis 通话租约，不保存音频",
+    "cleanup": "回收本轮客户端和容器、删除私有登录夹具，保留脱敏日志",
+    "implemented": true
+  },
+  {
+    "id": "M-VOICE-DEVICES",
+    "domain": "一对一语音通话",
+    "kind": "manual",
+    "automation": "regression/test_acceptance.py",
+    "preconditions": "本轮隔离账号与数据、对应源码和 Qt Kit；禁止使用生产账号",
+    "inputs": "真实 Windows 麦克风、权限拒绝/设备拔出、耳机、不同公网网络；接听/拒接/取消/静音/挂断",
+    "expected": "麦克风仅接通后开启；静音不传语音；设备异常与断线释放；记录实际通话质量和延迟，不以合成音源替代",
+    "data_changes": "仅临时 Redis 通话租约，不保存音频",
+    "cleanup": "回收本轮客户端和容器、删除私有登录夹具，保留脱敏日志",
+    "implemented": true
+  },
+  {
+    "id": "VIDEO-CALL",
+    "domain": "一对一视频通话",
+    "kind": "automated",
+    "automation": "integration/test_video_calls.py",
+    "preconditions": "独立容器和实际聊天节点；Qt 探测使用合成画面与音源",
+    "inputs": "同/跨节点、TLS 双客户端、音视频并行、视频同意、摄像头开关、序号和边界",
+    "expected": "画面和音频双向编解码；未接听/旧会话/重放和超限帧拒绝；关闭摄像头停止传输",
+    "data_changes": "仅本轮独立 MySQL/Redis 和私有配置",
+    "cleanup": "fixture 回收进程、容器、账号及 TLS 私钥",
+    "implemented": true
+  },
+  {
+    "id": "M-VIDEO-DEVICES",
+    "domain": "真实摄像头及公网视频验收",
+    "kind": "manual",
+    "automation": "manual/windows.md",
+    "preconditions": "两台实际 Windows 电脑、摄像头及耳机、隔离账号和不同公网网络",
+    "inputs": "接听前不采集；摄像头/麦克风开关、设备移除、权限拒绝、断线及关窗",
+    "expected": "双方可见画面及听到声音，开关和结束释放设备，无后台采集；记录延迟与音画同步体验",
+    "data_changes": "只允许隔离测试账号及数据变化",
+    "cleanup": "退出测试账号和客户端，回收测试进程及临时数据",
     "implemented": true
   }
 ]

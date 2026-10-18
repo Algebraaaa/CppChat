@@ -1,5 +1,14 @@
 # CppChat 回归测试
 
+`client.voice` 验证呼叫状态、拒接/取消/断线、错误与过期事件、序号去重、坏帧及真实 Opus 编解码/PLC。
+`integration/test_voice_calls.py` 使用隔离 MySQL/Redis、两个真实聊天节点，覆盖同节点/跨节点、
+双向媒体、接听权限、非好友、忙线、重放及登录替换；`voice_transport_probe` 用两个实际 Qt 客户端
+运行生产 TcpMgr/VoiceCallService/Opus 代码，以合成音源双向发送并解码至少 40 帧。
+该探测覆盖显式开发模式的回环 TCP，以及独立 CA 和证书验证的回环 TLS，
+**不等于公网、真人麦克风、回声或弱网通话验收**。
+使用 `CPPCHAT_QT_BUILD` 选择探测构建，缺少探测程序记 BLOCKED；本轮私有登录配置结束即删除。
+真实设备、麦克风权限、扬声器、不同网络延迟和长时负载需另外验收，建议使用耳机。
+
 统一入口：`python tests/run.py --suite smoke|full|nightly|release`。业务构建默认关闭测试；测试不会读取 `.runtime`、开发配置或生产数据。所有 SQL 仍在 `database/`，测试只引用脚本。
 
 `client.features` 覆盖拼音分组、备注优先/清除、真实回环 HTTP/TCP 登录与备注保存、Windows DPAPI 凭据隔离/防篡改、成功登录后保存、取消、密码失效和退出清除；非 Windows 验证禁止密码落盘。
@@ -91,6 +100,11 @@ GitHub 方法参考：[GoogleTest](https://github.com/google/googletest)、[Qt T
 
 
 `client.groups` 覆盖群入口、群名/发送者显示、真实回环 TCP 创建与管理响应、加密库重启恢复与成员撤销。
+`client.video` 覆盖 JPEG 体积/尺寸边界、格式拒绝、通话类型同意、摄像头开关与迟到帧，
+以及来电/关窗前不打开摄像头；`integration/test_video_calls.py` 验证真实节点的同/跨节点
+路由、未接听、重放、超限、关闭摄像头和旧会话拒绝。`test_voice_calls.py` 的 Qt 双客户端
+探测新增 TCP/TLS 视频模式，实际编解码合成 JPEG 与 Opus，不打开真实摄像头或麦克风。
+这些自动验证不代替真实设备、权限拒绝、热拔插、回声、音视频同步和公网体验验收。
 `integration/test_groups.py` 使用两个实际聊天 EXE、隔离 MySQL/Redis，覆盖群主权限、好友邀请、
 跨节点和同节点投递、消息重试去重、离线补拉、移出后禁读禁发、转让/退群/解散、非法参数和 32 人边界。
 群图片尚未开放，测试要求拒绝而非放宽现有资源服务的两人 ACL。

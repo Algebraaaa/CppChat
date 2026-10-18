@@ -1,5 +1,10 @@
 # 两个聊天节点，共用一份源码
 
+语音通话也由两个节点共用 `VoiceCallService`，原子占用和会话绑定在 Redis，
+不在单节点内维护独立通话表；音频不写 SQL 或磁盘。新 RPC `RelayVoice` 仅接受
+loopback 来源，路由配置也必须为 loopback，跨主机节点应先接入 TLS/mTLS。
+协议、取舍、依赖和限制见 `../CppChat/services/README.md` 的语音通话部分。
+
 两个聊天节点分别使用 `../ChatServer/ChatServer.cpp` 与 `../ChatServer2/ChatServer.cpp` 入口。
 本公开仓库仅发布源码/资源，不包含本机 VS 工程或公共属性表；请分别建立工程并加入本目录公共实现、头文件路径，配置参考各节点 `config.example.ini`。
 源码和源文件清单只维护一次；每个工程仍独立编译出自己的程序，不共享进程内存、业务线程或在线会话。

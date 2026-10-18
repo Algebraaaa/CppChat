@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>VoiceCallDialog</class>
+ <widget class="QDialog" name="VoiceCallDialog">
+  <property name="windowTitle"><string>语音通话</string></property>
+  <property name="minimumSize"><size><width>360</width><height>0</height></size></property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing"><number>18</number></property>
+   <property name="leftMargin"><number>28</number></property>
+   <property name="topMargin"><number>24</number></property>
+   <property name="rightMargin"><number>28</number></property>
+   <property name="bottomMargin"><number>24</number></property>
+   <item><widget class="QLabel" name="nameLabel">
+    <property name="font"><font><pointsize>16</pointsize></font></property>
+    <property name="text"><string/></property>
+    <property name="textFormat"><enum>Qt::PlainText</enum></property>
+    <property name="alignment"><set>Qt::AlignCenter</set></property>
+   </widget></item>
+   <item><widget class="QLabel" name="stateLabel">
+    <property name="text"><string/></property>
+    <property name="alignment"><set>Qt::AlignCenter</set></property>
+   </widget></item>
+   <item><widget class="QWidget" name="videoPanel"><layout class="QHBoxLayout" name="videoLayout">
+    <item><widget class="QLabel" name="remoteVideo"><property name="minimumSize"><size><width>320</width><height>240</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property><property name="text"><string>等待对方画面</string></property></widget></item>
+    <item><widget class="QLabel" name="localVideo"><property name="minimumSize"><size><width>160</width><height>120</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property><property name="text"><string>等待本地画面</string></property></widget></item>
+   </layout></widget></item>
+   <item><widget class="QPushButton" name="cameraButton"><property name="text"><string>关闭摄像头</string></property><property name="checkable"><bool>true</bool></property><property name="autoDefault"><bool>false</bool></property></widget></item>
+   <item><widget class="QLabel" name="hintLabel">
+    <property name="text"><string>通话通过加密连接由服务器中转。建议使用耳机，避免回声。</string></property>
+    <property name="wordWrap"><bool>true</bool></property>
+   </widget></item>
+   <item><widget class="QPushButton" name="voice_accept">
+    <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
+    <property name="buttonRole" stdset="0"><string>primary</string></property>
+    <property name="text"><string>接听</string></property>
+    <property name="autoDefault"><bool>false</bool></property>
+   </widget></item>
+   <item><widget class="QPushButton" name="voice_mute">
+    <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
+    <property name="buttonRole" stdset="0"><string>secondary</string></property>
+    <property name="text"><string>静音麦克风</string></property>
+    <property name="checkable"><bool>true</bool></property>
+    <property name="autoDefault"><bool>false</bool></property>
+   </widget></item>
+   <item><widget class="QPushButton" name="voice_end">
+    <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
+    <property name="buttonRole" stdset="0"><string>secondary</string></property>
+    <property name="text"><string>挂断</string></property>
+    <property name="autoDefault"><bool>false</bool></property>
+   </widget></item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

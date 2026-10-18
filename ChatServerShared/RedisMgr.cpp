@@ -470,3 +470,78 @@ void RedisMgr::RemoveNode(const std::string &name, const std::string &instance_i
            "redis.call('del',KEYS[1]) end; return 0",
            {std::string(ServicePolicy::NodeHealthPrefix) + name}, {instance_id}, result);
 }
+
+int RedisMgr::VoiceTransition(int uid, int peer, const std::string &session,
+                              const std::string &call, const std::string &action, int sequence,
+                              bool video, bool camera_enabled)
+{
+  // One atomic state shared by both nodes. Bind both ends to the current login;
+  // an old socket, duplicate answer, or replay cannot revive a finished call.
+  static const std::string script = R"lua(
+local u,p=tonumber(ARGV[1]),tonumber(ARGV[2])
+local sid,id,op=ARGV[3],ARGV[4],ARGV[5]
+local video=ARGV[7]=='1'
+local t=redis.call('TIME'); local now=tonumber(t[1])*1000+tonumber(t[2])/1000
+local us,ps=redis.call('get',KEYS[3]),redis.call('get',KEYS[4])
+if us~=sid then return 1010 end
+if not ps then return 1022 end
+local raw=redis.call('get',KEYS[1]); local other=redis.call('get',KEYS[2])
+if op=='invite' then
+  if raw or other then return 1021 end
+  if redis.call('exists',KEYS[5])==1 then return 1025 end
+  local c={id=id,a=u,b=p,sa=sid,sb=ps,state='ringing',video=video,ea=true,eb=true,ta=now,tb=now,qa=0,qb=0,qva=0,qvb=0}
+  local v=cjson.encode(c)
+  redis.call('set',KEYS[1],v,'PX',40000); redis.call('set',KEYS[2],v,'PX',40000)
+  redis.call('set',KEYS[5],'1','EX',3); return 0
+end
+if not raw or not other then return 1023 end
+local c=cjson.decode(raw); local d=cjson.decode(other)
+if c.id~=id or d.id~=id then return 1023 end
+local first=c.a==u and c.b==p
+if not first and not (c.b==u and c.a==p) then return 1023 end
+if (first and (c.sa~=sid or c.sb~=ps)) or
+   (not first and (c.sb~=sid or c.sa~=ps)) then return 1010 end
+if op=='end' or op=='reject' or op=='cancel' then
+  if op=='reject' and (first or c.state~='ringing') then return 1023 end
+  if op=='cancel' and (not first or c.state~='ringing') then return 1023 end
+  redis.call('del',KEYS[1],KEYS[2]); return 0
+end
+if (c.video==true)~=video then return 1023 end
+if op=='accept' then
+  if first or c.state~='ringing' then return 1023 end
+  c.state='active'; c.ta=now; c.tb=now
+elseif c.state~='active' then return 1023
+elseif now-(first and c.tb or c.ta)>15000 then
+  redis.call('del',KEYS[1],KEYS[2]); return 1023
+elseif op=='frame' or op=='video' then
+  local picture=op=='video'
+  if picture and (not c.video or (first and c.ea==false) or (not first and c.eb==false)) then return 1023 end
+  local q=picture and (first and 'qva' or 'qvb') or (first and 'qa' or 'qb')
+  local l=picture and (first and 'lva' or 'lvb') or (first and 'la' or 'lb')
+  local n=tonumber(ARGV[6]); if n<=(c[q] or 0) then return 1023 end
+  local credit=picture and (first and 'cva' or 'cvb') or (first and 'ca' or 'cb')
+  local burst=picture and 2 or 10; local rate=picture and 0.008 or 0.06
+  local available=math.min(burst,(c[credit] or burst)+(now-(c[l] or now))*rate)
+  if available<1 then return 1025 end
+  c[credit]=available-1; c[l]=now; c[q]=n
+elseif op=='ping' then
+  if first then c.ta=now else c.tb=now end
+elseif op=='camera' then
+  if not c.video then return 1023 end
+  c[first and 'ea' or 'eb']=ARGV[8]=='1'
+else return 1023 end
+local v=cjson.encode(c)
+redis.call('set',KEYS[1],v,'PX',20000); redis.call('set',KEYS[2],v,'PX',20000)
+return 0
+)lua";
+  const auto self = std::to_string(uid), target = std::to_string(peer);
+  long long result = ErrorCodes::RedisError;
+  if (!Evaluate(script,
+                {"voice:" + self, "voice:" + target, std::string(USER_SESSION_PREFIX) + self,
+                 std::string(USER_SESSION_PREFIX) + target, "voice-rate:" + self},
+                {self, target, session, call, action, std::to_string(sequence), video ? "1" : "0",
+                 camera_enabled ? "1" : "0"},
+                result))
+    return ErrorCodes::RedisError;
+  return static_cast<int>(result);
+}

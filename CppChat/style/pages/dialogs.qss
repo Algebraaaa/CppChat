@@ -1,5 +1,21 @@
 /* Search/add-friend dialogs, sidebar menu, tags, emoji picker, image viewer and screen capture. */
 
+QDialog#VoiceCallDialog {
+    background-color: ${color.surface};
+    color: ${color.text.primary};
+}
+QDialog#VoiceCallDialog QLabel {
+    color: ${color.text.primary};
+    background: transparent;
+}
+QDialog#VoiceCallDialog QLabel#nameLabel {
+    font-size: ${font.size.section};
+}
+QDialog#VoiceCallDialog QLabel#stateLabel,
+QDialog#VoiceCallDialog QLabel#hintLabel {
+    color: ${color.text.muted};
+}
+
 QDialog#ChatHistoryDialog,
 QDialog#ChatHistoryDialog QWidget#history_toolbar,
 QDialog#ChatHistoryDialog QScrollArea#records_scroll,

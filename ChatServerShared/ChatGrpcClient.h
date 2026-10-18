@@ -114,6 +114,8 @@ class ChatGrpcClient : public Singleton<ChatGrpcClient> {
 
 public:
   ~ChatGrpcClient() {}
+  bool RelayVoice(const std::string &node, int uid, const std::string &session,
+                  const std::string &payload, bool audio, bool video = false);
 
   AddFriendRsp NotifyAddFriend(std::string server_name, const AddFriendReq &req);
   AuthFriendRsp NotifyAuthFriend(std::string server_name, const AuthFriendReq &req);

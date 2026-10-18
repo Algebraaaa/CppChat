@@ -28,6 +28,9 @@ class RedisMgr : public Singleton<RedisMgr>, public std::enable_shared_from_this
 public:
   RedisReadStatus Read(const std::string &key, std::string &value, bool require_expiry = false);
   bool SetEx(const std::string &key, const std::string &value, int seconds);
+  int VoiceTransition(int uid, int peer, const std::string &session, const std::string &call,
+                      const std::string &action, int sequence = 0, bool video = false,
+                      bool camera_enabled = true);
   // 析构时关闭连接池。
   ~RedisMgr();
   int RegisterSession(int uid, const std::string &session_id, const std::string &server_name,

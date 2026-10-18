@@ -4,6 +4,40 @@
 #include <sstream>
 #include <vector>
 
+bool ChatGrpcClient::RelayVoice(const std::string &node, int uid, const std::string &session,
+                                const std::string &payload, bool audio, bool video)
+{
+  // Existing peer RPC is plaintext and private. Media must stay on this host;
+  // cross-host media requires TLS-enabled RPC before lifting this restriction.
+  auto &config = ConfigMgr::GetInstance();
+  bool local = false;
+  std::stringstream peers(config["PeerServer"]["Servers"]);
+  std::string section;
+  while (std::getline(peers, section, ',')) {
+    if (config[section]["Name"] == node) {
+      const auto host = config[section]["Host"];
+      local = host == "127.0.0.1" || host == "::1" || host == "localhost";
+    }
+  }
+  const auto found = chat_stub_pools_.find(node);
+  if (!local || found == chat_stub_pools_.end())
+    return false;
+  auto &pool = found->second;
+  auto stub = pool->BorrowStub();
+  if (!stub)
+    return false;
+  Defer release([&] { pool->ReturnStub(std::move(stub)); });
+  message::VoiceRelayReq request;
+  request.set_uid(uid);
+  request.set_session_id(session);
+  request.set_payload(payload);
+  request.set_audio(audio);
+  request.set_video(video);
+  message::VoiceRelayRsp reply;
+  ClientContext context;
+  context.set_deadline(std::chrono::system_clock::now() + std::chrono::milliseconds(300));
+  return stub->RelayVoice(&context, request, &reply).ok() && reply.error() == 0;
+}
 ChatGrpcClient::ChatGrpcClient()
 {
   auto &config = ConfigMgr::GetInstance();

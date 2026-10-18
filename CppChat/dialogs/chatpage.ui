@@ -453,7 +453,38 @@
                    </size>
                   </property>
                   <property name="toolTip">
-                   <string>语音消息（暂未实现）</string>
+                   <string>语音通话</string>
+                  </property>
+                  <property name="text">
+                   <string />
+                  </property>
+                  <property name="focusPolicy">
+                   <enum>Qt::NoFocus</enum>
+                  </property>
+                  <property name="autoDefault">
+                   <bool>false</bool>
+                  </property>
+                  <property name="cursor">
+                   <cursorShape>PointingHandCursor</cursorShape>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="video_btn">
+                  <property name="minimumSize">
+                   <size>
+                    <width>34</width>
+                    <height>34</height>
+                   </size>
+                  </property>
+                  <property name="maximumSize">
+                   <size>
+                    <width>34</width>
+                    <height>34</height>
+                   </size>
+                  </property>
+                  <property name="toolTip">
+                   <string>视频通话</string>
                   </property>
                   <property name="text">
                    <string />

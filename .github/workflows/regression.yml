@@ -45,6 +45,7 @@ jobs:
         with:
           version: '6.12.0'
           arch: linux_gcc_64
+          modules: qtmultimedia
           aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@076e1659807d0b362a3ed684d54c2e9c775eb9c7'
           cache: true
       - name: Restore the pinned Python environment after Qt installation

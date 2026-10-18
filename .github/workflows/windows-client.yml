@@ -35,6 +35,7 @@ jobs:
         with:
           version: '6.12.0'
           arch: win64_mingw
+          modules: qtmultimedia
           tools: 'tools_mingw1310,qt.tools.win64_mingw1310'
           aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@076e1659807d0b362a3ed684d54c2e9c775eb9c7'
           cache: true

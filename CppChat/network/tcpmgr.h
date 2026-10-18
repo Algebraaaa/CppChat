@@ -20,11 +20,18 @@ public:
   bool IsConnected() const;
   bool SupportsMessageDedup() const { return _messageDedup; }
   bool SupportsGroupChat() const { return _groupChat; }
+  bool SupportsVoiceCall() const { return _voiceCall; }
+  bool SupportsVideoCall() const { return _videoCall; }
+  void SendVideo(const QJsonObject &body);
+  void SendVoice(const QJsonObject &body, bool audio);
   void CancelRequest(ReqId request);
 public slots:
   void slot_tcp_connect(ServerInfo server);
   void slot_send_data(ReqId id, QByteArray data);
 signals:
+  void sig_voice_event(QJsonObject event);
+  void sig_voice_audio(QJsonObject frame);
+  void sig_video_image(QJsonObject frame);
   void sig_group_result(QJsonObject response);
   void sig_group_info(QJsonObject group);
   void sig_con_success(bool success);
@@ -54,6 +61,7 @@ signals:
   void sig_contact_tags_updated(int uid);
 
 private:
+  void sendCall(const QJsonObject &body, quint16 id);
   TcpMgr();
   void initHandlers();
   void readPackets();
@@ -72,6 +80,8 @@ private:
   bool _loggedIn = false;
   bool _messageDedup = false;
   bool _groupChat = false;
+  bool _voiceCall = false;
+  bool _videoCall = false;
   bool _requestCorrelation = false;
   int _applyTarget = 0;
   QTimer _connectTimer;

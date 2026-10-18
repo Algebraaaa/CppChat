@@ -332,6 +332,8 @@ def main():
         (args.server_build / "core-junit.xml", "cpp-junit.xml"),
         (args.qt_build / "client-junit.xml", "qt-junit.xml"),
         (args.qt_build / "features-junit.xml", "features-junit.xml"),
+        (args.qt_build / "voice-junit.xml", "voice-junit.xml"),
+        (args.qt_build / "video-junit.xml", "video-junit.xml"),
         (args.qt_build / "updates-junit.xml", "updates-junit.xml"),
         (args.qt_build / "security-junit.xml", "security-junit.xml"),
     ):

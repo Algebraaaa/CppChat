@@ -15,6 +15,10 @@ namespace {
 const char *IncomingRequestName(short message_id)
 {
   switch (message_id) {
+  case ID_VOICE_REQ:
+    return "voice control request";
+  case ID_VOICE_FRAME:
+    return "voice frame";
   case MSG_CHAT_LOGIN:
     return "chat login request";
   case ID_SEARCH_USER_REQ:
@@ -106,10 +110,11 @@ void CSession::Send(const char *message, short message_length, short message_id)
     return;
   }
 
-  QueueSend(std::make_shared<SendNode>(message, message_length, message_id), false);
+  QueueSend(std::make_shared<SendNode>(message, message_length, message_id), false,
+            message_id == ID_VOICE_AUDIO || message_id == ID_VIDEO_IMAGE);
 }
 
-bool CSession::QueueSend(std::shared_ptr<SendNode> message, bool close_after_write)
+bool CSession::QueueSend(std::shared_ptr<SendNode> message, bool close_after_write, bool realtime)
 {
   bool start_write = false;
   bool overloaded = false;
@@ -117,6 +122,8 @@ bool CSession::QueueSend(std::shared_ptr<SendNode> message, bool close_after_wri
     std::lock_guard<std::mutex> lock(send_mutex_);
     if (closed_ || close_after_write_)
       return false;
+    if (realtime && send_queue_.size() >= 10)
+      return false; // Drop late audio instead of delaying chat or growing memory.
     overloaded = send_queue_.size() >= MAX_SENDQUE;
     if (!overloaded) {
       start_write = send_queue_.empty();

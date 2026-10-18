@@ -173,6 +173,8 @@ void TcpMgr::resetConnectionState()
   _loggedIn = false;
   _messageDedup = false;
   _groupChat = false;
+  _voiceCall = false;
+  _videoCall = false;
   _requestCorrelation = false;
   _connectTimer.stop();
   _heartbeatTimer.stop();
@@ -359,8 +361,46 @@ void TcpMgr::slot_send_data(ReqId id, QByteArray body)
   }
 }
 
+void TcpMgr::SendVoice(const QJsonObject &body, bool audio)
+{
+  sendCall(body, audio ? ID_VOICE_FRAME : ID_VOICE_REQ);
+}
+void TcpMgr::SendVideo(const QJsonObject &body) { sendCall(body, ID_VIDEO_FRAME); }
+void TcpMgr::sendCall(const QJsonObject &body, quint16 id)
+{
+  const bool video = id == ID_VIDEO_FRAME;
+  const bool audio = id == ID_VOICE_FRAME;
+  const auto bytes = QJsonDocument(body).toJson(QJsonDocument::Compact);
+  if (!_loggedIn || !IsConnected() || bytes.size() > (video ? 9000 : 2000)) {
+    emit sig_voice_event(
+        QJsonObject{{"error", 1024}, {"call_id", body["call_id"]}, {"peer", body["peer"]}});
+    return;
+  }
+  if ((audio || video) && _socket.bytesToWrite() > 8192)
+    return;
+  QByteArray packet;
+  QDataStream stream(&packet, QIODevice::WriteOnly);
+  stream.setByteOrder(QDataStream::BigEndian);
+  stream << id << quint16(bytes.size());
+  packet.append(bytes);
+  if (_socket.write(packet) != packet.size())
+    CloseConnection();
+}
+
 void TcpMgr::handleMsg(ReqId id, const QByteArray &data)
 {
+  if (id == ID_VOICE_EVENT || id == ID_VOICE_AUDIO || id == ID_VIDEO_IMAGE) {
+    const auto doc = QJsonDocument::fromJson(data);
+    if (doc.isObject()) {
+      if (id == ID_VOICE_EVENT)
+        emit sig_voice_event(doc.object());
+      else if (id == ID_VOICE_AUDIO)
+        emit sig_voice_audio(doc.object());
+      else
+        emit sig_video_image(doc.object());
+    }
+    return;
+  }
   qInfo() << "TCP response received:" << static_cast<int>(id) << "bytes:" << data.size();
   QJsonParseError parseError;
   const auto document = QJsonDocument::fromJson(data, &parseError);
@@ -446,6 +486,8 @@ void TcpMgr::initHandlers()
     _loggedIn = true;
     _messageDedup = o["message_dedup"].toBool(false);
     _groupChat = o["group_chat"].toBool(false);
+    _voiceCall = o["voice_call"].toBool(false);
+    _videoCall = o["video_call"].toBool(false);
     _requestCorrelation = o["request_correlation"].toBool(false);
     _lastHeartbeat.start();
     _heartbeatTimer.start();

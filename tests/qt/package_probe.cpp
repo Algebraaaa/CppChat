@@ -1,6 +1,7 @@
 #include "app/thememanager.h"
 #include "common/localdataprotection.h"
 #include "common/localstoresecurity.h"
+#include "services/videomedia.h"
 #include <QApplication>
 #include <QDir>
 #include <QIcon>
@@ -23,6 +24,9 @@ int main(int argc, char **argv)
   const bool theme = ThemeManager::apply(app, &themeError);
   const bool icon = !QIcon(":/res/app.ico").isNull();
   const bool image = !QPixmap(":/res/head_1.jpg").isNull();
+  QImage cameraFrame(320, 240, QImage::Format_RGB32);
+  cameraFrame.fill(Qt::blue);
+  const bool videoCodec = !VideoMedia::decodeFrame(VideoMedia::encodeFrame(cameraFrame)).isNull();
   auto database = QSqlDatabase::addDatabase("QSQLITE");
   database.setDatabaseName(":memory:");
   const bool opened = database.open();
@@ -61,6 +65,7 @@ int main(int argc, char **argv)
                             config.value("ChatServer/tls").toBool() &&
                             config.value("ResourceServer/tls").toBool();
   const QJsonObject result{{"theme", theme},
+                           {"videoCodec", videoCodec},
                            {"icon", icon},
                            {"image", image},
                            {"sqlite", sqlite},
@@ -71,7 +76,8 @@ int main(int argc, char **argv)
                            {"versionMatches", versionMatches},
                            {"encryptedStore", encryptedStore}};
   std::cout << QJsonDocument(result).toJson(QJsonDocument::Compact).constData() << std::endl;
-  return theme && icon && image && sqlite && tls && publicServer && versionMatches && encryptedStore
+  return theme && icon && image && videoCodec && sqlite && tls && publicServer && versionMatches &&
+                 encryptedStore
              ? 0
              : 1;
 }

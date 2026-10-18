@@ -10,6 +10,7 @@ class QTimer;
 class ScreenCapture;
 class ChatHistoryDialog;
 class MessageSender;
+class VoiceCallDialog;
 namespace Ui {
 class ChatPage;
 }
@@ -48,6 +49,7 @@ private:
   void UpdateSendButton();
   void PersistDraft(int threadId);
   MessageSender *_sender = nullptr;
+  VoiceCallDialog *_voice = nullptr;
   Ui::ChatPage *ui;
   QTimer *_draftTimer = nullptr;
   bool _restoringDraft = false;

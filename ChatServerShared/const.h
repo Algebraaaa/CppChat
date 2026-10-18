@@ -27,6 +27,11 @@ enum ErrorCodes {
   GroupForbidden = 1018,
   GroupOwnerMustTransfer = 1019,
   GroupFull = 1020,
+  VoiceBusy = 1021,
+  VoiceOffline = 1022,
+  VoiceInvalid = 1023,
+  VoiceUnavailable = 1024,
+  VoiceRateLimited = 1025,
 };
 
 class Defer {
@@ -89,6 +94,12 @@ enum MessageIds : short {
   ID_SET_CONTACT_TAGS_REQ = 1038,
   ID_GROUP_REQ = 1060,
   ID_GROUP_RSP = 1061,
+  ID_VOICE_REQ = 1070,
+  ID_VOICE_EVENT = 1071,
+  ID_VOICE_FRAME = 1072,
+  ID_VOICE_AUDIO = 1073,
+  ID_VIDEO_FRAME = 1074,
+  ID_VIDEO_IMAGE = 1075,
   ID_SET_CONTACT_TAGS_RSP = 1039
 };
 

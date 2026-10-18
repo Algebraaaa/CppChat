@@ -53,7 +53,7 @@ private:
   void AsyncReadFull(std::size_t total_length, ReadHandler handler);
   void AsyncReadLength(std::size_t read_length, std::size_t total_length, ReadHandler handler);
   void HandleWrite(const boost::system::error_code &error);
-  bool QueueSend(std::shared_ptr<SendNode> message, bool close_after_write);
+  bool QueueSend(std::shared_ptr<SendNode> message, bool close_after_write, bool realtime = false);
   void StartWrite();
   void CloseOnExecutor();
   void ArmDrainDeadline(std::chrono::seconds timeout);

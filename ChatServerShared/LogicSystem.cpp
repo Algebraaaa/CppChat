@@ -24,6 +24,7 @@
 #include "StatusGrpcClient.h"
 #include "UserMgr.h"
 #include "UserService.h"
+#include "VoiceCallService.h"
 #include "const.h"
 #include "utils.h"
 
@@ -178,6 +179,9 @@ void LogicSystem::HandleMessage(const std::shared_ptr<LogicNode> &message)
 
 void LogicSystem::RegisterCallbacks()
 {
+  callbacks_[ID_VOICE_REQ] = VoiceCallService::Handle;
+  callbacks_[ID_VOICE_FRAME] = VoiceCallService::Handle;
+  callbacks_[ID_VIDEO_FRAME] = VoiceCallService::Handle;
   callbacks_[ID_GROUP_REQ] = [this](auto session, short id, const auto &data) {
     GroupRequest(session, id, data);
   };

@@ -8,6 +8,9 @@
 | `MessageSender` | `ChatPage` | 校验与文本分段、UUID、发送前落盘、图文排队、上传后的元数据落盘、TCP 发送、失败和手动重试、确认超时 |
 | `ChatSyncService` | `ChatDialog` | 打开账号存储、恢复会话与游标、会话分页、历史队列、整页校验和提交、实时通知/回执合并、本地读取合并、每分钟补拉 |
 | `ClientUpdateService` | `main.cpp` 的应用作用域 | HTTPS 更新清单、版本比较、受限下载、大小与 SHA256 校验、向 Inno 安装器交接已验证文件；`UpdateDialog` 管理提示，主窗口析构后才交接 |
+| `VoiceCallService` | `VoiceCallDialog` | 通话状态、控制确认、ID/对方校验、序号去重、超时和断线释放；不访问设备或界面 |
+| `VoiceAudio` | `VoiceCallDialog` | Qt 默认音频设备、Opus、输入格式转换、静音和有限播放缓冲；不访问账号或网络 |
+| `VideoMedia` | `VoiceCallDialog` | Qt 默认摄像头、受限 JPEG 编解码和本地预览；不访问账号、网络或音频 |
 
 固定页面结构继续由 `.ui` 管理。`ChatPage` 保留编辑器、草稿与气泡渲染、菜单和窗口交互；
 `ChatDialog` 保留四模块导航、未读/置顶展示、好友和私聊入口。
@@ -64,3 +67,63 @@
 UserMgr 的 group 会话 otherUid=0，不写入好友 UID 映射。MessageSender 复用文本可靠发送，
 群图片明确拒绝并保留草稿。GroupDialog 负责单窗口创建和管理，不包含 SQL 或路由逻辑。
 群入口在会话列表“+ → 发起群聊”，成员管理在群聊天右上角更多面板中的成员按钮。
+
+## 一对一语音通话
+
+好友聊天工具栏的麦克风按钮发起呼叫，来电窗口可接听或拒接，主叫可取消；
+接通后支持静音、时长和挂断，关闭窗口等同挂断，群聊天不启用该按钮。
+仅服务端确认接通后开启麦克风；设备缺失、权限拒绝或移除会结束通话。
+当前使用系统默认设备，要求支持 48kHz Int16/Float 单声道或双声道。
+建议戴耳机，目前没有声学回声消除、设备选择器或群语音。
+
+`VoiceCallDialog(.ui) → VoiceCallService → TcpMgr` 复用登录会话和正式版 TLS；
+`VoiceAudio → Opus → TcpMgr → ChatServer → 对方` 不保存音频，不进入历史/离线消息。
+Redis Lua 原子维护双用户占用、登录绑定、40 秒来电租约和 20 秒通话租约。
+两端每 4 秒保活，任一端 15 秒未续约即拒绝媒体；客户端 12 秒未获控制确认就结束。
+每帧 20ms、至多 512 字节、每方向 60 帧/秒（突发上限 10 帧）、序号严格递增；
+客户端发送积压 8KiB、服务器队列 10 条时丢音频，播放队列至多 6 帧。
+
+复用来源与取舍：使用现有 [Qt QAudioSource](https://doc.qt.io/qt-6/qaudiosource.html) /
+[QAudioSink](https://doc.qt.io/qt-6/qaudiosink.html) 和未修改的
+[Xiph Opus 1.5.2](https://opus-codec.org/release/stable/2024/04/12/libopus-1_5_2.html)。
+源码 SHA256 固定在 `cmake/VoiceAudio.cmake`，BSD COPYING 随安装包分发。
+该版本有上游编解码测试及 Windows AVX2 修复；已查许可证、发布记录及
+[安全公告](https://github.com/xiph/opus/security)；未发布公告不等于不存在漏洞。
+Qt 继续动态链接并沿用现有许可方式，CI 显式安装 qtmultimedia。
+也评估了 [libdatachannel](https://github.com/paullouisageneau/libdatachannel)（MPL-2.0、ICE/SRTP），
+但会新增 ICE/SRTP、TURN 部署和 MinGW 依赖；当前中转可满足本次需求，故不引入整套 WebRTC。
+
+安全边界：这是 **TLS 传输加密的服务器中转，不是端到端加密**，可信服务器可接触音频。
+现有节点间 gRPC 是明文私网方案，语音仅允许 loopback，两聊天节点需在同一主机；
+客户端在不同网络仍复用原公网 TLS 端口，不新增端口或要求 TURN。
+跨主机节点需先给 RPC 加 TLS/mTLS，当前直接拒绝该语音路由。
+TCP 丢包有队头阻塞风险；缓冲虽有限，不承诺弱网延迟或公网容量指标。
+旧服务端不声明 `voice_call=true` 时客户端提示不支持，上线需更新两个节点和客户端。
+
+## 一对一视频通话（2026-10-18）
+
+好友工具栏的视频按钮使用同一 VoiceCallDialog/VoiceCallService。邀请和接听都必须声明
+`video=true`，服务端原子状态记录该类型；语音通话不能私自升级，旧语音客户端不能以缺省
+语音接听视频邀请。只有双方确认接通才启用麦克风和摄像头；Esc、关闭窗口、挂断、好友
+删除、会话替换和超时复用现有释放路径。关闭摄像头停止本地采集、清除双方预览并告知
+对方，音频继续；再次开启恢复采集，设备失败会明确结束通话。
+
+VideoMedia 使用 [Qt 6.12.0 QCamera/QMediaCaptureSession/QVideoSink](https://doc.qt.io/qt-6/qmediacapturesession.html)
+采集，使用 [Qt Gui QImageWriter](https://doc.qt.io/qt-6/qimagewriter.html) 和 QImageReader 编解码 JPEG。
+参考 [Qt 同版本 Camera 示例](https://github.com/qt/qtmultimedia/blob/v6.12.0/examples/multimedia/camera/camera.cpp)
+的公开接口方式，没有复制示例代码；继续使用既有 Qt 动态库及 LGPL/第三方许可、SBOM 和
+qjpeg 插件，不新增第三方库。Qt 同时维护 Windows/Linux 后端及其上游测试，但本轮设备
+验收仍限实际记录，不据此声称所有后端通过。
+
+视频至多 320×240、8fps，JPEG 每帧 6000 字节（Base64 8000 字节）。复杂画面先缩小到
+240×180 或 160×120，仍过大则丢弃；接收先检查 JPEG 头部尺寸再分配图像，不接受任意
+格式、超大图片或历史/非本次通话帧。画面和音频具有独立序号和速率桶；客户端积压
+8KiB、服务器实时队列 10 项时丢帧，不录制、不落库、不补发媒体。关闭摄像头时服务器
+也拒绝该方向的视频帧，客户端丢弃迟到画面。界面和设备均由 GUI 线程协调，旧设备
+回调通过 generation 检查失效。
+
+服务端中转沿用语音的可信服务器、同机 RPC、TLS 和 TCP 队头阻塞边界。JPEG 更易复用
+当前 Qt/MinGW，代价是较低清晰度、较高带宽且没有音视频时钟同步、硬件视频压缩或
+回声消除；不承诺弱网质量。需要更高清、多人或大规模媒体路由时应另行评估 WebRTC/SFU。
+没有摄像头/权限、真实设备热拔插、真人回声与跨公网延迟必须人工验证。正式部署还需
+更新客户端及两个聊天节点，服务端登录声明 `video_call=true` 后才允许发起视频。

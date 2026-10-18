@@ -137,7 +137,16 @@ message DeleteFriendRsp {
 	int32 error = 1;
 }
 
+message VoiceRelayReq {
+  int32 uid = 1;
+  string session_id = 2;
+  string payload = 3;
+  bool audio = 4;
+  bool video = 5;
+}
+message VoiceRelayRsp { int32 error = 1; }
 service ChatService {
+  rpc RelayVoice(VoiceRelayReq) returns (VoiceRelayRsp) {}
 	rpc NotifyAddFriend(AddFriendReq) returns (AddFriendRsp) {}
 	rpc RplyAddFriend(RplyFriendReq) returns (RplyFriendRsp) {}
 	rpc SendChatMsg(SendChatMsgReq) returns (SendChatMsgRsp) {}
