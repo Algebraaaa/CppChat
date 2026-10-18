@@ -19,7 +19,7 @@ ContactsSection::ContactsSection(QWidget *parent) : QWidget(parent), ui(new Ui::
   ui->placeholder_icon->setPixmap(QIcon(":/icons/action-group-chat.svg").pixmap(44, 44));
   ui->search_edit->SetMaxLength(27);
   ui->search_edit->setPlaceholderText(tr("搜索"));
-  ui->search_edit->setToolTip(tr("搜索已添加的联系人"));
+  ui->search_edit->setToolTip(tr("搜索联系人和已加入的群聊"));
   ui->search_edit->addAction(QIcon(":/res/search.png"), QLineEdit::LeadingPosition);
   auto *clear =
       ui->search_edit->addAction(QIcon(":/res/close_search.png"), QLineEdit::TrailingPosition);
@@ -39,6 +39,9 @@ ContactsSection::ContactsSection(QWidget *parent) : QWidget(parent), ui(new Ui::
       _searchTimer.start(200);
   });
   connect(ui->search_list, &SearchList::sig_open_friend, this, &ContactsSection::ShowFriend);
+  connect(ui->search_list, &SearchList::sig_open_thread, this, &ContactsSection::sig_open_group);
+  connect(ui->con_user_list, &ContactUserList::sig_open_group, this,
+          &ContactsSection::sig_open_group);
   connect(ui->con_user_list, &ContactUserList::sig_switch_friend_info_page, this,
           &ContactsSection::ShowFriend);
   connect(ui->con_user_list, &ContactUserList::sig_switch_apply_friend_page, this,
@@ -136,6 +139,20 @@ void ContactsSection::Refresh()
     _searchTimer.start(0);
 }
 
+void ContactsSection::RefreshGroups()
+{
+  QMap<int, QString> names;
+  for (const auto &thread : UserMgr::GetInstance()->GetChatThreads())
+    if (thread && thread->IsGroup())
+      names.insert(thread->GetThreadId(), thread->GetGroupName());
+  if (names == _groupNames)
+    return;
+  _groupNames = names;
+  ui->con_user_list->Reload();
+  if (!ui->search_edit->text().trimmed().isEmpty() && !_searchTimer.isActive())
+    _searchTimer.start(0);
+}
+
 void ContactsSection::AddApply(std::shared_ptr<AddFriendApply> apply)
 {
   if (!apply)
@@ -157,6 +174,7 @@ void ContactsSection::FriendRemoved(int uid)
 
 void ContactsSection::Reset()
 {
+  _groupNames.clear();
   _searchTimer.stop();
   ui->search_edit->clear();
   ui->search_list->ClearResults();

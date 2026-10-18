@@ -4,6 +4,7 @@
 #include <QDateTime>
 #include <QEvent>
 #include <QFontMetrics>
+#include <QJsonArray>
 #include <QLabel>
 #include <QStyle>
 
@@ -76,7 +77,27 @@ void ChatUserWid::SetChatData(std::shared_ptr<ChatThreadData> data)
   const auto icon = data->IsGroup() ? QStringLiteral(":/icons/action-group-chat.svg")
                     : user          ? user->_icon
                                     : QStringLiteral(":/res/head_1.jpg");
-  SetInfo(name, icon, data->GetLastMsg());
+  QString preview = data->GetLastMsg();
+  if (data->IsGroup()) {
+    int sender = 0;
+    const auto pending = data->GetPendingMessages();
+    if (!pending.empty())
+      sender = pending.back()->GetSendUid();
+    else if (!data->GetMsgMapRef().isEmpty() &&
+             data->GetMsgMapRef().last()->GetMsgId() == data->GetLastMsgId())
+      sender = data->GetMsgMapRef().last()->GetSendUid();
+    if (sender > 0 && !preview.isEmpty()) {
+      const auto friendInfo = UserMgr::GetInstance()->GetFriendById(sender);
+      const auto senderName = sender == UserMgr::GetInstance()->GetUid() ? tr("我")
+                              : friendInfo && !friendInfo->_back.isEmpty()
+                                  ? friendInfo->_back
+                                  : data->MemberName(sender);
+      preview = senderName + QStringLiteral(": ") + preview;
+    }
+    if (preview.isEmpty())
+      preview = tr("群聊 · %1 位成员").arg(data->Group()["members"].toArray().size());
+  }
+  SetInfo(name, icon, preview);
   const QString timestamp = data->GetLastChatTime();
   QDateTime chatTime = QDateTime::fromString(timestamp, "yyyy-MM-dd HH:mm:ss.zzz");
   if (!chatTime.isValid())

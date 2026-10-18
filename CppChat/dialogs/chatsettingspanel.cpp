@@ -2,16 +2,27 @@
 #include "network/usermgr.h"
 #include "ui_chatsettingspanel.h"
 #include <QApplication>
+#include <QGridLayout>
+#include <QJsonArray>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QMessageBox>
 #include <QPropertyAnimation>
+#include <QPushButton>
 #include <QSignalBlocker>
+#include <QToolButton>
+#include <QVBoxLayout>
 
 ChatSettingsPanel::ChatSettingsPanel(QWidget *parent)
     : QWidget(parent), ui(new Ui::ChatSettingsPanel),
       _animation(new QPropertyAnimation(this, "revealProgress", this))
 {
   ui->setupUi(this);
+  _groupPreview = new QWidget(this);
+  _groupPreview->setObjectName("groupPreview");
+  new QVBoxLayout(_groupPreview);
+  ui->settings_layout->insertWidget(0, _groupPreview);
+  _groupPreview->hide();
   setAttribute(Qt::WA_StyledBackground);
   setFocusPolicy(Qt::StrongFocus);
   hide();
@@ -53,6 +64,10 @@ ChatSettingsPanel::~ChatSettingsPanel()
 
 void ChatSettingsPanel::SetUser(const std::shared_ptr<UserInfo> &user)
 {
+  _groupPreview->hide();
+  ui->members_row->show();
+  ui->add_member_label->setText(tr("添加"));
+  ui->add_member_btn->setAccessibleName(tr("发起群聊"));
   ui->add_member_btn->setToolTip(tr("创建群聊"));
   const QString name = user ? (user->_back.isEmpty() ? user->_name : user->_back) : tr("未知用户");
   ui->member_name->setText(
@@ -156,11 +171,65 @@ void ChatSettingsPanel::ShowPlaceholder(const QString &feature)
                            tr("%1功能暂未实现，本次操作不会修改聊天数据。").arg(feature));
 }
 
-void ChatSettingsPanel::SetGroup(const QString &name)
+void ChatSettingsPanel::SetGroup(const std::shared_ptr<ChatThreadData> &group)
 {
-  ui->member_name->setTextFormat(Qt::PlainText);
-  ui->member_name->setText(name);
-  ui->member_name->setToolTip(name);
-  ui->member_avatar->setPixmap(QPixmap(":/icons/action-group-chat.svg"));
-  ui->add_member_btn->setToolTip(tr("管理群聊成员"));
+  if (!group)
+    return;
+  ui->members_row->hide();
+  _groupPreview->show();
+  auto metadata = group->Group();
+  QJsonObject names;
+  for (const auto &value : metadata["members"].toArray()) {
+    const int uid = value.toObject()["uid"].toInt();
+    const auto user = UserMgr::GetInstance()->GetFriendById(uid);
+    names[QString::number(uid)] =
+        user && !user->_back.isEmpty() ? user->_back : group->MemberName(uid);
+  }
+  metadata["display_names"] = names;
+  if (metadata == _groupMetadata)
+    return;
+  _groupMetadata = metadata;
+  auto *layout = qobject_cast<QVBoxLayout *>(_groupPreview->layout());
+  while (auto *item = layout->takeAt(0)) {
+    delete item->widget();
+    delete item;
+  }
+  auto *card = new QWidget(_groupPreview);
+  auto *cardLayout = new QVBoxLayout(card);
+  cardLayout->setContentsMargins(0, 0, 0, 12);
+  cardLayout->setSpacing(12);
+  auto *title = new QLabel(tr("%1（%2）").arg(group->GetGroupName()).arg(names.size()), card);
+  title->setTextFormat(Qt::PlainText);
+  title->setWordWrap(true);
+  title->setObjectName("groupPreviewTitle");
+  cardLayout->addWidget(title);
+  auto *grid = new QGridLayout;
+  const auto members = metadata["members"].toArray();
+  for (int i = 0; i < qMin(8, members.size()); ++i) {
+    const int uid = members[i].toObject()["uid"].toInt();
+    auto *member = new QToolButton(card);
+    member->setText(names[QString::number(uid)].toString());
+    member->setToolTip(member->text() +
+                       (uid == metadata["owner_uid"].toInt() ? tr(" · 群主") : QString()));
+    member->setAccessibleName(member->toolTip());
+    member->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    member->setIconSize(QSize(36, 36));
+    member->setFixedWidth(58);
+    member->setCursor(Qt::PointingHandCursor);
+    member->setIcon(QIcon(UserMgr::GetInstance()->AvatarThumbnail(uid, {}, QSize(36, 36))));
+    connect(member, &QToolButton::clicked, this, &ChatSettingsPanel::sig_members_requested);
+    connect(
+        UserMgr::GetInstance().get(), &UserMgr::sig_avatar_ready, member, [member, uid](int ready) {
+          if (ready == uid)
+            member->setIcon(QIcon(UserMgr::GetInstance()->AvatarThumbnail(uid, {}, QSize(36, 36))));
+        });
+    grid->addWidget(member, i / 4, i % 4);
+  }
+  cardLayout->addLayout(grid);
+  auto *manage = new QPushButton(tr("查看全部成员与群聊详情"), card);
+  manage->setObjectName("groupDetailsButton");
+  manage->setCursor(Qt::PointingHandCursor);
+  connect(manage, &QPushButton::clicked, this, &ChatSettingsPanel::sig_members_requested);
+  cardLayout->addWidget(manage);
+  layout->addWidget(card);
 }

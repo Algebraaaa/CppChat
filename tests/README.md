@@ -100,6 +100,10 @@ GitHub 方法参考：[GoogleTest](https://github.com/google/googletest)、[Qt T
 
 
 `client.groups` 覆盖群入口、群名/发送者显示、真实回环 TCP 创建与管理响应、加密库重启恢复与成员撤销。
+群聊交互回归还覆盖搜索不丢多选、整行勾选/取消、自动群名和人数上限，批量邀请部分失败后的保留与重试，
+群主转让后的控件权限，以及通讯录群入口/改名/不重复刷新、标题打开详情、备注与消息摘要。
+小屏幕选人内容滚动，列表保留可用高度且关闭按钮留在窗口内；可用 `QT_SCALE_FACTOR=1.5|1.75|2`
+在 offscreen 模式下验证布局与交互，这些截图不替代 Windows 多屏/原生 DPI 的人工体验验收。
 `client.video` 覆盖 JPEG 体积/尺寸边界、格式拒绝、通话类型同意、摄像头开关与迟到帧，
 以及来电/关窗前不打开摄像头；`integration/test_video_calls.py` 验证真实节点的同/跨节点
 路由、未接听、重放、超限、关闭摄像头和旧会话拒绝。`test_voice_calls.py` 的 Qt 双客户端

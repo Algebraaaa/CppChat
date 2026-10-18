@@ -48,17 +48,21 @@ ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog
             _sync->RefreshAllHistory();
           });
   connect(ui->contacts_section, &ContactsSection::sig_open_chat, this, &ChatDialog::OpenChat);
+  connect(ui->contacts_section, &ContactsSection::sig_open_group, this, &ChatDialog::SelectThread);
   connect(ui->contacts_section, &ContactsSection::sig_unread_changed, ui->contact_unread_dot,
           &QWidget::setVisible);
 
   auto *quickMenu = new QuickActionMenu(this);
   const auto openGroup = [this](int thread) {
-    if (auto *existing = findChild<GroupDialog *>()) {
-      existing->show();
-      existing->raise();
-      existing->activateWindow();
-      return;
-    }
+    for (auto *existing : findChildren<GroupDialog *>())
+      if (existing->ThreadId() == thread) {
+        existing->show();
+        existing->raise();
+        existing->activateWindow();
+        return;
+      } else {
+        existing->close(); // One correlated membership request at a time across dialogs.
+      }
     auto *dialog = new GroupDialog(thread, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &GroupDialog::groupOpened, this, &ChatDialog::SelectThread);
@@ -67,6 +71,7 @@ ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog
   connect(quickMenu, &QuickActionMenu::createGroupRequested, this, [openGroup] { openGroup(0); });
   connect(ui->conversation_section->Chat(), &ChatPage::sig_group_settings, this, openGroup);
   connect(_sync, &ChatSyncService::groupRemoved, this, [this](int id) {
+    ui->contacts_section->RefreshGroups();
     ui->conversation_section->RemoveThread(id);
     _unreadThreads.remove(id);
     _manuallyUnreadThreads.remove(id);
@@ -272,6 +277,10 @@ void ChatDialog::RefreshContacts()
 {
   ui->contacts_section->Refresh();
   ui->conversation_section->RefreshSearch();
+  if (const auto current = UserMgr::GetInstance()->GetChatThreadByThreadId(_currentThread)) {
+    UpdateChatItem(_currentThread);
+    ui->conversation_section->Chat()->SetChatData(current);
+  }
 }
 
 void ChatDialog::SwitchSection(Section section)
@@ -351,6 +360,7 @@ bool ChatDialog::eventFilter(QObject *watched, QEvent *event)
 
 void ChatDialog::RefreshConversationList(bool complete)
 {
+  ui->contacts_section->RefreshGroups();
   if (auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(_currentThread)) {
     if (data->IsGroup()) {
       UpdateChatItem(_currentThread);

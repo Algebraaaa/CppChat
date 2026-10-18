@@ -55,17 +55,19 @@ void SearchList::Search(const QString &keyword, Scope scope)
 
   bool chatSectionAdded = false;
   for (const auto &thread : userManager->GetChatThreads()) {
-    if (scope == Scope::Contacts)
-      break;
     if (!thread)
+      continue;
+    if (scope == Scope::Contacts && !thread->IsGroup())
       continue;
 
     const auto user = userManager->GetFriendById(thread->GetOtherId());
     if (!user && !thread->IsGroup())
       continue;
 
-    const bool nameMatches = thread->IsGroup() ? containsKeyword(thread->GetGroupName(), query)
-                                               : userMatches(user, query);
+    const bool nameMatches = thread->IsGroup()
+                                 ? (containsKeyword(thread->GetGroupName(), query) ||
+                                    containsKeyword(QString::number(thread->GetThreadId()), query))
+                                 : userMatches(user, query);
     QString matchedPreview;
 
     // 名字或会话摘要命中时，展示这段会话的最新摘要。
@@ -107,7 +109,7 @@ void SearchList::Search(const QString &keyword, Scope scope)
       continue;
 
     if (!chatSectionAdded) {
-      addSection(tr("聊天记录"));
+      addSection(scope == Scope::Contacts ? tr("群聊") : tr("聊天记录"));
       chatSectionAdded = true;
     }
     addResult(ResultKind::ChatRecord, user, matchedPreview, thread->GetThreadId());
@@ -157,7 +159,7 @@ void SearchList::addEmptyTip(Scope scope)
   item->setSizeHint(QSize(1, 64));
   item->setFlags(Qt::NoItemFlags);
 
-  auto *label = new QLabel(scope == Scope::Contacts ? tr("没有找到匹配的联系人")
+  auto *label = new QLabel(scope == Scope::Contacts ? tr("没有找到匹配的联系人或群聊")
                                                     : tr("没有找到匹配的联系人或聊天记录"),
                            this);
   label->setObjectName("search_empty_tip");

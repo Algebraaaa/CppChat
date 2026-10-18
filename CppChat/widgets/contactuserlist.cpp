@@ -16,7 +16,9 @@ enum EntryKind {
   Starred,
   Alphabet,
   Friend,
-  Empty
+  Empty,
+  GroupsHeader,
+  Group
 };
 enum EntryRole {
   KindRole = Qt::UserRole,
@@ -86,12 +88,13 @@ public:
       painter->drawText(description, Qt::AlignVCenter | Qt::AlignLeft,
                         option.fontMetrics.elidedText(index.data(DescriptionRole).toString(),
                                                       Qt::ElideRight, description.width()));
-    } else if (kind == Friend) {
+    } else if (kind == Friend || kind == Group) {
       const int uid = index.data(UidRole).toInt();
       const QRect avatar(area.left() + 42, area.center().y() - 18, 36, 36);
-      const auto image = UserMgr::GetInstance()->AvatarThumbnail(
-          uid, index.data(IconRole).toString(), avatar.size(),
-          painter->device()->devicePixelRatioF());
+      const auto image = kind == Group ? QIcon(":/icons/action-group-chat.svg").pixmap(36, 36)
+                                       : UserMgr::GetInstance()->AvatarThumbnail(
+                                             uid, index.data(IconRole).toString(), avatar.size(),
+                                             painter->device()->devicePixelRatioF());
       painter->drawPixmap(avatar.topLeft(), image);
       const QRect text(area.left() + 90, area.top(), qMax(0, area.width() - 104), area.height());
       painter->drawText(text, Qt::AlignVCenter | Qt::AlignLeft,
@@ -108,13 +111,13 @@ public:
       painter->drawText(area.adjusted(kind == Starred ? 68 : 42, 0, -14, 0), Qt::AlignVCenter,
                         title);
     } else {
-      const auto &arrow =
-          (kind == ContactsHeader || kind == NewFriends) && index.data(ExpandedRole).toBool()
-              ? _chevronDown
-              : _chevronRight;
+      const auto &arrow = (kind == ContactsHeader || kind == NewFriends || kind == GroupsHeader) &&
+                                  index.data(ExpandedRole).toBool()
+                              ? _chevronDown
+                              : _chevronRight;
       arrow.paint(painter, QRect(area.left() + 20, area.center().y() - 9, 18, 18));
       QString count;
-      if (kind == ContactsHeader)
+      if (kind == ContactsHeader || kind == GroupsHeader)
         count = index.data(UidRole).toString();
       const int countWidth = count.isEmpty() ? 0 : option.fontMetrics.horizontalAdvance(count) + 12;
       const QRect text = area.adjusted(44, 0, -16 - countWidth, 0);
@@ -160,18 +163,21 @@ void ContactUserList::Reload(bool preserveSelection)
   if (!preserveSelection) {
     _contactsExpanded = true;
     _applicationsExpanded = true;
+    _groupsExpanded = true;
     _redPoint = false;
   }
   clear();
   _contactRows.clear();
   _applicationRows.clear();
+  _groupRows.clear();
   const auto addRow = [this](const QString &title, EntryKind kind, const QString &key, int height) {
     auto *row = new QListWidgetItem(title, this);
     row->setData(KindRole, kind);
     row->setData(KeyRole, key);
     row->setSizeHint(QSize(0, height));
     row->setToolTip(title);
-    if (kind == Alphabet || kind == ContactsHeader || kind == NewFriends || kind == Empty)
+    if (kind == Alphabet || kind == ContactsHeader || kind == GroupsHeader || kind == NewFriends ||
+        kind == Empty)
       row->setFlags(Qt::ItemIsEnabled);
     return row;
   };
@@ -201,7 +207,22 @@ void ContactUserList::Reload(bool preserveSelection)
   if (_applicationRows.isEmpty())
     _applicationRows.append(addRow(tr("暂无好友申请"), Empty, "no-applications", 44));
   SetApplicationsExpanded(_applicationsExpanded);
-  for (const auto &title : {tr("群聊"), tr("公众号、服务号"), tr("企业微信联系人")})
+  _groupsHeader = addRow(tr("群聊"), GroupsHeader, "groups", 44);
+  int groupCount = 0;
+  for (const auto &thread : UserMgr::GetInstance()->GetChatThreads()) {
+    if (!thread || !thread->IsGroup())
+      continue;
+    auto *row = addRow(thread->GetGroupName(), Group,
+                       "thread-" + QString::number(thread->GetThreadId()), 64);
+    row->setData(UidRole, thread->GetThreadId());
+    _groupRows.append(row);
+    ++groupCount;
+  }
+  _groupsHeader->setData(UidRole, groupCount);
+  if (!groupCount)
+    _groupRows.append(addRow(tr("暂无群聊，可从聊天页 + 发起"), Empty, "no-groups", 48));
+  SetGroupsExpanded(_groupsExpanded);
+  for (const auto &title : {tr("公众号、服务号"), tr("企业微信联系人")})
     addRow(title, Category, title, 44)->setToolTip(tr("%1：暂未开放").arg(title));
 
   auto friends = UserMgr::GetInstance()->GetFriendList();
@@ -259,6 +280,15 @@ void ContactUserList::SetContactsExpanded(bool expanded)
     row->setHidden(!expanded);
 }
 
+void ContactUserList::SetGroupsExpanded(bool expanded)
+{
+  _groupsExpanded = expanded;
+  if (_groupsHeader)
+    _groupsHeader->setData(ExpandedRole, expanded);
+  for (auto *row : _groupRows)
+    row->setHidden(!expanded);
+}
+
 void ContactUserList::SetApplicationsExpanded(bool expanded)
 {
   _applicationsExpanded = expanded;
@@ -312,6 +342,12 @@ void ContactUserList::slot_item_clicked(QListWidgetItem *item)
     break;
   case ContactsHeader:
     SetContactsExpanded(!_contactsExpanded);
+    break;
+  case GroupsHeader:
+    SetGroupsExpanded(!_groupsExpanded);
+    break;
+  case Group:
+    emit sig_open_group(item->data(UidRole).toInt());
     break;
   case Friend:
     if (auto user = UserMgr::GetInstance()->GetFriendById(item->data(UidRole).toInt()))
