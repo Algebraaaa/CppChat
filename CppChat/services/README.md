@@ -49,8 +49,12 @@
 `third_party/pinyin-data/README.md`。
 
 `Resources/release-history.json` 是更新记录来源。打包器输出兼容旧客户端的累计 `notes` 及新客户端使用的
-结构化 `history`，GitHub Release 同样使用累计说明。更新窗口始终显示历史，包含已是最新版及离线情况；
-新旧客户端合并记录按语义版本降序排列。每次发布先更新版本和历史记录，累计说明不得超过旧客户端 8000 字符限制。
+结构化 `history`，GitHub Release 同样使用累计说明。更新窗口只显示通过 HTTPS 清单确认的
+`当前版本 < 记录版本 <= 服务端最新版本`，按版本降序排列；尚未检查、检查失败、已是最新版或本机版本更高时
+隐藏记录区，不再用内置历史填充。未提供结构化历史的旧清单保留最新版 `notes` 兼容路径。
+版本排序和区间判断复用现有 [Qt 6 QVersionNumber](https://doc.qt.io/qt-6/qversionnumber.html)，
+无需额外库或跨 Qt Kit 的版本比较实现。每次发布先更新版本和历史记录，累计说明不得超过旧客户端 8000 字符限制。
+仓库主页只保留 [Releases](https://github.com/Algebraaaa/CppChat/releases) 入口，版本变更及历史验证记录放在 Release 说明中。
 
 自动登录职责分为 `common/autologinstore` 的安全存储、LoginDialog 的单次认证状态及 MainWindow 的启动/退出编排。
 当前仅 Windows 启用：复用现有 [DPAPI](https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata)
