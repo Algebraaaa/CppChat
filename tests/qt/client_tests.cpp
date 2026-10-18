@@ -680,7 +680,6 @@ private slots:
       qApp->setFont(previousFont);
     });
     QString error;
-    QVERIFY2(ThemeManager::apply(*qApp, &error), qPrintable(error));
     inspectedWidget = std::make_unique<QDialog>();
     inspectedWidget->setObjectName("ChatDialog");
     auto *layout = new QVBoxLayout(inspectedWidget.get());
@@ -688,6 +687,7 @@ private slots:
     auto *page = new ChatPage(inspectedWidget.get());
     page->setObjectName("chat_page");
     layout->addWidget(page);
+    QVERIFY2(ThemeManager::apply(*qApp, &error), qPrintable(error));
     auto *call = page->findChild<QToolButton *>("call_btn");
     auto *transcribe = page->findChild<QPushButton *>("voice_transcribe_btn");
     auto *voiceMessage = page->findChild<QPushButton *>("voice_message_btn");
