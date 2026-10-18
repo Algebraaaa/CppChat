@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+import ipaddress
 import uuid
 
 import psutil
@@ -63,7 +64,17 @@ def test_group_images_resume_scope_cross_node_history_and_revocation(cluster, pa
             for c in psutil.Process(cluster.processes[node].pid).net_connections()
             if c.status == psutil.CONN_LISTEN and c.laddr.port == cluster.ports[key]
         ]
-        require(listeners == ["127.0.0.1"], "Media authorization escaped loopback")
+        # gRPC uses IPv4-mapped IPv6 sockets on Linux, while Windows reports IPv4.
+        addresses = [ipaddress.ip_address(value) for value in listeners]
+        require(
+            bool(addresses)
+            and all(
+                (address.ipv4_mapped if isinstance(address, ipaddress.IPv6Address) else address)
+                == ipaddress.IPv4Address("127.0.0.1")
+                for address in addresses
+            ),
+            f"Media authorization escaped loopback: {listeners}",
+        )
     data = b"group-image-fixture" * 2000
     fields = metadata(first, thread, data)
     peer = cluster.resource(first)

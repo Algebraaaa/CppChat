@@ -39,6 +39,10 @@
 后的读写撤销。单独故障夹具验证授权节点回退及全部不可用时拒绝访问。
 `client.features` 覆盖旧服务器能力门控、群上传目标和真实 PictureBubble 解码显示。
 自动验证使用合成图片，不等同于双桌面人工及弱网体验验收。
+回环监听检查使用 Python 标准库 `ipaddress` 识别 Linux gRPC 的 IPv4-mapped IPv6
+表示，仍严格要求实际地址为 `127.0.0.1`，拒绝通配地址；依据
+[gRPC POSIX 实现](https://github.com/grpc/grpc/blob/v1.81.1/src/core/lib/iomgr/tcp_server_posix.cc)
+及 [Python 官方映射地址接口](https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv6Address.ipv4_mapped)。
 
 首次准备 Python 3.12+ 虚拟环境和锁定依赖：
 
