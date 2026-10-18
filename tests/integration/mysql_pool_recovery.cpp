@@ -86,12 +86,19 @@ int main()
     pool.ReturnConnection(std::move(connection));
 #ifdef TEST_GATE_POOL
     MysqlDao dao;
-    require(dao.RegUser("RecoveryTest", "recovery@example.test", "Initial123") > 0,
-            "Fixture registration failed");
-    require(dao.CheckEmail("RecoveryTest", "recovery@example.test") == AccountCheckResult::Match,
+    const int uid = dao.RegUser("RecoveryTest", "recovery@example.test", "Initial123");
+    require(uid > 0, "Fixture registration failed");
+    int verified_uid = 0;
+    require(dao.CheckEmail("RecoveryTest", "recovery@example.test", verified_uid) ==
+                AccountCheckResult::Match,
             "Valid account rejected");
-    require(dao.CheckEmail("OtherUser", "recovery@example.test") == AccountCheckResult::NoMatch,
+    require(verified_uid == uid, "Verification did not return the immutable user ID");
+    require(dao.CheckEmail("OtherUser", "recovery@example.test", verified_uid) ==
+                AccountCheckResult::NoMatch,
             "Mismatch accepted");
+    require(verified_uid == 0, "Mismatch retained a verified user ID");
+    require(dao.UpdatePwd(uid, "wrong@example.test", "Updated123") == PasswordUpdateResult::Failed,
+            "Password update ignored the verified email binding");
     UserInfo info;
     require(dao.CheckPwdByEmail("recovery@example.test", "Wrong123", info) ==
                 AccountCheckResult::NoMatch,
@@ -124,13 +131,15 @@ int main()
     require(!cold_pool.GetConnection(), "Cold-start database failure was not detected");
 #ifdef TEST_GATE_POOL
     MysqlDao cold_dao;
-    require(dao.CheckEmail("RecoveryTest", "recovery@example.test") ==
+    require(dao.CheckEmail("RecoveryTest", "recovery@example.test", verified_uid) ==
                 AccountCheckResult::DatabaseError,
             "Outage reported as mismatch");
+    require(verified_uid == 0, "Outage retained a verified user ID");
     require(dao.CheckPwdByEmail("recovery@example.test", "Initial123", info) ==
                 AccountCheckResult::DatabaseError,
             "Outage reported as wrong password");
-    require(dao.UpdatePwd("RecoveryTest", "Updated123") == PasswordUpdateResult::DatabaseError,
+    require(dao.UpdatePwd(uid, "recovery@example.test", "Updated123") ==
+                PasswordUpdateResult::DatabaseError,
             "Update outage misclassified");
 #elif defined(TEST_CHAT_DAO)
     MysqlDao cold_dao;
@@ -151,12 +160,14 @@ int main()
     require(connection && scalar(*connection, "SELECT 1") == 1, "Cold pool did not recover");
     cold_pool.ReturnConnection(std::move(connection));
 #ifdef TEST_GATE_POOL
-    require(cold_dao.CheckEmail("RecoveryTest", "recovery@example.test") ==
+    require(cold_dao.CheckEmail("RecoveryTest", "recovery@example.test", verified_uid) ==
                 AccountCheckResult::Match,
             "Cold DAO did not recover");
-    require(dao.CheckEmail("RecoveryTest", "recovery@example.test") == AccountCheckResult::Match,
+    require(dao.CheckEmail("RecoveryTest", "recovery@example.test", verified_uid) ==
+                AccountCheckResult::Match,
             "DAO failed after recovery");
-    require(dao.UpdatePwd("RecoveryTest", "Updated123") == PasswordUpdateResult::Updated,
+    require(dao.UpdatePwd(uid, "recovery@example.test", "Updated123") ==
+                PasswordUpdateResult::Updated,
             "Password update failed after recovery");
     require(dao.CheckPwdByEmail("recovery@example.test", "Updated123", info) ==
                 AccountCheckResult::Match,
