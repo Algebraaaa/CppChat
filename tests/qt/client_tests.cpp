@@ -671,8 +671,23 @@ private slots:
   }
   void voiceInputDoesNotStartCallsOrChangeDraft()
   {
-    inspectedWidget = std::make_unique<ChatPage>();
-    auto *page = static_cast<ChatPage *>(inspectedWidget.get());
+    const auto previousStylesheet = qApp->styleSheet();
+    const auto previousPalette = qApp->palette();
+    const auto previousFont = qApp->font();
+    auto restoreTheme = qScopeGuard([&] {
+      qApp->setStyleSheet(previousStylesheet);
+      qApp->setPalette(previousPalette);
+      qApp->setFont(previousFont);
+    });
+    QString error;
+    QVERIFY2(ThemeManager::apply(*qApp, &error), qPrintable(error));
+    inspectedWidget = std::make_unique<QDialog>();
+    inspectedWidget->setObjectName("ChatDialog");
+    auto *layout = new QVBoxLayout(inspectedWidget.get());
+    layout->setContentsMargins(0, 0, 0, 0);
+    auto *page = new ChatPage(inspectedWidget.get());
+    page->setObjectName("chat_page");
+    layout->addWidget(page);
     auto *call = page->findChild<QToolButton *>("call_btn");
     auto *transcribe = page->findChild<QPushButton *>("voice_transcribe_btn");
     auto *voiceMessage = page->findChild<QPushButton *>("voice_message_btn");
@@ -699,11 +714,17 @@ private slots:
       QVERIFY(!dialog->isVisible());
     }
 
-    page->resize(820, 620);
-    page->show();
+    inspectedWidget->resize(820, 620);
+    inspectedWidget->show();
     QVERIFY(call->isEnabled());
     call->menu()->popup(call->mapToGlobal(QPoint(0, call->height())));
     QTRY_VERIFY(call->menu()->isVisible());
+    const auto artifacts = qEnvironmentVariable("CPPCHAT_TEST_ARTIFACTS");
+    if (!artifacts.isEmpty()) {
+      QDir().mkpath(artifacts);
+      QVERIFY(inspectedWidget->grab().save(artifacts + "/chat-call-controls.png"));
+      QVERIFY(call->menu()->grab().save(artifacts + "/chat-call-menu.png"));
+    }
     QTest::keyClick(call->menu(), Qt::Key_Escape);
     QVERIFY(!call->menu()->isVisible());
     call->menu()->popup(call->mapToGlobal(QPoint(0, call->height())));
