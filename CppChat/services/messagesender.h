@@ -12,7 +12,8 @@ class MessageSender : public QObject {
   Q_OBJECT
 public:
   explicit MessageSender(QObject *parent = nullptr);
-  bool Send(const QVector<MsgInfo> &inputs, const std::shared_ptr<ChatThreadData> &data);
+  bool Send(const QVector<MsgInfo> &inputs, const std::shared_ptr<ChatThreadData> &data,
+            bool clearDraft = true);
   void RetryMessage(const std::shared_ptr<TextChatData> &message,
                     const std::shared_ptr<ChatThreadData> &data);
   void Reset();
@@ -24,6 +25,7 @@ public:
 signals:
   void savingChanged(bool saving);
   void outgoingSaved(int threadId);
+  void forwardPrepared(bool success);
   void messagesChanged(int threadId, bool scrollToBottom);
   void messageStatusChanged(int threadId, const QString &uniqueId, int status);
   void status(int threadId, const QString &message);

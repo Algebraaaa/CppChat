@@ -769,7 +769,7 @@
   },
   {
     "id": "MESSAGE-LOCAL-DELETE",
-    "domain": "单条消息本机删除",
+    "domain": "单条及批量消息本机删除",
     "kind": "automated",
     "automation": "qt/message_actions_tests.cpp",
     "preconditions": "隔离加密 SQLite，含旧版 v1 夹具、多个账号与会话",
@@ -777,6 +777,42 @@
     "expected": "成功提交才刷新，失败回滚；删除不复活且游标前进；账号隔离，v1 无损升级，拒绝未来版本；待确认禁删，本机操作无网络请求",
     "data_changes": "临时 messages、conversations、deleted_messages 和同步游标",
     "cleanup": "关闭 ChatStore 并回收独立夹具；不修改真实配置或数据",
+    "implemented": true
+  },
+  {
+    "id": "MESSAGE-FAVORITES",
+    "domain": "加密本机独立收藏",
+    "kind": "automated",
+    "automation": "qt/favorites_tests.cpp",
+    "preconditions": "隔离账号、加密 SQLite 和独立媒体夹具",
+    "inputs": "收藏、原聊天删除、重开、切换账号、分类和字面搜索、分页、损坏媒体及事务失败",
+    "expected": "快照独立保存且账号隔离；校验失败不返回媒体，事务失败无部分写入；实际列表支持查看和重新发送",
+    "data_changes": "仅夹具 favorites 及账号附件缓存",
+    "cleanup": "关闭数据库及测试对象后统一回收 QTemporaryDir",
+    "implemented": true
+  },
+  {
+    "id": "MESSAGE-FORWARD",
+    "domain": "显式目标转发及草稿保留",
+    "kind": "automated",
+    "automation": "qt/client_features_tests.cpp",
+    "preconditions": "真实回环 HTTP/TCP 夹具、隔离本地账号和资源端点",
+    "inputs": "已有及新建目标、重复转发、取消后的晚到回包、图片上传拒绝及账号切换",
+    "expected": "生成新 UUID，只发往所选会话，保留草稿；图片按新收件人上传，失败字节留在待确认记录，不复用旧 ID",
+    "data_changes": "仅临时本机消息和草稿及回环请求",
+    "cleanup": "取消资源任务、关闭回环和数据库后回收临时目录",
+    "implemented": true
+  },
+  {
+    "id": "MESSAGE-MULTISELECT",
+    "domain": "实际消息多选操作",
+    "kind": "automated",
+    "automation": "qt/message_actions_tests.cpp",
+    "preconditions": "隔离加密本地库、已确认消息和草稿",
+    "inputs": "实际右键选择、勾选、批量收藏、转发载荷、本机删除、Esc 和切换会话",
+    "expected": "按稳定消息 ID 执行所选操作，保留草稿及收藏；切换退出选择；删除失败回滚且补拉不复活",
+    "data_changes": "仅夹具 messages、favorites、deleted_messages",
+    "cleanup": "QObject 和数据库线程退出后回收 QTemporaryDir",
     "implemented": true
   }
 ]

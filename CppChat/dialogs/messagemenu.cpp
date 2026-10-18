@@ -50,8 +50,17 @@ MessageMenu::MessageMenu(QWidget *parent)
     hide();
     emit deleteRequested();
   });
-  for (auto *button : {ui->translate_btn, ui->search_btn, ui->forward_btn, ui->favorite_btn,
-                       ui->select_btn, ui->remind_btn}) {
+  ui->search_btn->setText(tr("在聊天记录中查找"));
+  for (const auto &entry : {qMakePair(ui->favorite_btn, &MessageMenu::favoriteRequested),
+                            qMakePair(ui->forward_btn, &MessageMenu::forwardRequested),
+                            qMakePair(ui->search_btn, &MessageMenu::searchRequested),
+                            qMakePair(ui->select_btn, &MessageMenu::selectRequested)}) {
+    connect(entry.first, &QPushButton::clicked, this, [this, action = entry.second] {
+      hide();
+      (this->*action)();
+    });
+  }
+  for (auto *button : {ui->translate_btn, ui->remind_btn}) {
     connect(button, &QPushButton::clicked, this, [this, button] {
       hide();
       emit placeholderRequested(button->text());
@@ -70,6 +79,9 @@ void MessageMenu::Popup(const QPoint &position, const Options &options)
   ui->read_btn->setEnabled(options.textMessage);
   ui->quote_btn->setEnabled(options.textMessage && options.canQuote);
   ui->delete_btn->setEnabled(options.canDelete);
+  ui->favorite_btn->setEnabled(options.canCollect);
+  ui->forward_btn->setEnabled(options.canCollect);
+  ui->select_btn->setEnabled(options.canCollect);
   ui->delete_btn->setToolTip(options.canDelete ? tr("仅删除本机记录，保留服务器和其他设备的消息")
                                                : tr("请等待消息确认且本地记录就绪后再删除"));
   ensurePolished();

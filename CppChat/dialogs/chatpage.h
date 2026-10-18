@@ -1,7 +1,9 @@
 #ifndef CHATPAGE_H
 #define CHATPAGE_H
+#include "common/favorite.h"
 #include "common/userdata.h"
 #include <QHash>
+#include <QMap>
 #include <QPointer>
 #include <QSet>
 #include <QWidget>
@@ -12,6 +14,8 @@ class ChatHistoryDialog;
 class MessageSender;
 class VoiceCallDialog;
 class MessageActions;
+class QLabel;
+class QPushButton;
 namespace Ui {
 class ChatPage;
 }
@@ -28,12 +32,15 @@ public:
   void SaveCurrentDraft();
   void SetThreadPinned(int threadId, bool pinned);
   void CallContact(int uid, bool video);
+  bool ForwardSnapshots(const QVector<StoredFavorite> &snapshots,
+                        const std::shared_ptr<ChatThreadData> &target);
 signals:
   void sig_group_settings(int threadId);
   void sig_reload_local(int threadId);
   void sig_messages_changed(int threadId);
   void sig_open_favorites();
   void sig_thread_pin_changed(int threadId, bool pinned);
+  void sig_forward_messages(QVector<StoredFavorite> snapshots);
 
 protected:
   bool eventFilter(QObject *watched, QEvent *event) override;
@@ -55,6 +62,16 @@ private:
   void on_send_btn_clicked();
   void UpdateSendButton();
   void PersistDraft(int threadId);
+  void SetupSelection();
+  void BeginSelection(int serverId);
+  void EndSelection();
+  void UpdateSelection();
+  QVector<std::shared_ptr<ChatDataBase>> SelectedMessages() const;
+  QWidget *_selectionBar = nullptr;
+  QLabel *_selectionCount = nullptr;
+  QList<QPushButton *> _selectionActions;
+  QMap<int, std::shared_ptr<ChatDataBase>> _selected;
+  bool _selecting = false;
   MessageSender *_sender = nullptr;
   MessageActions *_messageActions = nullptr;
   VoiceCallDialog *_voice = nullptr;

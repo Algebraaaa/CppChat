@@ -9,6 +9,7 @@ class AddFriendDialog;
 class ProfileDialog;
 class SideMenuPopup;
 class ChatSyncService;
+class MessageForwarder;
 namespace Ui {
 class ChatDialog;
 }
@@ -49,6 +50,7 @@ private:
   void RequestFailed(ReqId request, const QString &message);
   Ui::ChatDialog *ui;
   ChatSyncService *_sync = nullptr;
+  MessageForwarder *_forwarder = nullptr;
   ProfileDialog *_profileDialog = nullptr;
   SideMenuPopup *_sideMenu = nullptr;
   QPointer<AddFriendDialog> _addFriendDialog;

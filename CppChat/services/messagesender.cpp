@@ -145,7 +145,7 @@ void MessageSender::FailPending(int threadId, const QString &message, bool defin
 }
 
 bool MessageSender::Send(const QVector<MsgInfo> &inputs,
-                         const std::shared_ptr<ChatThreadData> &data)
+                         const std::shared_ptr<ChatThreadData> &data, bool clearDraft)
 {
   if (_saving || !IsCurrent(data))
     return false;
@@ -189,28 +189,49 @@ bool MessageSender::Send(const QVector<MsgInfo> &inputs,
       MsgInfo content = input;
       content.content = part;
       outgoing.append({content, data, message});
+      if (outgoing.size() + _sendQueue.size() + _imageUploads.size() > 200) {
+        emit status(data->GetThreadId(), tr("待发送消息较多，请等待当前队列完成后重试"));
+        return false;
+      }
     }
   }
   if (records.isEmpty())
     return false;
+  qsizetype queuedMedia = 0;
+  for (const auto &item : _sendQueue)
+    queuedMedia += item.content.imageData.size();
+  for (const auto &item : _imageUploads)
+    queuedMedia += item.content.imageData.size();
+  for (const auto &item : outgoing)
+    queuedMedia += item.content.imageData.size();
+  if (queuedMedia > 64 * 1024 * 1024) {
+    emit status(data->GetThreadId(), tr("待上传媒体超过 64 MiB，请分批发送"));
+    return false;
+  }
   _saving = true;
   emit savingChanged(true);
   const auto revision = _revision;
   const QPointer<MessageSender> guard(this);
   ChatStore::instance()->SaveMessages(
       records, 0, -1,
-      [guard, revision, data, outgoing](const ChatStoreResult &result) {
+      [guard, revision, data, outgoing, clearDraft](const ChatStoreResult &result) {
         if (!guard || guard->_revision != revision)
           return;
         guard->_saving = false;
         emit guard->savingChanged(false);
-        if (!guard->IsCurrent(data))
+        if (!guard->IsCurrent(data)) {
+          if (!clearDraft)
+            emit guard->forwardPrepared(false);
           return;
+        }
         if (!result.error.isEmpty()) {
+          if (!clearDraft)
+            emit guard->forwardPrepared(false);
           emit guard->status(data->GetThreadId(), guard->tr("发送前保存失败，输入内容已保留"));
           return;
         }
-        emit guard->outgoingSaved(data->GetThreadId());
+        if (clearDraft)
+          emit guard->outgoingSaved(data->GetThreadId());
         for (const auto &item : outgoing) {
           const auto id = item.message->GetUniqueId();
           data->AppendUnRspMsg(id, item.message);
@@ -222,8 +243,10 @@ bool MessageSender::Send(const QVector<MsgInfo> &inputs,
         emit guard->messagesChanged(data->GetThreadId(), true);
         emit guard->status(data->GetThreadId(), {});
         guard->SendNextMessage();
+        if (!clearDraft)
+          emit guard->forwardPrepared(true);
       },
-      data->GetThreadId());
+      clearDraft ? data->GetThreadId() : 0);
   return true;
 }
 

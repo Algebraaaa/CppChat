@@ -55,4 +55,18 @@ CREATE TABLE IF NOT EXISTS deleted_messages (
     server_id INTEGER NOT NULL,
     PRIMARY KEY(thread_id, server_id)
 );
-PRAGMA user_version = 2;
+-- Independent snapshots survive local message/history deletion and keep media encrypted.
+CREATE TABLE IF NOT EXISTS favorites (
+    id INTEGER PRIMARY KEY,
+    thread_id INTEGER NOT NULL,
+    server_id INTEGER NOT NULL,
+    sender_uid INTEGER NOT NULL,
+    message_type INTEGER NOT NULL,
+    sender_name TEXT NOT NULL,
+    content TEXT NOT NULL,
+    media BLOB NOT NULL,
+    media_sha256 TEXT NOT NULL,
+    created_ms INTEGER NOT NULL,
+    UNIQUE(thread_id, server_id)
+);
+PRAGMA user_version = 3;

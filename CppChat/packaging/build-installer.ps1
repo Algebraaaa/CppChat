@@ -1,5 +1,5 @@
 param(
-  [ValidatePattern('^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$')][string]$Version = '0.1.13',
+  [ValidatePattern('^(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$')][string]$Version = '0.1.14',
   [ValidateLength(0,8000)][string]$ReleaseNotes = '',
   [string]$SigningConfig,
   [switch]$RequireSigning,

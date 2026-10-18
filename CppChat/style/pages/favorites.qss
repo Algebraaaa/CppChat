@@ -1,4 +1,4 @@
-/* Favorites placeholder page. Geometry and content stay in favoritespage.ui. */
+/* Account-local favorites. Static layout remains in favoritespage.ui. */
 
 FavoritesPage {
     background: #f5f5f5;
@@ -130,48 +130,56 @@ FavoritesPage #favorites_title_lb {
     font-weight: ${font.weight.medium};
 }
 
-FavoritesPage #favorite_card_1,
-FavoritesPage #favorite_card_2,
-FavoritesPage #favorite_card_3,
-FavoritesPage #favorite_card_4 {
-    background: #f0f0f2;
-    border: 1px solid #ededee;
-    border-radius: ${radius.card};
-}
-
-FavoritesPage #favorite_card_1:hover,
-FavoritesPage #favorite_card_2:hover,
-FavoritesPage #favorite_card_3:hover,
-FavoritesPage #favorite_card_4:hover {
-    background: #ebebed;
-    border-color: #dedfe1;
-}
-
-FavoritesPage #favorite_thumb_1,
-FavoritesPage #favorite_thumb_3 {
-    background: #e4e5e7;
-    border: none;
-    border-radius: ${radius.compact};
-}
-
-FavoritesPage #favorite_card_title_1,
-FavoritesPage #favorite_card_title_2,
-FavoritesPage #favorite_card_title_3,
-FavoritesPage #favorite_card_title_4 {
-    color: #25282c;
+FavoritesPage #favoritesList {
+    background: ${color.surface.subtle};
+    color: ${color.text.body};
     font-size: ${font.size.message};
+    border: none;
+    padding: 8px 16px;
+    outline: none;
 }
 
-FavoritesPage #favorite_card_source_1,
-FavoritesPage #favorite_card_source_2,
-FavoritesPage #favorite_card_source_3,
-FavoritesPage #favorite_card_source_4,
-FavoritesPage #favorite_card_date_1,
-FavoritesPage #favorite_card_date_2,
-FavoritesPage #favorite_card_date_3,
-FavoritesPage #favorite_card_date_4 {
-    color: #969ba2;
+FavoritesPage #favoritesList::item {
+    background: ${color.surface};
+    border: 1px solid ${color.border.subtle};
+    border-radius: ${radius.card};
+    padding: 12px 16px;
+    margin: 6px 0;
+}
+
+FavoritesPage #favoritesList::item:hover {
+    background: ${color.surface.hover};
+}
+
+FavoritesPage #favoritesList::item:selected {
+    background: ${color.selection};
+    color: ${color.text.body};
+    border-color: ${color.brand};
+}
+
+FavoritesPage #favoritesStatus {
+    padding: 8px 20px;
+    color: ${color.text.muted};
     font-size: ${font.size.label};
+}
+
+FavoritesPage #favoriteOpen,
+FavoritesPage #favoriteSend,
+FavoritesPage #favoriteRemove,
+FavoritesPage #favoritesLoadMore {
+    background: ${color.surface};
+    color: ${color.text.body};
+    border: 1px solid ${color.border.card};
+    border-radius: ${radius.control};
+    padding: 6px 12px;
+    min-height: 22px;
+}
+
+FavoritesPage #favoriteOpen:disabled,
+FavoritesPage #favoriteSend:disabled,
+FavoritesPage #favoriteRemove:disabled,
+FavoritesPage #write_note_btn:disabled {
+    color: ${color.text.muted};
 }
 
 FavoritesPage #favorites_scroll_area QScrollBar:vertical {

@@ -14,6 +14,7 @@
 #include "widgets/picturebubble.h"
 #include "widgets/screencapture.h"
 #include "widgets/textbubble.h"
+#include <QApplication>
 #include <QClipboard>
 #include <QDateTime>
 #include <QFileDialog>
@@ -70,7 +71,30 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
 {
   ui->setupUi(this);
   _sender = new MessageSender(this);
+  connect(_sender, &MessageSender::forwardPrepared, this, [this](bool success) {
+    ShowStatus(success ? tr("已保存到本机待发送队列")
+                       : tr("转发保存失败，请从原消息或收藏重新发送"));
+  });
   _messageActions = new MessageActions(this);
+  SetupSelection();
+  connect(_messageActions, &MessageActions::selectionRequested, this, &ChatPage::BeginSelection);
+  const auto removed = [this](int thread, const QVector<int> &ids) {
+    if (!_chat_data || _chat_data->GetThreadId() != thread)
+      return;
+    for (int id : ids)
+      _selected.remove(id);
+    UpdateSelection();
+  };
+  connect(ChatStore::instance(), &ChatStore::localMessagesDeleted, this, removed);
+  connect(ChatStore::instance(), &ChatStore::localMessageDeleted, this,
+          [removed](int thread, int id) { removed(thread, {id}); });
+  connect(ChatStore::instance(), &ChatStore::accountChanged, this, &ChatPage::EndSelection);
+  connect(_messageActions, &MessageActions::forwardRequested, this,
+          &ChatPage::sig_forward_messages);
+  connect(_messageActions, &MessageActions::searchRequested, this, [this](int thread) {
+    if (_chat_data && _chat_data->GetThreadId() == thread)
+      OpenHistory();
+  });
   connect(_messageActions, &MessageActions::quoteRequested, this,
           [this](int thread, const QString &sender, const QString &text) {
             if (_chat_data && _chat_data->GetThreadId() == thread && ui->chatEdit->isEnabled())
@@ -130,11 +154,15 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
     const auto data = _chat_data;
     if (!data || !ChatStore::instance()->IsReady())
       return;
+    const auto generation = ChatStore::instance()->Generation();
     if (QMessageBox::question(
             this, tr("清空本机聊天记录"),
             tr("清空本机已确认的聊天记录？服务器记录、图片缓存和待确认消息会保留。")) !=
         QMessageBox::Yes)
       return;
+    if (generation != ChatStore::instance()->Generation() || _chat_data != data)
+      return;
+    EndSelection();
     const QPointer<ChatPage> guard(this);
     ChatStore::instance()->ClearLocalHistory(data->GetThreadId(),
                                              [guard, data](const ChatStoreResult &result) {
@@ -371,8 +399,28 @@ void ChatPage::OpenHistory()
   _historyDialog->activateWindow();
 }
 
+bool ChatPage::ForwardSnapshots(const QVector<StoredFavorite> &snapshots,
+                                const std::shared_ptr<ChatThreadData> &target)
+{
+  if (snapshots.isEmpty() || snapshots.size() > 50)
+    return false;
+  QVector<MsgInfo> inputs;
+  for (const auto &value : snapshots) {
+    if (value.type != 0 && value.type != 1)
+      return false;
+    MsgInfo input;
+    input.msgFlag = value.type == 1 ? "image" : "text";
+    input.content = value.type == 0 ? value.content : QString();
+    input.imageData = value.media;
+    inputs.append(input);
+  }
+  // Forwarding is a new send, not an editor submission: preserve the destination draft.
+  return _sender->Send(inputs, target, false);
+}
+
 void ChatPage::Reset()
 {
+  EndSelection();
   if (_voice)
     _voice->finish();
   AttachmentPreparer::instance()->FinishPending();
@@ -417,6 +465,7 @@ void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
   ui->file_btn->setEnabled(!data->IsGroup());
   ui->file_btn->setToolTip(data->IsGroup() ? tr("群图片尚未开放") : tr("发送图片"));
   if (changed) {
+    EndSelection();
     ui->call_btn->menu()->close();
     if (_historyDialog)
       _historyDialog->reject();
@@ -537,6 +586,8 @@ void ChatPage::RenderMessages(bool changed)
         item->property("message_sender").toInt() != message->GetSendUid())
       item = CreateChatItem(message);
     item->setUserName(SenderName(message->GetSendUid()));
+    item->setSelection(_selecting && message->GetMsgId() > 0,
+                       _selected.contains(message->GetMsgId()));
     item->setStatus(message->GetMsgId() == 0 && message->GetStatus() != SEND_FAILED
                         ? -1
                         : message->GetStatus());
@@ -555,6 +606,18 @@ void ChatPage::RenderMessages(bool changed)
   _auxiliaryRows = std::move(nextAuxiliary);
   ui->chat_data_list->setChatItems(rows);
   ui->chat_data_list->endUpdate();
+  if (_selecting) {
+    for (auto it = _selected.begin(); it != _selected.end();) {
+      const auto current = _chat_data->GetMsgMapRef().value(it.key());
+      if (!current)
+        it = _selected.erase(it);
+      else {
+        it.value() = current;
+        ++it;
+      }
+    }
+    UpdateSelection();
+  }
 }
 
 void ChatPage::RemoveChatThread(int threadId)
@@ -564,6 +627,7 @@ void ChatPage::RemoveChatThread(int threadId)
   _sender->RemoveThread(threadId);
   if (!_chat_data || _chat_data->GetThreadId() != threadId)
     return;
+  EndSelection();
   if (_historyDialog)
     _historyDialog->Reset();
   ui->chat_history_btn->setEnabled(false);
@@ -588,6 +652,14 @@ void ChatPage::RemoveChatThread(int threadId)
 
 bool ChatPage::eventFilter(QObject *watched, QEvent *event)
 {
+  if (_selecting && event->type() == QEvent::KeyPress &&
+      static_cast<QKeyEvent *>(event)->key() == Qt::Key_Escape) {
+    const auto widget = qobject_cast<QWidget *>(watched);
+    if (widget && widget->window() == window() && (widget == this || isAncestorOf(widget))) {
+      EndSelection();
+      return true;
+    }
+  }
   if (watched == ui->title_label && _chat_data && _chat_data->IsGroup()) {
     const bool keyboard = event->type() == QEvent::KeyPress &&
                           (static_cast<QKeyEvent *>(event)->key() == Qt::Key_Return ||
@@ -646,6 +718,19 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
   if (pending)
     _pendingItems.insert(message->GetUniqueId(), item);
   const auto data = _chat_data;
+  connect(item, &ChatItemBase::selectionChanged, this, [this, item, scrollKey, data](bool checked) {
+    const auto value = _renderedMessages.value(scrollKey);
+    if (!_selecting || data != _chat_data || _renderedItems.value(scrollKey) != item || !value ||
+        value->GetMsgId() <= 0)
+      return;
+    if (checked && _selected.size() >= 50 && !_selected.contains(value->GetMsgId()))
+      ShowStatus(tr("每次最多选择 50 条消息"));
+    else if (checked)
+      _selected.insert(value->GetMsgId(), value);
+    else
+      _selected.remove(value->GetMsgId());
+    UpdateSelection();
+  });
   connect(item, &ChatItemBase::messageContextMenuRequested, this,
           [this, item, scrollKey, data, pictureBubble](const QPoint &position) {
             // 复用控件后必须读取最新消息，避免重试仍使用发送确认前的旧对象。
@@ -676,6 +761,7 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
                 canRetry,
                 !imageMessage,
                 ui->chatEdit->isEnabled(),
+                message->GetMsgId() > 0 && ChatStore::instance()->IsReady(),
                 message->GetMsgId() > 0 && ChatStore::instance()->IsReady()};
             menu->Popup(position, options);
           });
@@ -756,6 +842,80 @@ void ChatPage::SetThreadPinned(int threadId, bool pinned)
     ui->chat_settings_panel->SetPinned(pinned);
 }
 
+void ChatPage::SetupSelection()
+{
+  _selectionBar = new QWidget(this);
+  _selectionBar->setObjectName("messageSelectionBar");
+  _selectionBar->setAttribute(Qt::WA_StyledBackground);
+  auto *layout = new QHBoxLayout(_selectionBar);
+  layout->setContentsMargins(16, 6, 16, 6);
+  _selectionCount = new QLabel(_selectionBar);
+  _selectionCount->setObjectName("messageSelectionCount");
+  layout->addWidget(_selectionCount);
+  layout->addStretch();
+  const auto button = [this, layout](const QString &name, const QString &text) {
+    auto *value = new QPushButton(text, _selectionBar);
+    value->setObjectName(name);
+    layout->addWidget(value);
+    return value;
+  };
+  auto *favorite = button("selectionFavorite", tr("收藏"));
+  auto *forward = button("selectionForward", tr("转发"));
+  auto *remove = button("selectionDelete", tr("仅本机删除"));
+  auto *cancel = button("selectionCancel", tr("取消"));
+  _selectionActions = {favorite, forward, remove};
+  connect(favorite, &QPushButton::clicked, this,
+          [this] { _messageActions->Favorite(SelectedMessages()); });
+  connect(forward, &QPushButton::clicked, this,
+          [this] { _messageActions->Forward(SelectedMessages()); });
+  connect(remove, &QPushButton::clicked, this,
+          [this] { _messageActions->DeleteMessages(SelectedMessages()); });
+  connect(cancel, &QPushButton::clicked, this, &ChatPage::EndSelection);
+  ui->verticalLayout->insertWidget(0, _selectionBar);
+  _selectionBar->hide();
+}
+
+QVector<std::shared_ptr<ChatDataBase>> ChatPage::SelectedMessages() const
+{
+  return _selected.values();
+}
+
+void ChatPage::BeginSelection(int serverId)
+{
+  if (!_chat_data || !ChatStore::instance()->IsReady())
+    return;
+  const auto message = _chat_data->GetMsgMapRef().value(serverId);
+  if (!message || serverId <= 0)
+    return;
+  _selecting = true;
+  _selected.clear();
+  _selected.insert(serverId, message);
+  qApp->installEventFilter(this);
+  UpdateSelection();
+}
+
+void ChatPage::EndSelection()
+{
+  _selecting = false;
+  _selected.clear();
+  qApp->removeEventFilter(this);
+  UpdateSelection();
+}
+
+void ChatPage::UpdateSelection()
+{
+  _selectionBar->setVisible(_selecting);
+  _selectionCount->setText(tr("已选择 %1 / 50 条").arg(_selected.size()));
+  for (auto *button : _selectionActions)
+    button->setEnabled(!_selected.isEmpty() && ChatStore::instance()->IsReady());
+  for (auto it = _renderedItems.cbegin(); it != _renderedItems.cend(); ++it) {
+    const auto message = _renderedMessages.value(it.key());
+    if (message)
+      it.value()->setSelection(_selecting && message->GetMsgId() > 0,
+                               _selected.contains(message->GetMsgId()));
+  }
+}
+
 void ChatPage::UpdateSettingsRect()
 {
   const int top = ui->title_wid->mapTo(this, QPoint(0, ui->title_wid->height())).y();
@@ -776,6 +936,7 @@ void ChatPage::showEvent(QShowEvent *event)
 
 void ChatPage::hideEvent(QHideEvent *event)
 {
+  EndSelection();
   for (auto *menu : findChildren<MessageMenu *>())
     menu->hide();
   _messageActions->CloseReader();

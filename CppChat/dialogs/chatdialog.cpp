@@ -11,6 +11,7 @@
 #include "profiledialog.h"
 #include "quickactionmenu.h"
 #include "services/chatsyncservice.h"
+#include "services/messageforwarder.h"
 #include "sidemenupopup.h"
 #include "ui_chatdialog.h"
 #include <QApplication>
@@ -28,6 +29,12 @@ ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog
 {
   ui->setupUi(this);
   _sync = new ChatSyncService(this);
+  auto *chatPage = ui->conversation_section->Chat();
+  _forwarder = new MessageForwarder(this, chatPage, _sync);
+  connect(chatPage, &ChatPage::sig_forward_messages, _forwarder, &MessageForwarder::Begin);
+  connect(ui->favorites_page, &FavoritesPage::resendRequested, _forwarder,
+          &MessageForwarder::Begin);
+  connect(_forwarder, &MessageForwarder::status, chatPage, &ChatPage::ShowStatus);
   _profileDialog = new ProfileDialog(this);
   connect(_profileDialog, &ProfileDialog::sig_profile_changed, this, &ChatDialog::RefreshAvatar);
   connect(_profileDialog, &ProfileDialog::sig_logout, this, &ChatDialog::sig_logout);
@@ -252,6 +259,7 @@ void ChatDialog::StartSession()
 }
 void ChatDialog::ResetSession()
 {
+  _forwarder->Reset();
   ConversationPreferences::Flush();
   ++_navigationRevision;
   const auto dialogs = findChildren<QDialog *>();
@@ -424,7 +432,7 @@ void ChatDialog::OpenChat(std::shared_ptr<UserInfo> user)
     return;
   }
   ShowChatPage();
-  if (_creatingUser != 0) {
+  if (_creatingUser != 0 || TcpMgr::GetInstance()->HasPendingRequest(ID_CREATE_PRIVATE_CHAT_REQ)) {
     ui->conversation_section->Chat()->ShowStatus(tr("正在创建会话，请稍候"));
     return;
   }

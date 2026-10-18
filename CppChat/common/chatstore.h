@@ -1,6 +1,7 @@
 #ifndef CHATSTORE_H
 #define CHATSTORE_H
 
+#include "favorite.h"
 #include "userdata.h"
 #include <QByteArray>
 #include <QHash>
@@ -56,6 +57,7 @@ struct ChatStoreResult {
   QString error;
   QVector<StoredMessage> messages;
   QVector<StoredConversation> conversations;
+  QVector<StoredFavorite> favorites;
   QHash<int, int> cursors;
   QSet<QString> newMessageKeys;
   QSet<QString> suppressedMessageKeys;
@@ -92,10 +94,20 @@ public:
   void LoadAttachment(const QString &id, Callback callback);
   void ClearLocalHistory(int thread, Callback callback);
   void DeleteLocalMessage(int thread, int serverId, Callback callback = {});
+  void DeleteLocalMessages(int thread, const QVector<int> &serverIds, Callback callback = {});
+  void SaveFavorites(const QVector<StoredFavorite> &favorites, Callback callback = {});
+  void LoadFavorites(const QString &query, FavoriteCategory category, qint64 beforeId,
+                     Callback callback);
+  void GetFavorite(qint64 id, Callback callback);
+  void RemoveFavorites(const QVector<qint64> &ids, Callback callback = {});
 
 signals:
   void storageError(const QString &message);
   void localMessageDeleted(int thread, int serverId);
+  void localMessagesDeleted(int thread, QVector<int> serverIds);
+  void favoritesChanged();
+  void accountChanged();
+  void accountReady();
 
 private:
   explicit ChatStore(QObject *parent);

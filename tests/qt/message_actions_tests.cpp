@@ -2,6 +2,7 @@
 #include "chatstorefixture.h"
 #include "common/localstoresecurity.h"
 #include "common/runtimepaths.h"
+#include "dialogs/chathistorydialog.h"
 #include "dialogs/chatpage.h"
 #include "dialogs/messageactions.h"
 #include "dialogs/messagemenu.h"
@@ -11,6 +12,7 @@
 #include "widgets/MessageTextEdit.h"
 #include "widgets/chatitembase.h"
 #include <QApplication>
+#include <QCheckBox>
 #include <QClipboard>
 #include <QCryptographicHash>
 #include <QDialog>
@@ -26,13 +28,15 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QVBoxLayout>
 #include <memory>
 
 using QtFixtures::awaitStore;
 
 class MessageActionsTests : public QObject {
   Q_OBJECT
-  std::unique_ptr<QTemporaryDir> root;
+  QTemporaryDir root;
+  int fixtureIndex = 0;
   ChatStore *store = ChatStore::instance();
   const QString server = "https://messages.example.test";
   std::shared_ptr<ChatThreadData> data;
@@ -96,9 +100,10 @@ class MessageActionsTests : public QObject {
 private slots:
   void init()
   {
-    root = std::make_unique<QTemporaryDir>();
-    QVERIFY(root->isValid());
-    RuntimePaths::configure(root->filePath("config.ini"), root->path(), root->filePath("logs"));
+    QVERIFY(root.isValid());
+    const QString directory = root.filePath(QString::number(++fixtureIndex));
+    QVERIFY(QDir().mkpath(directory));
+    RuntimePaths::configure(directory + "/config.ini", directory, directory + "/logs");
     gate_url_prefix = server;
     TcpMgr::GetInstance()->CloseConnection();
     auto mgr = UserMgr::GetInstance();
@@ -122,7 +127,6 @@ private slots:
     store->CloseAccount();
     UserMgr::GetInstance()->Reset();
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-    root.reset();
   }
   void cleanupTestCase() { store->Shutdown(); }
 
@@ -202,12 +206,130 @@ private slots:
     QVERIFY(result.error.isEmpty());
     result = awaitStore([&](auto done) { store->LoadMessages(7, 0, 10, done); });
     QVERIFY(result.messages.isEmpty());
-    sql("PRAGMA user_version=3");
+    sql("PRAGMA user_version=2147483647");
     store->CloseAccount();
     result = awaitStore([&](auto done) { store->OpenAccount(101, server, done); });
     QVERIFY(!result.error.isEmpty());
     QVERIFY(!store->IsReady());
   }
+  void batchDeletionRollsBackAndTombstonesSurviveReplay()
+  {
+    seed({record(1, "first"), record(2, "second"), record(3, "keep")});
+    sql("CREATE TRIGGER reject_batch BEFORE INSERT ON deleted_messages "
+        "WHEN NEW.server_id=2 BEGIN SELECT RAISE(ABORT,'fixture rollback'); END");
+    auto result = awaitStore([&](auto done) { store->DeleteLocalMessages(7, {1, 2}, done); });
+    QVERIFY(!result.error.isEmpty());
+    result = awaitStore([&](auto done) { store->LoadMessages(7, 0, 10, done); });
+    QCOMPARE(result.messages.size(), 3);
+    sql("DROP TRIGGER reject_batch");
+    result = awaitStore([&](auto done) { store->DeleteLocalMessages(7, {1, 0}, done); });
+    QVERIFY(!result.error.isEmpty());
+    QSignalSpy deleted(store, &ChatStore::localMessagesDeleted);
+    result = awaitStore([&](auto done) { store->DeleteLocalMessages(7, {1, 2}, done); });
+    QVERIFY(result.error.isEmpty());
+    QCOMPARE(deleted.size(), 1);
+    result = awaitStore([&](auto done) {
+      store->SaveMessages({record(1, "replayed first"), record(2, "replayed second")}, 7, 2, done);
+    });
+    QVERIFY(result.error.isEmpty());
+    result = awaitStore([&](auto done) { store->LoadMessages(7, 0, 10, done); });
+    QCOMPARE(result.messages.size(), 1);
+    QCOMPARE(result.messages.first().serverId, 3);
+  }
+
+  void actualMultiSelectionFavoritesForwardAndDeletionPreserveDraft()
+  {
+    seed({record(1, "first selection"), record(2, "second selection")});
+    ChatSyncService sync;
+    sync.StartSession(101, server);
+    QTRY_VERIFY(sync.IsReady());
+    QDialog shell;
+    shell.setObjectName("ChatDialog");
+    shell.resize(1000, 700);
+    ChatPage page(&shell);
+    page.setObjectName("chat_page");
+    auto *layout = new QVBoxLayout(&shell);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(&page);
+    page.SetChatData(data);
+    connect(&sync, &ChatSyncService::messagesChanged, &page, [&](int thread) {
+      if (thread == 7)
+        page.SetChatData(data);
+    });
+    shell.show();
+    auto *edit = page.findChild<MessageTextEdit *>();
+    QTRY_VERIFY(edit->isEnabled());
+    edit->setPlainText("keep editor draft");
+    auto *popup = menu(page, "first selection");
+    QVERIFY(popup);
+    popup->findChild<QPushButton *>("search_btn")->click();
+    QVERIFY(page.findChild<ChatHistoryDialog *>()->isVisible());
+    page.findChild<ChatHistoryDialog *>()->reject();
+    popup = menu(page, "first selection");
+    popup->findChild<QPushButton *>("select_btn")->click();
+    auto *bar = page.findChild<QWidget *>("messageSelectionBar");
+    QVERIFY(bar && bar->isVisible());
+    QCOMPARE(page.findChild<QLabel *>("messageSelectionCount")->text(),
+             QString("已选择 1 / 50 条"));
+    for (auto *item : page.findChildren<ChatItemBase *>())
+      if (item->property("message_content") == "second selection")
+        item->findChild<QCheckBox *>("messageSelection")->setChecked(true);
+    QCOMPARE(page.findChild<QLabel *>("messageSelectionCount")->text(),
+             QString("已选择 2 / 50 条"));
+    const auto artifacts = qEnvironmentVariable("CPPCHAT_TEST_ARTIFACTS");
+    if (!artifacts.isEmpty()) {
+      QVERIFY(QDir().mkpath(artifacts));
+      QVERIFY(page.grab().save(artifacts + "/message-selection.png"));
+    }
+    QSignalSpy favorites(store, &ChatStore::favoritesChanged);
+    page.findChild<QPushButton *>("selectionFavorite")->click();
+    QTRY_COMPARE(favorites.size(), 1);
+    auto result =
+        awaitStore([&](auto done) { store->LoadFavorites({}, FavoriteCategory::All, 0, done); });
+    QCOMPARE(result.favorites.size(), 2);
+    QSignalSpy forwarded(&page, &ChatPage::sig_forward_messages);
+    page.findChild<QPushButton *>("selectionForward")->click();
+    QTRY_COMPARE(forwarded.size(), 1);
+    const auto payload = qvariant_cast<QVector<StoredFavorite>>(forwarded.first().first());
+    QCOMPARE(payload.size(), 2);
+    QCOMPARE(payload.first().content, QString("first selection"));
+    QCOMPARE(payload.last().content, QString("second selection"));
+    QSignalSpy deleted(store, &ChatStore::localMessagesDeleted);
+    chooseDeletion(true);
+    page.findChild<QPushButton *>("selectionDelete")->click();
+    QTRY_COMPARE(deleted.size(), 1);
+    QTRY_VERIFY(data->GetMsgMapRef().isEmpty());
+    QCOMPARE(edit->toPlainText(), QString("keep editor draft"));
+    result =
+        awaitStore([&](auto done) { store->LoadFavorites({}, FavoriteCategory::All, 0, done); });
+    QCOMPARE(result.favorites.size(), 2);
+    page.findChild<QPushButton *>("selectionCancel")->click();
+    QVERIFY(!bar->isVisible());
+    sync.ResetSession();
+  }
+
+  void selectionCancelsOnConversationChangeAndEscape()
+  {
+    seed({record(1, "selection context")});
+    ChatPage page;
+    page.SetChatData(data);
+    page.show();
+    QTRY_VERIFY(page.findChild<MessageTextEdit *>()->isEnabled());
+    menu(page, "selection context")->findChild<QPushButton *>("select_btn")->click();
+    auto *bar = page.findChild<QWidget *>("messageSelectionBar");
+    QVERIFY(bar->isVisible());
+    QTest::keyClick(page.findChild<MessageTextEdit *>(), Qt::Key_Escape);
+    QVERIFY(!bar->isVisible());
+    menu(page, "selection context")->findChild<QPushButton *>("select_btn")->click();
+    QVERIFY(bar->isVisible());
+    auto other = std::make_shared<ChatThreadData>(103, 8, 0);
+    UserMgr::GetInstance()->AddChatThreadData(other, 103);
+    page.SetChatData(other);
+    QVERIFY(!bar->isVisible());
+    page.SetChatData(data);
+    QVERIFY(!bar->isVisible());
+  }
+
   void readerAndQuoteUseActualMessageMenuAndPreserveDraft()
   {
     const QString body = "<b>原样显示</b>\nhttps://example.test/远程链接\n中文 😀";

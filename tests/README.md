@@ -27,6 +27,13 @@
 通过网络信号验证本机操作不发送请求；数据由 QTemporaryDir/ChatStore fixture 隔离回收。
 自动截图不能替代真实多屏、DPI、系统剪贴板及安装包人工验收。
 
+2026-10-19 新增 `client.favorites`（`qt/favorites_tests.cpp`，`favorites-junit.xml`）：
+加密收藏快照、原记录删除后的独立保存、账号/服务器隔离、重开、去重、字面搜索、分类分页、
+媒体校验及事务回滚，实际列表、预览及重新发送入口。`client.messages` 增加真实多选工具栏、
+批量收藏/转发/删除及删除事务失败后重放；`client.features` 增加回环 HTTP/TCP 登录后的
+目标选择、新 UUID、草稿保留、延迟及取消回包，以及按新收件人重新上传图片的失败恢复。
+测试目录按用例隔离，数据库线程关闭后统一删除，不使用日常账号和配置。
+
 首次准备 Python 3.12+ 虚拟环境和锁定依赖：
 
 ```powershell

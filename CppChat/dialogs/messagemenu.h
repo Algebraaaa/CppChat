@@ -24,6 +24,7 @@ public:
     bool textMessage = false;
     bool canQuote = false;
     bool canDelete = false;
+    bool canCollect = false;
   };
   void Popup(const QPoint &position, const Options &options);
 
@@ -33,6 +34,10 @@ signals:
   void readRequested();
   void quoteRequested();
   void deleteRequested();
+  void favoriteRequested();
+  void forwardRequested();
+  void searchRequested();
+  void selectRequested();
   void placeholderRequested(const QString &title);
 
 protected:

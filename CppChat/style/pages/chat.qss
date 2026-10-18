@@ -118,6 +118,24 @@ ChatUserWid#ChatUserWid #icon_lb {
     border-radius: ${radius.avatar};
 }
 
+ChatPage #messageSelectionBar {
+    background: ${color.surface};
+    border-bottom: 1px solid ${color.border.subtle};
+}
+
+ChatPage #messageSelectionBar QPushButton {
+    background: ${color.surface};
+    color: ${color.text.body};
+    border: 1px solid ${color.border.card};
+    border-radius: ${radius.control};
+    padding: 5px 12px;
+    min-height: 24px;
+}
+
+ChatPage #messageSelectionBar QPushButton:disabled {
+    color: ${color.text.muted};
+}
+
 QDialog#ChatDialog #chat_page,
 QDialog#ChatDialog #chat_page #chat_data_wid {
     background: #f5f5f5;

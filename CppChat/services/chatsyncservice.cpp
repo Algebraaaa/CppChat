@@ -19,15 +19,19 @@ ChatSyncService::ChatSyncService(QObject *parent) : QObject(parent)
   connect(tcp.get(), &TcpMgr::sig_chat_msg_rsp, this,
           [this](int, const auto &messages) { ReceiveMessages(messages, true); });
   connect(tcp.get(), &TcpMgr::sig_group_info, this, &ChatSyncService::ReceiveGroup);
-  connect(ChatStore::instance(), &ChatStore::localMessageDeleted, this, [this](int thread, int id) {
+  const auto deleted = [this](int thread, const QVector<int> &ids) {
     if (!_storeReady)
       return;
     if (auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(thread)) {
-      data->RemoveLocalMessage(id);
+      for (int id : ids)
+        data->RemoveLocalMessage(id);
       emit messagesChanged(thread);
       LoadLocalMessages(thread);
     }
-  });
+  };
+  connect(ChatStore::instance(), &ChatStore::localMessageDeleted, this,
+          [deleted](int thread, int id) { deleted(thread, {id}); });
+  connect(ChatStore::instance(), &ChatStore::localMessagesDeleted, this, deleted);
   _syncTimer.setInterval(60000);
   connect(&_syncTimer, &QTimer::timeout, this, [this] { RefreshAllHistory(true); });
   _groupTimer.setInterval(10000);

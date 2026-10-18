@@ -4,6 +4,11 @@ B站恋恋风辰大佬的C++全栈即时通讯项目，我在辰哥的基础上�
 
 版本更新与历史开发、验证记录已移至 [Releases](https://github.com/Algebraaaa/CppChat/releases)；安装包见 [最新发布](https://github.com/Algebraaaa/CppChat/releases/latest)。
 
+最近更新：**2026-10-19**。v0.1.13 完善联系人、放大阅读、引用和本机删除；
+v0.1.14 新增加密本机收藏、搜索分类、独立图片保存、转发及多选操作。
+转发保留已有草稿，图片按新目标重新上传；本机删除不会撤回服务器或其他设备的消息。
+发布与云端状态以对应标签的 Actions 部署结果为准，功能说明见 [消息菜单](CppChat/docs/message-menu.md)。
+
 原项目仓库地址：https://github.com/secondtonone1/llfcchat
 
 原项目作者B站主页：【C++ 全栈聊天项目(1)架构概述和登录界面】https://www.bilibili.com/video/BV1k2421K7ZB?vd_source=96af471cf08ee4437c4f053f59af4cb6

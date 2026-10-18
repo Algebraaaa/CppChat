@@ -1,6 +1,8 @@
 #include "chatitembase.h"
 #include "bubbleframe.h"
 #include "common/avatarimage.h"
+#include <QCheckBox>
+#include <QSignalBlocker>
 #include <QVBoxLayout>
 ChatItemBase::ChatItemBase(ChatRole role, QWidget *parent) : QWidget(parent), m_role(role)
 {
@@ -15,6 +17,12 @@ ChatItemBase::ChatItemBase(ChatRole role, QWidget *parent) : QWidget(parent), m_
   pGLayout->setVerticalSpacing(3);
   pGLayout->setHorizontalSpacing(3);
   pGLayout->setContentsMargins(3, 3, 3, 3);
+  _selection = new QCheckBox(this);
+  _selection->setObjectName("messageSelection");
+  _selection->setAccessibleName(tr("选择这条消息"));
+  _selection->hide();
+  pGLayout->addWidget(_selection, 0, 3, 3, 1, Qt::AlignTop);
+  connect(_selection, &QCheckBox::toggled, this, &ChatItemBase::selectionChanged);
   QSpacerItem *pSpacer = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
   if (m_role == ChatRole::Self) {
     m_pNameLabel->setContentsMargins(0, 0, 8, 0);
@@ -46,6 +54,13 @@ ChatItemBase::ChatItemBase(ChatRole role, QWidget *parent) : QWidget(parent), m_
   pGLayout->addWidget(m_pStatusLabel, 2, 1);
   m_pStatusLabel->hide();
   this->setLayout(pGLayout);
+}
+
+void ChatItemBase::setSelection(bool enabled, bool checked)
+{
+  const QSignalBlocker blocker(_selection);
+  _selection->setChecked(checked);
+  _selection->setVisible(enabled);
 }
 
 void ChatItemBase::setUserName(const QString &name)

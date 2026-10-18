@@ -480,6 +480,7 @@ void ChatStore::OpenAccount(int uid, const QString &server, Callback callback)
   _attachmentCancelled->store(true);
   _attachmentCancelled = std::make_shared<std::atomic_bool>(false);
   _ready = false;
+  emit accountChanged();
   const auto serverKey = QString::fromLatin1(
       QCryptographicHash::hash(server.toUtf8(), QCryptographicHash::Sha256).toHex().left(24));
   const QString accountPath = "/accounts/" + serverKey + "/" + QString::number(uid);
@@ -520,7 +521,7 @@ void ChatStore::OpenAccount(int uid, const QString &server, Callback callback)
         QSqlQuery version(database);
         checked(version.exec("PRAGMA user_version") && version.next(),
                 "Cannot read database version");
-        checked(version.value(0).toInt() <= 2, "Local database is newer than this client");
+        checked(version.value(0).toInt() <= 3, "Local database is newer than this client");
         version.finish();
         QFile schema(":/storage/chatstore-schema.sql");
         checked(schema.open(QIODevice::ReadOnly), "Local database schema is missing");
@@ -551,8 +552,10 @@ void ChatStore::OpenAccount(int uid, const QString &server, Callback callback)
       },
       [this, callback](const ChatStoreResult &result) {
         _ready = result.error.isEmpty();
-        if (_ready)
+        if (_ready) {
           qInfo() << "Local chat database:" << QDir(_directory).filePath(kDatabaseRelativePath);
+          emit accountReady();
+        }
         if (callback)
           callback(result);
       });
@@ -563,6 +566,7 @@ void ChatStore::CloseAccount()
   ++_generation;
   _attachmentCancelled->store(true);
   _ready = false;
+  emit accountChanged();
   _directory.clear();
   if (_worker)
     QMetaObject::invokeMethod(
@@ -987,39 +991,53 @@ void ChatStore::ClearLocalHistory(int thread, Callback callback)
 
 void ChatStore::DeleteLocalMessage(int thread, int serverId, Callback callback)
 {
+  DeleteLocalMessages(thread, {serverId}, callback);
+}
+
+void ChatStore::DeleteLocalMessages(int thread, const QVector<int> &serverIds, Callback callback)
+{
   Execute(
-      [thread, serverId](QSqlDatabase &database) {
-        checked(thread > 0 && serverId > 0, "Only confirmed messages can be deleted locally");
+      [thread, serverIds](QSqlDatabase &database) {
+        checked(thread > 0 && !serverIds.isEmpty() && serverIds.size() <= 50,
+                "Select between 1 and 50 confirmed messages");
+        for (int id : serverIds)
+          checked(id > 0, "Only confirmed messages can be deleted locally");
         Transaction transaction(database);
         QSqlQuery exists(database);
         exists.prepare("SELECT 1 FROM conversations WHERE thread_id=?");
         exists.addBindValue(thread);
         run(exists);
         checked(exists.next(), "Message conversation is missing");
-        QSqlQuery tombstone(database);
-        tombstone.prepare(
-            "INSERT OR IGNORE INTO deleted_messages(thread_id,server_id) VALUES(?,?)");
-        tombstone.addBindValue(thread);
-        tombstone.addBindValue(serverId);
-        run(tombstone);
-        QSqlQuery remove(database);
-        remove.prepare("DELETE FROM messages WHERE thread_id=? AND server_id=?");
-        remove.addBindValue(thread);
-        remove.addBindValue(serverId);
-        run(remove);
-        QSqlQuery summary(database);
-        summary.prepare(
-            "UPDATE conversations SET summary=? WHERE thread_id=? AND last_server_id=?");
-        summary.addBindValue(QObject::tr("[本机已删除消息]"));
-        summary.addBindValue(thread);
-        summary.addBindValue(serverId);
-        run(summary);
+        for (int serverId : QSet<int>(serverIds.begin(), serverIds.end())) {
+          QSqlQuery tombstone(database);
+          tombstone.prepare(
+              "INSERT OR IGNORE INTO deleted_messages(thread_id,server_id) VALUES(?,?)");
+          tombstone.addBindValue(thread);
+          tombstone.addBindValue(serverId);
+          run(tombstone);
+          QSqlQuery remove(database);
+          remove.prepare("DELETE FROM messages WHERE thread_id=? AND server_id=?");
+          remove.addBindValue(thread);
+          remove.addBindValue(serverId);
+          run(remove);
+          QSqlQuery summary(database);
+          summary.prepare(
+              "UPDATE conversations SET summary=? WHERE thread_id=? AND last_server_id=?");
+          summary.addBindValue(QObject::tr("[本机已删除消息]"));
+          summary.addBindValue(thread);
+          summary.addBindValue(serverId);
+          run(summary);
+        }
         transaction.Commit();
         return ChatStoreResult{};
       },
-      [this, thread, serverId, callback](const ChatStoreResult &result) {
-        if (result.error.isEmpty())
-          emit localMessageDeleted(thread, serverId);
+      [this, thread, serverIds, callback](const ChatStoreResult &result) {
+        if (result.error.isEmpty()) {
+          if (serverIds.size() == 1)
+            emit localMessageDeleted(thread, serverIds.first());
+          else
+            emit localMessagesDeleted(thread, serverIds);
+        }
         if (callback)
           callback(result);
       });

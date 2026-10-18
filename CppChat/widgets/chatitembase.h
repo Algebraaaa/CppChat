@@ -6,6 +6,7 @@
 #include <QLabel>
 #include <QWidget>
 class BubbleFrame;
+class QCheckBox;
 
 class ChatItemBase : public QWidget {
   Q_OBJECT
@@ -15,9 +16,11 @@ public:
   void setUserIcon(const QPixmap &icon);
   void setWidget(QWidget *w);
   void setStatus(int status);
+  void setSelection(bool enabled, bool checked);
 
 signals:
   void messageContextMenuRequested(const QPoint &globalPosition);
+  void selectionChanged(bool checked);
 
 private:
   ChatRole m_role;
@@ -25,6 +28,7 @@ private:
   QLabel *m_pNameLabel;
   QLabel *m_pIconLabel;
   QWidget *m_pBubble;
+  QCheckBox *_selection;
 };
 
 #endif // CHATITEMBASE_H

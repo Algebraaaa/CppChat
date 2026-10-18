@@ -1,11 +1,13 @@
 #include "app/mainwindow.h"
 #include "app/thememanager.h"
+#include "chatstorefixture.h"
 #include "common/autologinstore.h"
 #include "common/contactnames.h"
 #include "common/contactpreferences.h"
 #include "common/runtimepaths.h"
 #include "dialogs/applyfriend.h"
 #include "dialogs/chatdialog.h"
+#include "dialogs/chatpage.h"
 #include "dialogs/commongroupsdialog.h"
 #include "dialogs/friendinfopage.h"
 #include "dialogs/groupdialog.h"
@@ -13,13 +15,19 @@
 #include "dialogs/updatedialog.h"
 #include "dialogs/voicecalldialog.h"
 #include "network/httpmgr.h"
+#include "network/resourcemgr.h"
 #include "network/tcpmgr.h"
 #include "network/usermgr.h"
+#include "services/chatsyncservice.h"
 #include "services/clientupdateservice.h"
+#include "services/messageforwarder.h"
 #include "services/voicecallservice.h"
+#include "widgets/MessageTextEdit.h"
 #include "widgets/contactuserlist.h"
 #include <QAction>
 #include <QCheckBox>
+#include <QCryptographicHash>
+#include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -27,6 +35,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
+#include <QSettings>
 #include <QSignalSpy>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -134,14 +143,16 @@ public:
 
 class ClientFeatureTests : public QObject {
   Q_OBJECT
-  std::unique_ptr<QTemporaryDir> root;
+  QTemporaryDir root;
+  int fixtureIndex = 0;
 private slots:
   void init()
   {
-    root = std::make_unique<QTemporaryDir>();
-    QVERIFY(root->isValid());
-    RuntimePaths::configure(root->filePath("config.ini"), root->path(), root->filePath("logs"));
-    QFile config(root->filePath("config.ini"));
+    QVERIFY(root.isValid());
+    const QString directory = root.filePath(QString::number(++fixtureIndex));
+    QVERIFY(QDir().mkpath(directory));
+    RuntimePaths::configure(directory + "/config.ini", directory, directory + "/logs");
+    QFile config(directory + "/config.ini");
     QVERIFY(config.open(QIODevice::WriteOnly));
     config.write("[ChatServer]\ntls=false\n[ResourceServer]\nhost=127.0.0.1\nport=1\ntls=false\n");
     UserMgr::GetInstance()->Reset();
@@ -151,10 +162,163 @@ private slots:
   {
     HttpMgr::GetInstance()->CancelRequest(ID_LOGIN_USER, Modules::LOGINMOD);
     TcpMgr::GetInstance()->CloseConnection();
+    ResourceMgr::instance()->ResetSession();
+    ChatStore::instance()->CloseAccount();
     UserMgr::GetInstance()->Reset();
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-    root.reset();
   }
+  void cleanupTestCase() { ChatStore::instance()->Shutdown(); }
+  void forwardingUsesExplicitTargetNewIdsPreservesDraftsAndRejectsLateReplies()
+  {
+    QString themeError;
+    QVERIFY2(ThemeManager::apply(*qApp, &themeError), qPrintable(themeError));
+    LoginPeer peer;
+    auto tcp = TcpMgr::GetInstance();
+    gate_url_prefix = peer.url();
+    LoginDialog login;
+    login.findChild<QLineEdit *>("email_edit")->setText("user@example.invalid");
+    login.findChild<QLineEdit *>("pass_edit")->setText("Password123");
+    login.findChild<QPushButton *>("login_btn")->click();
+    QTRY_VERIFY(tcp->IsConnected());
+    auto mgr = UserMgr::GetInstance();
+    mgr->SetUserInfo(std::make_shared<UserInfo>(101, "self", ""));
+    for (int id : {102, 103, 104})
+      mgr->AddFriend(std::make_shared<UserInfo>(id, QString::number(id), ""));
+    auto target = std::make_shared<ChatThreadData>(102, 7, 0);
+    auto source = std::make_shared<ChatThreadData>(103, 8, 0);
+    mgr->AddChatThreadData(target, 102);
+    mgr->AddChatThreadData(source, 103);
+    auto *store = ChatStore::instance();
+    auto result = QtFixtures::awaitStore(
+        [&](auto done) { store->OpenAccount(101, "https://forward.example.test", done); });
+    QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+    result = QtFixtures::awaitStore(
+        [&](auto done) { store->SaveConversations({{7, 102}, {8, 103}}, done); });
+    MsgInfo draft;
+    draft.msgFlag = "text";
+    draft.content = "destination draft";
+    store->SaveDraft(7, {draft});
+    result = QtFixtures::awaitStore([&](auto done) { store->LoadDraft(7, done); });
+    QVERIFY(result.error.isEmpty());
+    ChatSyncService sync;
+    ChatPage page;
+    page.SetChatData(source);
+    page.show();
+    auto *edit = page.findChild<MessageTextEdit *>();
+    QTRY_VERIFY(edit->isEnabled());
+    edit->setPlainText("source draft");
+    MessageForwarder forwarder(&page, &page, &sync);
+    StoredFavorite message;
+    message.threadId = 8;
+    message.serverId = 42;
+    message.content = "forwarded body";
+    const auto choose = [&](int uid) {
+      auto *list = page.findChild<QListWidget *>("forwardTargets");
+      QVERIFY(list);
+      for (int i = 0; i < list->count(); ++i)
+        if (list->item(i)->data(Qt::UserRole).toInt() == uid) {
+          list->setCurrentRow(i);
+          page.findChild<QPushButton *>("forwardSend")->click();
+          return;
+        }
+      QFAIL("Forward target missing");
+    };
+    const auto texts = [&] {
+      QList<QJsonObject> values;
+      for (const auto &request : peer.chatRequests)
+        if (request["id"].toInt() == ID_TEXT_CHAT_MSG_REQ)
+          values.append(request);
+      return values;
+    };
+    forwarder.Begin({message});
+    const auto artifacts = qEnvironmentVariable("CPPCHAT_TEST_ARTIFACTS");
+    if (!artifacts.isEmpty()) {
+      QVERIFY(QDir().mkpath(artifacts));
+      QVERIFY(page.findChild<QDialog *>("forwardDialog")
+                  ->grab()
+                  .save(artifacts + "/message-forward.png"));
+    }
+    choose(102);
+    QTRY_COMPARE(texts().size(), 1);
+    QCOMPARE(texts().first()["thread_id"].toInt(), 7);
+    QCOMPARE(texts().first()["touid"].toInt(), 102);
+    QCOMPARE(texts().first()["text_array"].toArray().first().toObject()["content"].toString(),
+             message.content);
+    const QString firstId =
+        texts().first()["text_array"].toArray().first().toObject()["unique_id"].toString();
+    QVERIFY(!firstId.isEmpty());
+    QCOMPARE(edit->toPlainText(), QString("source draft"));
+    result = QtFixtures::awaitStore([&](auto done) { store->LoadDraft(7, done); });
+    QCOMPARE(result.draft.first().content, QString("destination draft"));
+    // Deferred destruction must not let an old finished signal reset the new picker.
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    forwarder.Begin({message});
+    choose(102);
+    QTRY_COMPARE(texts().size(), 2);
+    QVERIFY(texts().last()["text_array"].toArray().first().toObject()["unique_id"].toString() !=
+            firstId);
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    forwarder.Begin({message});
+    choose(104);
+    QTRY_VERIFY(tcp->HasPendingRequest(ID_CREATE_PRIVATE_CHAT_REQ));
+    QTRY_VERIFY(!peer.chatRequests.isEmpty() &&
+                peer.chatRequests.last()["other_id"].toInt() == 104);
+    auto response = peer.chatRequests.last();
+    response["error"] = 0;
+    response["thread_id"] = 9;
+    page.findChild<QDialog *>("forwardDialog")->reject();
+    QVERIFY(!tcp->HasPendingRequest(ID_CREATE_PRIVATE_CHAT_REQ));
+    peer.send(ID_CREATE_PRIVATE_CHAT_RSP, response);
+    QTest::qWait(30);
+    QCOMPARE(texts().size(), 2);
+    QVERIFY(!mgr->GetChatThreadByUid(104));
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    forwarder.Begin({message});
+    choose(104);
+    QTRY_VERIFY(peer.chatRequests.last()["request_id"] != response["request_id"]);
+    response = peer.chatRequests.last();
+    response["error"] = 0;
+    response["thread_id"] = 9;
+    peer.send(ID_CREATE_PRIVATE_CHAT_RSP, response);
+    QTRY_COMPARE(texts().size(), 3);
+    QCOMPARE(texts().last()["touid"].toInt(), 104);
+    QCOMPARE(texts().last()["thread_id"].toInt(), 9);
+    QCOMPARE(edit->toPlainText(), QString("source draft"));
+    // Forwarding media starts a new target-scoped upload; it never sends the old resource ID.
+    LoginPeer media;
+    QSettings settings(RuntimePaths::configFile(), QSettings::IniFormat);
+    settings.setValue("ResourceServer/port", media.chat.serverPort());
+    settings.sync();
+    auto image = message;
+    image.type = 1;
+    image.content = QString(32, 'a');
+    image.media = "isolated-media-upload-fixture";
+    QSignalSpy upload(ResourceMgr::instance(), &ResourceMgr::uploadFinished);
+    QVERIFY(page.ForwardSnapshots({image}, source));
+    QTRY_VERIFY(!media.chatRequests.isEmpty());
+    const auto init = media.chatRequests.first();
+    QCOMPARE(init["id"].toInt(), 1050);
+    QCOMPARE(init["recipient"].toInt(), 103);
+    QVERIFY(init["file_id"].toString() != image.content);
+    QCOMPARE(init["sha256"].toString(),
+             QString::fromLatin1(
+                 QCryptographicHash::hash(image.media, QCryptographicHash::Sha256).toHex()));
+    media.send(1051, QJsonObject{{"error", 1024}});
+    QTRY_COMPARE(upload.size(), 1);
+    QVERIFY(!upload.first()[2].toString().isEmpty());
+    QCOMPARE(texts().size(), 3);
+    QTRY_VERIFY(!source->GetPendingMessages().empty());
+    const auto pending = source->GetPendingMessages().back();
+    result = QtFixtures::awaitStore(
+        [&](auto done) { store->LoadPendingImage(pending->GetUniqueId(), done); });
+    QCOMPARE(result.image, image.media);
+    QCOMPARE(edit->toPlainText(), QString("source draft"));
+    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+    forwarder.Begin({message});
+    store->CloseAccount();
+    QVERIFY(!page.findChild<QDialog *>("forwardDialog")->isVisible());
+  }
+
   void pinyinInitials_data()
   {
     QTest::addColumn<QString>("name");
