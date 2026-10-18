@@ -100,8 +100,9 @@ void UpdateDialog::refresh()
 {
   using State = ClientUpdateService::State;
   const auto state = _service->state();
-  _notes->setVisible(true);
-  _notes->setPlainText(_service->releaseNotes());
+  const auto notes = _service->releaseNotes();
+  _notes->setPlainText(notes);
+  _notes->setVisible(!notes.isEmpty());
   _progress->setVisible(state == State::Downloading);
   _action->setEnabled(!_service->busy());
   _later->setText(_service->busy() ? tr("取消") : tr("稍后"));

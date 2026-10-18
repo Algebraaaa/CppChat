@@ -11,7 +11,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QList>
 #include <QNetworkReply>
+#include <QPair>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSignalSpy>
@@ -108,24 +110,71 @@ class UpdateTests : public QObject {
   Q_OBJECT
   QTemporaryDir _privateRoot;
 private slots:
-  void allHistoryVisibleWithoutAnAvailableUpdate()
+  void onlyNewerReleaseNotes_data()
+  {
+    QTest::addColumn<QString>("current");
+    QTest::addColumn<QString>("latest");
+    QTest::addColumn<QString>("expected");
+    QTest::newRow("multiple-newer-versions")
+        << QString("0.1.6") << QString("0.1.10")
+        << QString("v0.1.10\nTen\n\nv0.1.9\nNine\n\nv0.1.7\nSeven");
+    QTest::newRow("numeric-version-order")
+        << QString("0.1.7") << QString("0.1.10") << QString("v0.1.10\nTen\n\nv0.1.9\nNine");
+    QTest::newRow("only-latest") << QString("0.1.9") << QString("0.1.10")
+                                 << QString("v0.1.10\nTen");
+    QTest::newRow("already-latest") << QString("0.1.10") << QString("0.1.10") << QString();
+    QTest::newRow("local-version-ahead") << QString("0.1.11") << QString("0.1.10") << QString();
+    QTest::newRow("manifest-ceiling")
+        << QString("0.1.6") << QString("0.1.9") << QString("v0.1.9\nNine\n\nv0.1.7\nSeven");
+  }
+  void onlyNewerReleaseNotes()
+  {
+    QFETCH(QString, current);
+    QFETCH(QString, latest);
+    QFETCH(QString, expected);
+    Network network;
+    auto value = manifest(latest);
+    QJsonArray history;
+    for (const auto &entry : QList<QPair<QString, QString>>{
+             {"0.1.6", "Six"}, {"0.1.9", "Nine"}, {"0.1.7", "Seven"}, {"0.1.10", "Ten"}}) {
+      if (entry.first == "0.1.10" && latest != "0.1.10")
+        continue;
+      history.append(QJsonObject{{"version", entry.first}, {"notes", entry.second}});
+    }
+    value["history"] = history;
+    network.responses.append({QJsonDocument(value).toJson()});
+    ClientUpdateService service(kManifestUrl, current, nullptr, &network);
+    UpdateDialog dialog(&service);
+    auto *notes = dialog.findChild<QPlainTextEdit *>("update_notes");
+    QVERIFY(notes && notes->isHidden());
+    QVERIFY(service.releaseNotes().isEmpty());
+    QSignalSpy checked(&service, &ClientUpdateService::checkFinished);
+    dialog.checkManually();
+    QTRY_COMPARE(checked.size(), 1);
+    QCOMPARE(checked.front().front().toBool(), !expected.isEmpty());
+    QCOMPARE(service.releaseNotes(), expected);
+    QCOMPARE(notes->toPlainText(), expected);
+    QCOMPARE(notes->isHidden(), expected.isEmpty());
+  }
+  void legacyReleaseNotesAndFailedRecheck()
   {
     Network network;
-    auto value = manifest("0.1.7");
-    value["history"] = QJsonArray{QJsonObject{{"version", "0.1.7"}, {"notes", "当前版本内容"}},
-                                  QJsonObject{{"version", "0.1.6"}, {"notes", "旧版本内容"}}};
-    network.responses.append({QJsonDocument(value).toJson()});
-    ClientUpdateService service(kManifestUrl, "0.1.7", nullptr, &network);
+    network.responses = {{QJsonDocument(manifest("0.1.10")).toJson()}, {QByteArray(), 404}};
+    ClientUpdateService service(kManifestUrl, "0.1.9", nullptr, &network);
     UpdateDialog dialog(&service);
-    dialog.checkManually();
     QSignalSpy checked(&service, &ClientUpdateService::checkFinished);
+    dialog.checkManually();
     QTRY_COMPARE(checked.size(), 1);
-    QCOMPARE(checked.front().front().toBool(), false);
+    QCOMPARE(service.releaseNotes(), QString("v0.1.10\n修复登录与聊天"));
     auto *notes = dialog.findChild<QPlainTextEdit *>("update_notes");
     QVERIFY(notes && !notes->isHidden());
-    QVERIFY(notes->toPlainText().contains("旧版本内容"));
-    QVERIFY(notes->toPlainText().contains("v0.1.0"));
-    QVERIFY(notes->toPlainText().indexOf("v0.1.7") < notes->toPlainText().indexOf("v0.1.6"));
+    QSignalSpy failed(&service, &ClientUpdateService::failed);
+    service.check();
+    QVERIFY(notes->isHidden());
+    QTRY_COMPARE(failed.size(), 1);
+    QVERIFY(service.releaseNotes().isEmpty());
+    QVERIFY(notes->toPlainText().isEmpty());
+    QVERIFY(notes->isHidden());
   }
   void invalidOrDuplicateHistoryRejected()
   {

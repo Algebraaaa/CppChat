@@ -61,32 +61,25 @@ ClientUpdateService::~ClientUpdateService() { stopReply(); }
 
 QString ClientUpdateService::releaseNotes() const
 {
-  static const auto bundled = [] {
-    QMap<QString, QString> entries;
-    QFile file(QStringLiteral(":/updates/history.json"));
-    if (!file.open(QIODevice::ReadOnly))
-      return entries;
-    for (const auto &entry : QJsonDocument::fromJson(file.readAll()).array()) {
-      const auto item = entry.toObject();
-      entries.insert(item["version"].toString(), item["notes"].toString());
-    }
-    return entries;
-  }();
-  auto entries = bundled;
-  for (auto it = _info.history.cbegin(); it != _info.history.cend(); ++it)
-    entries.insert(it.key(), it.value());
+  if (!validVersion(_currentVersion) || !validVersion(_info.version))
+    return {};
+  const auto current = QVersionNumber::fromString(_currentVersion);
+  const auto latest = QVersionNumber::fromString(_info.version);
+  if (latest <= current)
+    return {};
+  auto entries = _info.history;
   if (_info.history.isEmpty() && !_info.version.isEmpty() && !_info.notes.isEmpty())
     entries.insert(_info.version, _info.notes);
   auto versions = entries.keys();
   std::sort(versions.begin(), versions.end(), [](const auto &a, const auto &b) {
     return QVersionNumber::fromString(a) > QVersionNumber::fromString(b);
   });
-  const auto ceiling =
-      qMax(QVersionNumber::fromString(_currentVersion), QVersionNumber::fromString(_info.version));
   QStringList notes;
-  for (const auto &version : versions)
-    if (QVersionNumber::fromString(version) <= ceiling)
+  for (const auto &version : versions) {
+    const auto number = QVersionNumber::fromString(version);
+    if (number > current && number <= latest)
       notes.append(QStringLiteral("v%1\n%2").arg(version, entries.value(version)));
+  }
   return notes.join(QStringLiteral("\n\n"));
 }
 
