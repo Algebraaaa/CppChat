@@ -11,7 +11,7 @@ QMainWindow#MainWindow #centralwidget {
 }
 
 QMainWindow#MainWindow #content_host {
-    background-color: #f3f3f3;
+    background-color: ${color.surface.page};
 }
 
 QMainWindow#MainWindow #title_bar {
@@ -21,12 +21,12 @@ QMainWindow#MainWindow #title_bar {
 }
 
 QMainWindow#MainWindow #title_bar #title_label {
-    color: #303133;
+    color: ${color.text.body};
     font-size: ${font.size.label};
 }
 
 QMainWindow#MainWindow #title_bar QPushButton {
-    color: #404040;
+    color: ${color.text.body};
     background-color: transparent;
     border: none;
     border-radius: ${radius.square};
@@ -37,30 +37,30 @@ QMainWindow#MainWindow #check_updates_btn:hover,
 QMainWindow#MainWindow #pin_btn:hover,
 QMainWindow#MainWindow #minimize_btn:hover,
 QMainWindow#MainWindow #maximize_btn:hover {
-    background-color: #e5e5e5;
+    background-color: ${color.panel};
 }
 
 QMainWindow#MainWindow #check_updates_btn:pressed,
 QMainWindow#MainWindow #pin_btn:pressed,
 QMainWindow#MainWindow #minimize_btn:pressed,
 QMainWindow#MainWindow #maximize_btn:pressed {
-    background-color: #d6d6d6;
+    background-color: ${color.surface.pressed};
 }
 
 QMainWindow#MainWindow #close_btn:hover {
-    color: white;
-    background-color: #e81123;
+    color: ${color.text.onBrand};
+    background-color: ${color.window.close.hover};
 }
 
 QMainWindow#MainWindow #pin_btn:checked {
-    background-color: #dff3e7;
+    background-color: ${color.secondary.surface};
 }
 
 QMainWindow#MainWindow #pin_btn:checked:hover {
-    background-color: #cfebdb;
+    background-color: ${color.secondary.surface.hover};
 }
 
 QMainWindow#MainWindow #close_btn:pressed {
-    color: white;
-    background-color: #c50f1f;
+    color: ${color.text.onBrand};
+    background-color: ${color.window.close.pressed};
 }

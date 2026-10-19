@@ -10,6 +10,11 @@ class ProfileDialog;
 class SideMenuPopup;
 class ChatSyncService;
 class MessageForwarder;
+class ReminderService;
+class RemindersDialog;
+class NotesDialog;
+class ChatHistoryDialog;
+class ClientSettingsDialog;
 namespace Ui {
 class ChatDialog;
 }
@@ -23,6 +28,7 @@ public:
   void ResetSession();
 signals:
   void sig_logout();
+  void checkUpdatesRequested();
 
 protected:
   bool eventFilter(QObject *watched, QEvent *event) override;
@@ -48,9 +54,18 @@ private:
                       const std::vector<std::shared_ptr<TextChatData>> &messages);
   void FriendDeleted(int uid);
   void RequestFailed(ReqId request, const QString &message);
+  void ShowNotes();
+  void ShowReminders();
+  void ShowHistory();
+  void ShowSettings();
   Ui::ChatDialog *ui;
   ChatSyncService *_sync = nullptr;
   MessageForwarder *_forwarder = nullptr;
+  ReminderService *_reminders = nullptr;
+  QPointer<RemindersDialog> _remindersDialog;
+  QPointer<NotesDialog> _notesDialog;
+  QPointer<ChatHistoryDialog> _globalHistory;
+  QPointer<ClientSettingsDialog> _settingsDialog;
   ProfileDialog *_profileDialog = nullptr;
   SideMenuPopup *_sideMenu = nullptr;
   QPointer<AddFriendDialog> _addFriendDialog;

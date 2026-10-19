@@ -1,14 +1,14 @@
 /* Shared form inputs and button roles: primary, secondary, verification. */
 
 QLineEdit[inputRole="form"] {
-    color: #262626;
-    background-color: #fbfbfb;
+    color: ${color.text.body};
+    background-color: ${color.input.background};
     border: 1px solid ${color.border.input};
     border-radius: ${radius.control};
     padding-left: 8px;
     padding-right: 8px;
     font-size: ${font.size.label};
-    selection-color: ${color.surface};
+    selection-color: ${color.text.onBrand};
     selection-background-color: ${color.brand};
 }
 
@@ -23,9 +23,9 @@ QLineEdit[inputRole="form"]:focus {
 }
 
 QLineEdit[inputRole="form"]:disabled {
-    color: #a8a8a8;
-    background-color: #f2f2f2;
-    border-color: #e5e5e5;
+    color: ${color.text.muted};
+    background-color: ${color.input.disabled.background};
+    border-color: ${color.border.card};
 }
 
 QPushButton[buttonRole] {
@@ -37,7 +37,7 @@ QPushButton[buttonRole] {
 }
 
 QPushButton[buttonRole="primary"] {
-    color: ${color.surface};
+    color: ${color.text.onBrand};
     background-color: ${color.brand};
     border: 1px solid ${color.brand};
 }
@@ -54,59 +54,59 @@ QPushButton[buttonRole="primary"]:pressed {
 }
 
 QPushButton[buttonRole="primary"]:disabled {
-    color: ${color.surface};
+    color: ${color.text.onBrand};
     background-color: ${color.brand.disabled};
     border-color: ${color.brand.disabled};
 }
 
 QPushButton[buttonRole="secondary"] {
-    color: #333333;
+    color: ${color.text.body};
     background-color: ${color.surface};
-    border: 1px solid #dcdfe6;
+    border: 1px solid ${color.border.card};
 }
 
 QPushButton[buttonRole="secondary"]:hover,
 QPushButton[buttonRole="secondary"]:focus {
-    color: #07a951;
-    background-color: #f5fbf8;
+    color: ${color.secondary.text};
+    background-color: ${color.surface.subtle};
     border-color: ${color.secondary.border.hover};
 }
 
 QPushButton[buttonRole="secondary"]:pressed {
     color: ${color.secondary.text};
-    background-color: #e9f7f0;
+    background-color: ${color.secondary.surface};
     border-color: ${color.secondary.border.pressed};
 }
 
 QPushButton[buttonRole="secondary"]:disabled {
     color: ${color.text.disabled};
-    background-color: #f5f5f5;
-    border-color: #e5e5e5;
+    background-color: ${color.surface.page};
+    border-color: ${color.border.card};
 }
 
 QPushButton[buttonRole="verification"] {
     color: ${color.secondary.text};
-    background-color: #effaf4;
-    border: 1px solid #a9e5c4;
+    background-color: ${color.surface.subtle};
+    border: 1px solid ${color.secondary.border.hover};
     padding-left: 10px;
     padding-right: 10px;
 }
 
 QPushButton[buttonRole="verification"]:hover,
 QPushButton[buttonRole="verification"]:focus {
-    color: #067d3d;
-    background-color: #e2f7ec;
-    border-color: #70cf9c;
+    color: ${color.secondary.text};
+    background-color: ${color.secondary.surface};
+    border-color: ${color.secondary.border.hover};
 }
 
 QPushButton[buttonRole="verification"]:pressed {
-    color: #056f36;
-    background-color: #d4f1e2;
-    border-color: #52bd84;
+    color: ${color.secondary.text};
+    background-color: ${color.secondary.surface.hover};
+    border-color: ${color.secondary.border.hover};
 }
 
 QPushButton[buttonRole="verification"]:disabled {
-    color: #9eaaa4;
-    background-color: #f1f4f2;
-    border-color: #dde3e0;
+    color: ${color.text.muted};
+    background-color: ${color.surface.page};
+    border-color: ${color.border.card};
 }

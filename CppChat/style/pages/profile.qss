@@ -2,7 +2,7 @@
 QDialog#ChatDialog #friend_info_page,
 QDialog#ChatDialog #friend_info_page #profile_scroll,
 QDialog#ChatDialog #friend_info_page #profile_scroll_body {
-    background: #fafafa;
+    background: ${color.surface.subtle};
     border: none;
 }
 
@@ -18,7 +18,7 @@ QDialog#ChatDialog #friend_info_page QLabel {
 }
 
 QDialog#ChatDialog #friend_info_page QLabel[profileRole="muted"] {
-    color: #777981;
+    color: ${color.text.muted};
 }
 
 QDialog#ChatDialog #friend_info_page #name_lb {
@@ -33,7 +33,7 @@ QDialog#ChatDialog #friend_info_page #region_lb {
 }
 
 QDialog#ChatDialog #friend_info_page #sex_lb {
-    color: #12a9e6;
+    color: ${color.link};
     font-size: ${font.size.small};
 }
 
@@ -44,27 +44,27 @@ QDialog#ChatDialog #friend_info_page #icon_lb {
 }
 
 QDialog#ChatDialog #friend_info_page QFrame[profileRole="divider"] {
-    background: #ebebee;
+    background: ${color.panel};
     border: none;
 }
 
 QDialog#ChatDialog #friend_info_page QPushButton[profileRole="placeholder"] {
     background: transparent;
     border: none;
-    color: #90929a;
+    color: ${color.text.muted};
     font-size: ${font.size.base};
     text-align: left;
     padding: 4px 0;
 }
 
 QDialog#ChatDialog #friend_info_page QPushButton[profileRole="placeholder"]:hover {
-    color: #63666f;
+    color: ${color.text.muted};
 }
 
 QDialog#ChatDialog #friend_info_page QPushButton[profileRole="link"] {
     background: transparent;
     border: none;
-    color: #576b95;
+    color: ${color.link};
     font-size: ${font.size.base};
     text-align: left;
     padding: 4px 0;
@@ -82,24 +82,24 @@ QDialog#ChatDialog #friend_info_page #more_btn {
 }
 
 QDialog#ChatDialog #friend_info_page #more_btn:hover {
-    background: #ededf0;
+    background: ${color.surface.page};
 }
 
 QDialog#ChatDialog #friend_info_page QToolButton {
     background: transparent;
     border: none;
     border-radius: ${radius.control};
-    color: #30518f;
+    color: ${color.link};
     font-size: ${font.size.label};
     padding: 4px;
 }
 
 QDialog#ChatDialog #friend_info_page QToolButton:hover {
-    background: #eceff4;
+    background: ${color.surface.page};
 }
 
 QDialog#ChatDialog #friend_info_page QToolButton:pressed {
-    background: #e0e5ee;
+    background: ${color.panel};
 }
 
 QDialog#ChatDialog #friend_info_page QToolButton:disabled {
@@ -170,19 +170,19 @@ QDialog#ProfileDialog #user_info_page QWidget#profile_card {
 }
 
 QDialog#ProfileDialog #user_info_page #head_lb {
-    background: #f0f2f3;
-    border: 1px solid #e1e4e7;
+    background: ${color.surface.page};
+    border: 1px solid ${color.border.card};
     border-radius: ${radius.panel};
 }
 
 QDialog#ProfileDialog #user_info_page #profile_divider {
     background: transparent;
     border: none;
-    border-top: 1px solid #eceeef;
+    border-top: 1px solid ${color.border.card};
 }
 
 QDialog#ProfileDialog #user_info_page #avatar_title_lb {
-    color: #24272b;
+    color: ${color.text.body};
     font-size: ${font.size.subheading};
     font-weight: ${font.weight.medium};
 }
@@ -196,27 +196,27 @@ QDialog#ProfileDialog #user_info_page #name_hint_lb {
 QDialog#ProfileDialog #user_info_page #name_title_lb,
 QDialog#ProfileDialog #user_info_page #nick_title_lb,
 QDialog#ProfileDialog #user_info_page #desc_title_lb {
-    color: #4a4e54;
+    color: ${color.text.body};
     font-size: ${font.size.label};
     font-weight: ${font.weight.medium};
 }
 
 QDialog#ProfileDialog #user_info_page QLineEdit {
-    color: #24272b;
+    color: ${color.text.body};
     background: ${color.surface.subtle};
-    border: 1px solid #dde1e4;
+    border: 1px solid ${color.border.card};
     border-radius: ${radius.action};
     padding-left: 12px;
     padding-right: 12px;
     font-size: ${font.size.base};
-    selection-color: ${color.surface};
+    selection-color: ${color.text.onBrand};
     selection-background-color: ${color.brand};
     outline: none;
 }
 
 QDialog#ProfileDialog #user_info_page QLineEdit:hover {
     background: ${color.surface};
-    border-color: #bdc4c9;
+    border-color: ${color.border.card};
 }
 
 QDialog#ProfileDialog #user_info_page QLineEdit:focus {
@@ -225,9 +225,9 @@ QDialog#ProfileDialog #user_info_page QLineEdit:focus {
 }
 
 QDialog#ProfileDialog #user_info_page QLineEdit:disabled {
-    color: #9ca1a7;
-    background: #f1f2f3;
-    border-color: #e3e5e7;
+    color: ${color.text.muted};
+    background: ${color.surface.page};
+    border-color: ${color.border.card};
 }
 
 QDialog#ProfileDialog #user_info_page QPushButton {
@@ -239,23 +239,23 @@ QDialog#ProfileDialog #user_info_page QPushButton {
 }
 
 QDialog#ProfileDialog #user_info_page #up_btn {
-    color: #079a4d;
+    color: ${color.secondary.text};
     background: ${color.surface};
-    border: 1px solid #87d9ad;
+    border: 1px solid ${color.secondary.border.hover};
 }
 
 QDialog#ProfileDialog #user_info_page #up_btn:hover {
-    color: #067c40;
-    background: #f0fbf5;
-    border-color: #45bf7d;
+    color: ${color.secondary.text};
+    background: ${color.surface.subtle};
+    border-color: ${color.secondary.border.hover};
 }
 
 QDialog#ProfileDialog #user_info_page #up_btn:pressed {
-    background: #e2f6eb;
+    background: ${color.secondary.surface};
 }
 
 QDialog#ProfileDialog #user_info_page #submit_btn {
-    color: ${color.surface};
+    color: ${color.text.onBrand};
     background: ${color.brand};
     border: 1px solid ${color.brand};
 }
@@ -266,28 +266,28 @@ QDialog#ProfileDialog #user_info_page #submit_btn:hover {
 }
 
 QDialog#ProfileDialog #user_info_page #submit_btn:pressed {
-    background: #05984b;
-    border-color: #05984b;
+    background: ${color.secondary.surface.pressed};
+    border-color: ${color.secondary.border.hover};
 }
 
 QDialog#ProfileDialog #user_info_page #logout_btn {
-    color: #b94a4a;
+    color: ${color.status.error};
     background: ${color.surface};
-    border: 1px solid #eccaca;
+    border: 1px solid ${color.status.error.border};
 }
 
 QDialog#ProfileDialog #user_info_page #logout_btn:hover {
-    color: #a43c3c;
-    background: #fff6f6;
-    border-color: #dfaaaa;
+    color: ${color.status.error};
+    background: ${color.surface};
+    border-color: ${color.status.error.border};
 }
 
 QDialog#ProfileDialog #user_info_page #logout_btn:pressed {
-    background: #fdeaea;
+    background: ${color.status.error.surface};
 }
 
 QDialog#ProfileDialog #user_info_page QPushButton:disabled {
-    color: #a5a9ae;
-    background: #eef0f1;
-    border-color: #e0e3e5;
+    color: ${color.text.disabled};
+    background: ${color.surface.page};
+    border-color: ${color.border.card};
 }

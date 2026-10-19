@@ -6,6 +6,10 @@
 
 class QButtonGroup;
 class QTimer;
+class QComboBox;
+class HistoryExporter;
+class QPushButton;
+class QLabel;
 namespace Ui {
 class ChatHistoryDialog;
 }
@@ -17,13 +21,24 @@ public:
   explicit ChatHistoryDialog(QWidget *parent = nullptr);
   ~ChatHistoryDialog() override;
   void SetConversation(int threadId, const QString &name);
+  void SetAllConversations();
   void Reset();
+signals:
+  void openThreadRequested(int threadId);
 
 protected:
   bool eventFilter(QObject *watched, QEvent *event) override;
+  void done(int result) override;
 
 private:
   void Query(bool reset = true);
+  void Display(const ChatStoreResult &result);
+  void AppendMessage(const StoredMessage &message);
+  void BeginExport();
+  void SetExportBusy(bool busy);
+  void RefreshScope();
+  QVector<int> AllowedThreads() const;
+  QString ThreadName(int threadId) const;
   QTimer *_searchTimer;
   quint64 _revision = 0;
   int _pageIndex = 0;
@@ -34,6 +49,11 @@ private:
   Ui::ChatHistoryDialog *ui;
   QButtonGroup *_categories;
   int _threadId = 0;
+  bool _global = false;
+  QComboBox *_scope;
+  HistoryExporter *_exporter;
+  QPushButton *_exportButton;
+  QLabel *_exportStatus;
 };
 
 #endif

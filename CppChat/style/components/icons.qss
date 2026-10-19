@@ -1,12 +1,12 @@
 /* Lucide icon states. Geometry is owned by .ui; artwork is 24px on a 34px canvas. */
 
 /* 聊天记录入口组合聊天气泡与向下箭头，画布为 54×34。 */
-QDialog#ChatDialog #chat_page #chat_history_btn {
+ChatPage #chat_history_btn {
     border-image: url(:/icons/history-entry-normal.svg);
 }
 
-QDialog#ChatDialog #chat_page #chat_history_btn:hover,
-QDialog#ChatDialog #chat_page #chat_history_btn:pressed {
+ChatPage #chat_history_btn:hover,
+ChatPage #chat_history_btn:pressed {
     border-image: url(:/icons/history-entry-hover.svg);
 }
 
@@ -27,15 +27,15 @@ QDialog#ChatDialog #side_discover_btn,
 QDialog#ChatDialog #side_phone_btn,
 QDialog#ChatDialog #side_menu_btn,
 QDialog#ChatDialog #add_btn,
-QDialog#ChatDialog #chat_page #emo_btn,
-QDialog#ChatDialog #chat_page #favorites_btn,
-QDialog#ChatDialog #chat_page #file_btn,
-QDialog#ChatDialog #chat_page #screenshot_btn,
-QDialog#ChatDialog #chat_page #voice_transcribe_btn,
-QDialog#ChatDialog #chat_page #call_btn,
-QDialog#ChatDialog #chat_page #voice_message_btn,
-QDialog#ChatDialog #chat_page #chat_history_btn,
-QDialog#ChatDialog #chat_page #chat_more_btn {
+ChatPage #emo_btn,
+ChatPage #favorites_btn,
+ChatPage #file_btn,
+ChatPage #screenshot_btn,
+ChatPage #voice_transcribe_btn,
+ChatPage #call_btn,
+ChatPage #voice_message_btn,
+ChatPage #chat_history_btn,
+ChatPage #chat_more_btn {
     background: transparent;
     border: none;
     border-radius: ${radius.control};
@@ -48,7 +48,7 @@ QDialog#ChatDialog #side_favorites_btn:hover,
 QDialog#ChatDialog #side_discover_btn:hover,
 QDialog#ChatDialog #side_phone_btn:hover,
 QDialog#ChatDialog #side_menu_btn:hover {
-    background-color: #d6d7d9;
+    background-color: ${color.surface.hover};
 }
 
 QDialog#ChatDialog #side_chat_btn:pressed,
@@ -57,31 +57,31 @@ QDialog#ChatDialog #side_favorites_btn:pressed,
 QDialog#ChatDialog #side_discover_btn:pressed,
 QDialog#ChatDialog #side_phone_btn:pressed,
 QDialog#ChatDialog #side_menu_btn:pressed {
-    background-color: #cbccce;
+    background-color: ${color.surface.pressed};
 }
 
-QDialog#ChatDialog #chat_page #emo_btn:hover,
-QDialog#ChatDialog #chat_page #favorites_btn:hover,
-QDialog#ChatDialog #chat_page #file_btn:hover,
-QDialog#ChatDialog #chat_page #screenshot_btn:hover,
-QDialog#ChatDialog #chat_page #voice_transcribe_btn:hover,
-QDialog#ChatDialog #chat_page #call_btn:hover,
-QDialog#ChatDialog #chat_page #voice_message_btn:hover,
-QDialog#ChatDialog #chat_page #chat_more_btn:hover,
-QDialog#ChatDialog #chat_page #chat_history_btn:hover,
+ChatPage #emo_btn:hover,
+ChatPage #favorites_btn:hover,
+ChatPage #file_btn:hover,
+ChatPage #screenshot_btn:hover,
+ChatPage #voice_transcribe_btn:hover,
+ChatPage #call_btn:hover,
+ChatPage #voice_message_btn:hover,
+ChatPage #chat_more_btn:hover,
+ChatPage #chat_history_btn:hover,
 QDialog#ChatDialog #add_btn:hover {
     background-color: ${color.surface.hover};
 }
 
-QDialog#ChatDialog #chat_page #emo_btn:pressed,
-QDialog#ChatDialog #chat_page #file_btn:pressed,
-QDialog#ChatDialog #chat_page #favorites_btn:pressed,
-QDialog#ChatDialog #chat_page #screenshot_btn:pressed,
-QDialog#ChatDialog #chat_page #voice_transcribe_btn:pressed,
-QDialog#ChatDialog #chat_page #call_btn:pressed,
-QDialog#ChatDialog #chat_page #voice_message_btn:pressed,
-QDialog#ChatDialog #chat_page #chat_more_btn:pressed,
-QDialog#ChatDialog #chat_page #chat_history_btn:pressed,
+ChatPage #emo_btn:pressed,
+ChatPage #file_btn:pressed,
+ChatPage #favorites_btn:pressed,
+ChatPage #screenshot_btn:pressed,
+ChatPage #voice_transcribe_btn:pressed,
+ChatPage #call_btn:pressed,
+ChatPage #voice_message_btn:pressed,
+ChatPage #chat_more_btn:pressed,
+ChatPage #chat_history_btn:pressed,
 QDialog#ChatDialog #add_btn:pressed {
     background-color: ${color.surface.pressed};
 }
@@ -164,94 +164,94 @@ QDialog#ChatDialog #side_menu_btn:pressed {
     border-image: url(:/icons/menu-hover.svg);
 }
 
-QDialog#ChatDialog #chat_page #chat_more_btn {
+ChatPage #chat_more_btn {
     border-image: url(:/icons/ellipsis-normal.svg);
 }
 
-QDialog#ChatDialog #chat_page #chat_more_btn:hover,
-QDialog#ChatDialog #chat_page #chat_more_btn:pressed {
+ChatPage #chat_more_btn:hover,
+ChatPage #chat_more_btn:pressed {
     border-image: url(:/icons/ellipsis-hover.svg);
 }
 
-QDialog#ChatDialog #chat_page #favorites_btn {
+ChatPage #favorites_btn {
     border-image: url(:/icons/bookmark-normal.svg);
 }
 
-QDialog#ChatDialog #chat_page #favorites_btn:hover,
-QDialog#ChatDialog #chat_page #favorites_btn:pressed {
+ChatPage #favorites_btn:hover,
+ChatPage #favorites_btn:pressed {
     border-image: url(:/icons/bookmark-hover.svg);
 }
 
-QDialog#ChatDialog #chat_page #screenshot_btn {
+ChatPage #screenshot_btn {
     border-image: url(:/icons/scissors-normal.svg);
 }
 
-QDialog#ChatDialog #chat_page #screenshot_btn:hover,
-QDialog#ChatDialog #chat_page #screenshot_btn:pressed {
+ChatPage #screenshot_btn:hover,
+ChatPage #screenshot_btn:pressed {
     border-image: url(:/icons/scissors-hover.svg);
 }
 
-QDialog#ChatDialog #chat_page #voice_transcribe_btn {
+ChatPage #voice_transcribe_btn {
     border-image: url(:/icons/mic-normal.svg);
 }
 
-QDialog#ChatDialog #chat_page #voice_transcribe_btn:hover,
-QDialog#ChatDialog #chat_page #voice_transcribe_btn:pressed {
+ChatPage #voice_transcribe_btn:hover,
+ChatPage #voice_transcribe_btn:pressed {
     border-image: url(:/icons/mic-hover.svg);
 }
 
-QDialog#ChatDialog #chat_page #emo_btn {
+ChatPage #emo_btn {
     border-image: url(:/icons/smile-normal.svg);
 }
 
-QDialog#ChatDialog #chat_page #emo_btn:hover,
-QDialog#ChatDialog #chat_page #emo_btn:pressed {
+ChatPage #emo_btn:hover,
+ChatPage #emo_btn:pressed {
     border-image: url(:/icons/smile-hover.svg);
 }
 
 /* 选中状态只跟随表情面板的显示状态，关闭后不残留。 */
-QDialog#ChatDialog #chat_page #emo_btn:checked {
-    background-color: #dff3e8;
+ChatPage #emo_btn:checked {
+    background-color: ${color.secondary.surface};
     border-image: url(:/icons/smile-hover.svg);
 }
 
-QDialog#ChatDialog #chat_page #file_btn {
+ChatPage #file_btn {
     border-image: url(:/icons/folder-open-normal.svg);
 }
 
-QDialog#ChatDialog #chat_page #file_btn:hover,
-QDialog#ChatDialog #chat_page #file_btn:pressed {
+ChatPage #file_btn:hover,
+ChatPage #file_btn:pressed {
     border-image: url(:/icons/folder-open-hover.svg);
 }
 
 /* 红点是按钮上的显示标签，不拦截鼠标点击。 */
 QDialog#ChatDialog #side_bar #chat_unread_dot,
 QDialog#ChatDialog #side_bar #contact_unread_dot {
-    background: #fa5151;
+    background: ${color.status.badge};
     border: none;
     border-radius: ${radius.dot};
 }
 
 /* 通话入口和语音消息沿用同一 34px 画布及灰色状态。 */
-QDialog#ChatDialog #chat_page #call_btn {
+ChatPage #call_btn {
     border-image: url(:/icons/call-entry-normal.svg);
 }
 
-QDialog#ChatDialog #chat_page #call_btn:hover,
-QDialog#ChatDialog #chat_page #call_btn:pressed {
+ChatPage #call_btn:hover,
+ChatPage #call_btn:pressed {
     border-image: url(:/icons/call-entry-hover.svg);
 }
 
-QDialog#ChatDialog #chat_page #call_btn::menu-indicator {
+ChatPage #call_btn::menu-indicator {
     image: none;
     width: 0;
 }
 
-QDialog#ChatDialog #chat_page #voice_message_btn {
+ChatPage #voice_message_btn {
     border-image: url(:/icons/voice-message-normal.svg);
 }
 
-QDialog#ChatDialog #chat_page #voice_message_btn:hover,
-QDialog#ChatDialog #chat_page #voice_message_btn:pressed {
+ChatPage #voice_message_btn:hover,
+ChatPage #voice_message_btn:pressed {
     border-image: url(:/icons/voice-message-hover.svg);
 }

@@ -9,6 +9,8 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QLockFile>
 #include <QRunnable>
 #include <QSaveFile>
@@ -524,7 +526,7 @@ void ChatStore::OpenAccount(int uid, const QString &server, Callback callback)
         checked(version.exec("PRAGMA user_version") && version.next(),
                 "Cannot read database version");
         const int priorVersion = version.value(0).toInt();
-        checked(priorVersion <= 4, "Local database is newer than this client");
+        checked(priorVersion <= 5, "Local database is newer than this client");
         version.finish();
         QFile schema(":/storage/chatstore-schema.sql");
         checked(schema.open(QIODevice::ReadOnly), "Local database schema is missing");
@@ -730,15 +732,35 @@ void ChatStore::LoadMessages(int thread, int beforeId, int limit, Callback callb
 }
 
 void ChatStore::SearchMessages(int thread, const QString &text, int type, HistoryCursor cursor,
-                               Callback callback, const QString &date)
+                               Callback callback, const QString &date,
+                               const QVector<int> &allowedThreads)
 {
-  const auto revision = ++*_searchRevision;
-  const auto latest = _searchRevision;
+  QueryHistory({thread, text, type, date, allowedThreads, false}, cursor, callback);
+}
+
+void ChatStore::QueryHistory(const HistoryFilter &filter, HistoryCursor cursor, Callback callback)
+{
+  QJsonArray scope;
+  for (int id : filter.allowedThreads)
+    if (id > 0)
+      scope.append(id);
   Execute(
-      [thread, text, type, cursor, date, latest, revision](QSqlDatabase &database) {
+      [filter, cursor, scope](QSqlDatabase &database) mutable {
         ChatStoreResult result;
-        if (latest->load() != revision)
-          return result; // 排队期间已经被新查询取代，不扫描数据库。
+        const int thread = filter.threadId, type = filter.category;
+        const auto text = filter.text, date = filter.date;
+        checked(thread >= 0, "Invalid conversation");
+        checked(type == -1 || type == 0 || type == 1 || type == 3 || type == 4,
+                "Invalid search category");
+        if (thread == 0 && scope.isEmpty())
+          return result; // An empty access scope must never mean all stored conversations.
+        if (cursor.ceilingId == 0) {
+          QSqlQuery boundary(database);
+          boundary.prepare("SELECT COALESCE(MAX(local_id),0) FROM messages");
+          run(boundary);
+          checked(boundary.next(), "Cannot read history boundary");
+          cursor.ceilingId = boundary.value(0).toLongLong();
+        }
         const auto day = QDate::fromString(date, "yyyy-MM-dd");
         checked(date.isEmpty() || (day.isValid() && day.addDays(1).isValid()),
                 "Invalid search date");
@@ -748,15 +770,28 @@ void ChatStore::SearchMessages(int thread, const QString &text, int type, Histor
         query.prepare(
             "SELECT " + kMessageColumns +
             " FROM messages m JOIN conversations c ON c.thread_id=m.thread_id "
-            "WHERE m.thread_id=? AND (m.server_id IS NULL OR m.server_id>c.hidden_before_id) "
+            "WHERE " +
+            (thread > 0 ? QStringLiteral("m.thread_id=?")
+                        : QStringLiteral("m.thread_id IN (SELECT value FROM json_each(?))")) +
+            " AND (m.server_id IS NULL OR m.server_id>c.hidden_before_id) "
+            "AND m.local_id<=? AND (?=0 OR m.server_id IS NOT NULL) "
             "AND (?<0 OR (?<>3 AND m.message_type=?) OR "
             "(?=3 AND m.message_type=0 AND (m.content LIKE '%http://%' OR m.content LIKE "
             "'%https://%'))) "
             "AND (?='' OR (m.chat_time>=? AND m.chat_time<?)) AND m.content LIKE ? ESCAPE '\\' "
-            "AND COALESCE(m.server_id,2147483647)<=? "
-            "AND (COALESCE(m.server_id,2147483647),m.local_id)<(?,?) "
-            "ORDER BY COALESCE(m.server_id,2147483647) DESC,m.local_id DESC LIMIT 51");
-        query.addBindValue(thread);
+            "AND " +
+            (thread > 0
+                 ? QStringLiteral(
+                       "COALESCE(m.server_id,2147483647)<=? "
+                       "AND (COALESCE(m.server_id,2147483647),m.local_id)<(?,?) "
+                       "ORDER BY COALESCE(m.server_id,2147483647) DESC,m.local_id DESC LIMIT 51")
+                 : QStringLiteral("(m.chat_time,m.local_id)<(?,?) "
+                                  "ORDER BY m.chat_time DESC,m.local_id DESC LIMIT 51")));
+        query.addBindValue(thread > 0 ? QVariant(thread)
+                                      : QVariant(QString::fromUtf8(
+                                            QJsonDocument(scope).toJson(QJsonDocument::Compact))));
+        query.addBindValue(cursor.ceilingId);
+        query.addBindValue(filter.confirmedOnly ? 1 : 0);
         query.addBindValue(type);
         query.addBindValue(type);
         // Search category 3 remains links; 4 is the new audio category.
@@ -766,19 +801,23 @@ void ChatStore::SearchMessages(int thread, const QString &text, int type, Histor
         query.addBindValue(date.isNull() ? QStringLiteral("") : date);
         query.addBindValue(day.addDays(1).toString("yyyy-MM-dd"));
         query.addBindValue('%' + escaped + '%');
-        query.addBindValue(cursor.serverId);
-        query.addBindValue(cursor.serverId);
+        if (thread > 0) {
+          query.addBindValue(cursor.serverId);
+          query.addBindValue(cursor.serverId);
+        } else
+          query.addBindValue(cursor.time.isEmpty() ? QString(QChar(0xffff)) : cursor.time);
         query.addBindValue(cursor.localId);
         run(query);
         while (query.next())
           result.messages.append(readMessage(query));
+        checked(!query.lastError().isValid(), query.lastError().text());
         result.more = result.messages.size() > 50;
         if (result.more)
           result.messages.removeLast();
         if (!result.messages.isEmpty()) {
           const auto &last = result.messages.last();
           result.nextCursor = {last.serverId > 0 ? last.serverId : std::numeric_limits<int>::max(),
-                               last.localId};
+                               last.localId, last.time, cursor.ceilingId};
         }
         return result;
       },
@@ -976,11 +1015,24 @@ void ChatStore::LoadAttachment(const QString &id, Callback callback)
       });
 }
 
-void ChatStore::ClearLocalHistory(int thread, Callback callback)
+void ChatStore::ClearLocalHistory(int thread, Callback callback, bool requireConfirmedOnly)
 {
   Execute(
-      [thread](QSqlDatabase &database) {
+      [thread, requireConfirmedOnly](QSqlDatabase &database) {
         Transaction transaction(database);
+        checked(thread > 0, "Invalid conversation");
+        QSqlQuery exists(database);
+        exists.prepare("SELECT 1 FROM conversations WHERE thread_id=?");
+        exists.addBindValue(thread);
+        run(exists);
+        checked(exists.next(), "Conversation is missing");
+        if (requireConfirmedOnly) {
+          QSqlQuery pending(database);
+          pending.prepare("SELECT 1 FROM messages WHERE thread_id=? AND server_id IS NULL LIMIT 1");
+          pending.addBindValue(thread);
+          run(pending);
+          checked(!pending.next(), "Conversation still has pending messages");
+        }
         QSqlQuery query(database);
         // 记录隐藏边界，保留同步/去重信息；后续补拉不会把清空前的内容再次显示。
         query.prepare("UPDATE conversations SET hidden_before_id=MAX(last_server_id,"
@@ -993,10 +1045,22 @@ void ChatStore::ClearLocalHistory(int thread, Callback callback)
         remove.prepare("DELETE FROM messages WHERE thread_id=? AND server_id IS NOT NULL");
         remove.addBindValue(thread);
         run(remove);
+        ChatStoreResult result;
+        QSqlQuery boundary(database);
+        boundary.prepare("SELECT hidden_before_id FROM conversations WHERE thread_id=?");
+        boundary.addBindValue(thread);
+        run(boundary);
+        if (boundary.next())
+          result.cursors.insert(thread, boundary.value(0).toInt());
         transaction.Commit();
-        return ChatStoreResult{};
+        return result;
       },
-      callback);
+      [this, thread, callback](const ChatStoreResult &result) {
+        if (result.error.isEmpty())
+          emit localHistoryCleared(thread);
+        if (callback)
+          callback(result);
+      });
 }
 
 void ChatStore::DeleteLocalMessage(int thread, int serverId, Callback callback)

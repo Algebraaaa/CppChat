@@ -100,6 +100,20 @@ void MessageActions::Bind(MessageMenu *menu, std::shared_ptr<ChatDataBase> messa
     if (IsCurrent(data, message) && message->GetMsgId() > 0)
       emit selectionRequested(message->GetMsgId());
   });
+  connect(menu, &MessageMenu::reminderRequested, this, [this, data, message] {
+    if (!IsCurrent(data, message) || message->GetMsgId() <= 0 || !ChatStore::instance()->IsReady())
+      return;
+    LocalReminder reminder;
+    reminder.threadId = data->GetThreadId();
+    reminder.serverId = message->GetMsgId();
+    reminder.subject = Sender(message->GetSendUid()).left(128);
+    if (!reminder.subject.isEmpty() && reminder.subject.back().isHighSurrogate())
+      reminder.subject.chop(1);
+    reminder.excerpt = message->Summary().left(512);
+    if (!reminder.excerpt.isEmpty() && reminder.excerpt.back().isHighSurrogate())
+      reminder.excerpt.chop(1);
+    emit reminderRequested(reminder);
+  });
 }
 
 void MessageActions::Favorite(const QVector<std::shared_ptr<ChatDataBase>> &messages)

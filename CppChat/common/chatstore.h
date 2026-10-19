@@ -2,6 +2,7 @@
 #define CHATSTORE_H
 
 #include "favorite.h"
+#include "localorganizer.h"
 #include "userdata.h"
 #include <QByteArray>
 #include <QHash>
@@ -46,6 +47,17 @@ struct StoredConversation {
 struct HistoryCursor {
   int serverId = std::numeric_limits<int>::max();
   qint64 localId = std::numeric_limits<qint64>::max();
+  QString time;
+  qint64 ceilingId = 0;
+};
+
+struct HistoryFilter {
+  int threadId = 0;
+  QString text;
+  int category = -1;
+  QString date;
+  QVector<int> allowedThreads;
+  bool confirmedOnly = false;
 };
 
 struct ChatStoreResult {
@@ -58,6 +70,8 @@ struct ChatStoreResult {
   QVector<StoredMessage> messages;
   QVector<StoredConversation> conversations;
   QVector<StoredFavorite> favorites;
+  QVector<LocalNote> notes;
+  QVector<LocalReminder> reminders;
   QHash<int, int> cursors;
   QSet<QString> newMessageKeys;
   QSet<QString> suppressedMessageKeys;
@@ -85,14 +99,16 @@ public:
                     Callback callback = {}, int clearDraftThread = 0);
   void LoadMessages(int thread, int beforeId, int limit, Callback callback);
   void SearchMessages(int thread, const QString &query, int type, HistoryCursor cursor,
-                      Callback callback, const QString &date = {});
+                      Callback callback, const QString &date = {},
+                      const QVector<int> &allowedThreads = {});
+  void QueryHistory(const HistoryFilter &filter, HistoryCursor cursor, Callback callback);
   void SaveDraft(int thread, const QVector<MsgInfo> &draft);
   void LoadDraft(int thread, Callback callback);
   void MarkUnconfirmed(const QString &id, bool failed);
   void LoadPendingImage(const QString &id, Callback callback);
   void SaveAttachment(const QString &id, const QByteArray &image, Callback callback = {});
   void LoadAttachment(const QString &id, Callback callback);
-  void ClearLocalHistory(int thread, Callback callback);
+  void ClearLocalHistory(int thread, Callback callback, bool requireConfirmedOnly = false);
   void DeleteLocalMessage(int thread, int serverId, Callback callback = {});
   void DeleteLocalMessages(int thread, const QVector<int> &serverIds, Callback callback = {});
   void SaveFavorites(const QVector<StoredFavorite> &favorites, Callback callback = {});
@@ -100,14 +116,25 @@ public:
                      Callback callback);
   void GetFavorite(qint64 id, Callback callback);
   void RemoveFavorites(const QVector<qint64> &ids, Callback callback = {});
+  void SaveNote(const LocalNote &note, Callback callback);
+  void LoadNotes(const QString &query, qint64 beforeId, Callback callback);
+  void GetNote(qint64 id, Callback callback);
+  void DeleteNote(qint64 id, int revision, Callback callback);
+  void SaveReminder(const LocalReminder &reminder, Callback callback);
+  void LoadReminders(Callback callback);
+  void CheckDueReminders(qint64 now, Callback callback);
+  void RemoveReminder(qint64 id, Callback callback);
 
 signals:
   void storageError(const QString &message);
   void localMessageDeleted(int thread, int serverId);
   void localMessagesDeleted(int thread, QVector<int> serverIds);
+  void localHistoryCleared(int thread);
   void favoritesChanged();
   void accountChanged();
   void accountReady();
+  void notesChanged();
+  void remindersChanged();
 
 private:
   explicit ChatStore(QObject *parent);
@@ -124,7 +151,6 @@ private:
   quint64 _generation = 0;
   bool _ready = false;
   QString _directory;
-  std::shared_ptr<std::atomic<quint64>> _searchRevision = std::make_shared<std::atomic<quint64>>(0);
 };
 
 #endif

@@ -25,11 +25,10 @@ QuickActionMenu::QuickActionMenu(QWidget *parent)
     hide();
     emit createGroupRequested();
   });
-  for (auto *button : {ui->note_btn})
-    connect(button, &QPushButton::clicked, this, [this, button] {
-      hide();
-      emit placeholderRequested(button->text());
-    });
+  connect(ui->note_btn, &QPushButton::clicked, this, [this] {
+    hide();
+    emit notesRequested();
+  });
 }
 
 QuickActionMenu::~QuickActionMenu() { delete ui; }

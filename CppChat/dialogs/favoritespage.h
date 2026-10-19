@@ -26,6 +26,8 @@ public:
 
 signals:
   void resendRequested(QVector<StoredFavorite> snapshots);
+  void notesRequested();
+  void remindersRequested();
 
 protected:
   void showEvent(QShowEvent *event) override;

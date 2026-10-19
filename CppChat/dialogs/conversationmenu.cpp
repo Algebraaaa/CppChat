@@ -26,21 +26,39 @@ ConversationMenu::ConversationMenu(QWidget *parent)
     hide();
     emit sig_unread_changed(_threadId, !_unread);
   });
-  for (auto *button : {ui->mute_btn, ui->window_btn, ui->hide_btn, ui->delete_btn}) {
-    connect(button, &QPushButton::clicked, this, [this, button] {
-      hide();
-      emit sig_placeholder(button->text());
-    });
-  }
+  connect(ui->mute_btn, &QPushButton::clicked, this, [this] {
+    hide();
+    emit sig_mute_changed(_threadId, !_muted);
+  });
+  connect(ui->hide_btn, &QPushButton::clicked, this, [this] {
+    hide();
+    emit sig_hide_requested(_threadId);
+  });
+  connect(ui->delete_btn, &QPushButton::clicked, this, [this] {
+    hide();
+    emit sig_delete_requested(_threadId);
+  });
+  connect(ui->window_btn, &QPushButton::clicked, this, [this] {
+    hide();
+    emit sig_window_requested(_threadId);
+  });
+  ui->mute_btn->setToolTip(tr("关闭该会话的未读红点提醒，消息仍正常接收"));
+  ui->window_btn->setToolTip(tr("将聊天区域移到独立窗口；关闭窗口返回主界面"));
+  ui->hide_btn->setToolTip(tr("保留聊天记录；新消息或主动打开时重新显示"));
+  ui->delete_btn->setText(tr("删除本机会话"));
+  ui->delete_btn->setToolTip(tr("确认后清空本机已确认记录并隐藏；保留好友、群关系、草稿和收藏"));
 }
 
 ConversationMenu::~ConversationMenu() { delete ui; }
 
-void ConversationMenu::Popup(int threadId, bool pinned, bool unread, const QPoint &position)
+void ConversationMenu::Popup(int threadId, bool pinned, bool unread, const QPoint &position,
+                             bool muted)
 {
   _threadId = threadId;
   _pinned = pinned;
   _unread = unread;
+  _muted = muted;
+  ui->mute_btn->setText(muted ? tr("取消免打扰") : tr("消息免打扰"));
   ui->pin_btn->setText(pinned ? tr("取消置顶") : tr("置顶"));
   ui->pin_btn->setIcon(
       QIcon(pinned ? ":/icons/conversation-pin-off.svg" : ":/icons/conversation-pin.svg"));

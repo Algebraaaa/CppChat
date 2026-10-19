@@ -78,6 +78,8 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
     ShowStatus(success ? tr("已保存到本机待发送队列") : tr("消息保存失败，原内容未发送，请重试"));
   });
   _messageActions = new MessageActions(this);
+  connect(_messageActions, &MessageActions::reminderRequested, this,
+          &ChatPage::sig_reminder_requested);
   SetupSelection();
   connect(_messageActions, &MessageActions::selectionRequested, this, &ChatPage::BeginSelection);
   const auto removed = [this](int thread, const QVector<int> &ids) {
@@ -119,7 +121,6 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
   ui->chat_splitter->setStretchFactor(0, 1);
   ui->chat_splitter->setStretchFactor(1, 0);
   ui->chat_splitter->setSizes({430, 208});
-  ui->chatEdit->setPlaceholderText(tr("输入消息，按 Enter 发送"));
   ui->emo_btn->setToolTip(tr("表情"));
   ui->file_btn->setToolTip(tr("发送图片"));
   ui->favorites_btn->setCursor(Qt::PointingHandCursor);
@@ -146,6 +147,10 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
     if (_chat_data)
       emit sig_thread_pin_changed(_chat_data->GetThreadId(), pinned);
   });
+  connect(ui->chat_settings_panel, &ChatSettingsPanel::sig_mute_changed, this, [this](bool muted) {
+    if (_chat_data)
+      emit sig_thread_mute_changed(_chat_data->GetThreadId(), muted);
+  });
   ui->screenshot_btn->setAccessibleName(tr("截屏"));
   connect(ui->screenshot_btn, &QPushButton::clicked, this, &ChatPage::StartScreenCapture);
   _draftTimer = new QTimer(this);
@@ -157,10 +162,11 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
     if (!data || !ChatStore::instance()->IsReady())
       return;
     const auto generation = ChatStore::instance()->Generation();
-    if (QMessageBox::question(
-            this, tr("清空本机聊天记录"),
-            tr("清空本机已确认的聊天记录？服务器记录、图片缓存和待确认消息会保留。")) !=
-        QMessageBox::Yes)
+    if (QMessageBox::question(this, tr("清空本机聊天记录"),
+                              tr("清空本机已确认的聊天记录？服务器记录、图片缓存、待确认消息、本机"
+                                 "收藏、笔记和提醒会保留。"),
+                              QMessageBox::Yes | QMessageBox::No,
+                              QMessageBox::No) != QMessageBox::Yes)
       return;
     if (generation != ChatStore::instance()->Generation() || _chat_data != data)
       return;
@@ -232,11 +238,28 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
     ui->chatEdit->insertFileFromUrl(files);
     ui->chatEdit->setFocus();
   });
-  connect(_sender, &MessageSender::savingChanged, this, [this](bool saving) {
-    ui->chatEdit->setEnabled(!saving && _chat_data &&
-                             !_loadingDrafts.contains(_chat_data->GetThreadId()));
-    UpdateSendButton();
-  });
+  connect(_sender, &MessageSender::savingChanged, this,
+          [this, focusThread = 0, fallback = QPointer<QWidget>()](bool saving) mutable {
+            if (saving)
+              focusThread = ui->chatEdit->hasFocus() && _chat_data ? _chat_data->GetThreadId() : 0;
+            ui->chatEdit->setEnabled(!saving && _chat_data &&
+                                     !_loadingDrafts.contains(_chat_data->GetThreadId()));
+            UpdateSendButton();
+            if (saving) {
+              // Disabling the editor moves focus. Restore it only if the user has
+              // not since selected another control, conversation or window.
+              fallback = QApplication::focusWidget();
+            } else {
+              const bool restore =
+                  focusThread > 0 && _chat_data && _chat_data->GetThreadId() == focusThread &&
+                  ui->chatEdit->isEnabled() && ui->chatEdit->isVisible() &&
+                  window()->isActiveWindow() && QApplication::focusWidget() == fallback;
+              focusThread = 0;
+              fallback.clear();
+              if (restore)
+                ui->chatEdit->setFocus(Qt::OtherFocusReason);
+            }
+          });
   connect(_sender, &MessageSender::outgoingSaved, this, [this](int threadId) {
     _drafts.remove(threadId);
     _dirtyDrafts.remove(threadId);
@@ -468,6 +491,8 @@ bool ChatPage::ForwardSnapshots(const QVector<StoredFavorite> &snapshots,
   return _sender->Send(inputs, target, false);
 }
 
+QString ChatPage::ConversationTitle() const { return ui->title_label->text() + tr(" · CppChat"); }
+
 void ChatPage::Reset()
 {
   if (_voiceMessage)
@@ -505,6 +530,7 @@ void ChatPage::Reset()
   ui->send_btn->setEnabled(false);
   ui->screenshot_btn->setEnabled(false);
   ui->title_label->setText(tr("选择好友开始聊天"));
+  emit conversationTitleChanged(tr("CppChat"));
   ShowStatus({});
 }
 
@@ -577,6 +603,7 @@ void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
           ? tr("%1（%2）").arg(data->GetGroupName()).arg(data->Group()["members"].toArray().size())
       : user ? (user->_back.isEmpty() ? user->_name : user->_back)
              : tr("用户 %1").arg(data->GetOtherId()));
+  emit conversationTitleChanged(ui->title_label->text() + tr(" · CppChat"));
   ui->chatEdit->setEnabled(!_sender->SavingMessages() &&
                            !_loadingDrafts.contains(data->GetThreadId()));
   ui->screenshot_btn->setEnabled(!_screenCapture);
@@ -680,11 +707,13 @@ void ChatPage::RenderMessages(bool changed)
   }
 }
 
-void ChatPage::RemoveChatThread(int threadId)
+void ChatPage::RemoveChatThread(int threadId, bool preserveLocalState)
 {
-  _drafts.remove(threadId);
-  _dirtyDrafts.remove(threadId);
-  _sender->RemoveThread(threadId);
+  if (!preserveLocalState) {
+    _drafts.remove(threadId);
+    _dirtyDrafts.remove(threadId);
+    _sender->RemoveThread(threadId);
+  }
   if (!_chat_data || _chat_data->GetThreadId() != threadId)
     return;
   EndSelection();
@@ -899,6 +928,7 @@ void ChatPage::on_send_btn_clicked()
     return;
   }
   SaveCurrentDraft();
+  ui->chatEdit->setFocus(Qt::OtherFocusReason);
   _sender->Send(ui->chatEdit->messages(), _chat_data);
 }
 
@@ -906,6 +936,12 @@ void ChatPage::SetThreadPinned(int threadId, bool pinned)
 {
   if (_chat_data && _chat_data->GetThreadId() == threadId)
     ui->chat_settings_panel->SetPinned(pinned);
+}
+
+void ChatPage::SetThreadMuted(int threadId, bool muted)
+{
+  if (_chat_data && _chat_data->GetThreadId() == threadId)
+    ui->chat_settings_panel->SetMuted(muted);
 }
 
 void ChatPage::SetupSelection()

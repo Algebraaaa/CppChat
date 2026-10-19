@@ -1,4 +1,6 @@
 #include "contactssection.h"
+#include "common/chatstore.h"
+#include "contactmanagerdialog.h"
 #include "network/usermgr.h"
 #include "ui_contactssection.h"
 #include <QAction>
@@ -9,6 +11,7 @@
 ContactsSection::ContactsSection(QWidget *parent) : QWidget(parent), ui(new Ui::ContactsSection)
 {
   ui->setupUi(this);
+  connect(ChatStore::instance(), &ChatStore::accountChanged, this, [this] { _manager.clear(); });
   setAttribute(Qt::WA_StyledBackground);
   ui->contacts_list_wid->setAttribute(Qt::WA_StyledBackground);
   ui->contact_placeholder_page->setAttribute(Qt::WA_StyledBackground);
@@ -20,9 +23,9 @@ ContactsSection::ContactsSection(QWidget *parent) : QWidget(parent), ui(new Ui::
   ui->search_edit->SetMaxLength(27);
   ui->search_edit->setPlaceholderText(tr("搜索"));
   ui->search_edit->setToolTip(tr("搜索联系人和已加入的群聊"));
-  ui->search_edit->addAction(QIcon(":/res/search.png"), QLineEdit::LeadingPosition);
+  ui->search_edit->addAction(QIcon(":/icons/action-search.svg"), QLineEdit::LeadingPosition);
   auto *clear =
-      ui->search_edit->addAction(QIcon(":/res/close_search.png"), QLineEdit::TrailingPosition);
+      ui->search_edit->addAction(QIcon(":/icons/action-close.svg"), QLineEdit::TrailingPosition);
   clear->setVisible(false);
   _searchTimer.setSingleShot(true);
   connect(&_searchTimer, &QTimer::timeout, this, [this] {
@@ -51,9 +54,18 @@ ContactsSection::ContactsSection(QWidget *parent) : QWidget(parent), ui(new Ui::
   connect(ui->con_user_list, &ContactUserList::sig_show_placeholder, this,
           &ContactsSection::ShowPlaceholder);
   connect(ui->contact_manage_btn, &QPushButton::clicked, this, [this] {
-    ui->con_user_list->setCurrentItem(nullptr);
-    ShowPlaceholder(tr("通讯录管理"),
-                    tr("通讯录管理功能暂未开放\n删除好友可在好友资料的更多菜单中操作"));
+    if (!_manager) {
+      _manager = new ContactManagerDialog(this);
+      _manager->setAttribute(Qt::WA_DeleteOnClose);
+      connect(_manager, &ContactManagerDialog::openProfileRequested, this, [this](int uid) {
+        if (auto user = UserMgr::GetInstance()->GetFriendById(uid))
+          ShowFriend(user);
+      });
+    }
+    _manager->Refresh();
+    _manager->show();
+    _manager->raise();
+    _manager->activateWindow();
   });
   connect(ui->friend_info_page, &FriendInfoPage::sig_jump_chat_item, this,
           &ContactsSection::sig_open_chat);
@@ -132,6 +144,8 @@ void ContactsSection::ShowPlaceholder(const QString &title, const QString &descr
 
 void ContactsSection::Refresh()
 {
+  if (_manager)
+    _manager->Refresh();
   ui->con_user_list->Reload();
   ui->friend_apply_page->Reload();
   bool pending = false;
@@ -178,6 +192,10 @@ void ContactsSection::FriendRemoved(int uid)
 
 void ContactsSection::Reset()
 {
+  if (_manager) {
+    _manager->reject();
+    _manager.clear();
+  }
   _groupNames.clear();
   _searchTimer.stop();
   ui->search_edit->clear();

@@ -1,6 +1,8 @@
 #include "conversationsection.h"
 #include "chatpage.h"
 #include "chatuserwid.h"
+#include "chatwindow.h"
+#include "common/chatstore.h"
 #include "common/conversationpreferences.h"
 #include "conversationmenu.h"
 #include "network/usermgr.h"
@@ -8,7 +10,10 @@
 #include <QAction>
 #include <QApplication>
 #include <QListWidgetItem>
+#include <QMessageBox>
 #include <QMouseEvent>
+#include <QPushButton>
+#include <QVBoxLayout>
 #include <algorithm>
 #include <vector>
 
@@ -54,9 +59,9 @@ ConversationSection::ConversationSection(QWidget *parent)
   ui->search_edit->SetMaxLength(27);
   ui->search_edit->setPlaceholderText(tr("搜索"));
   ui->search_edit->setToolTip(tr("搜索已添加的联系人和聊天记录"));
-  ui->search_edit->addAction(QIcon(":/res/search.png"), QLineEdit::LeadingPosition);
+  ui->search_edit->addAction(QIcon(":/icons/action-search.svg"), QLineEdit::LeadingPosition);
   auto *clear =
-      ui->search_edit->addAction(QIcon(":/res/close_search.png"), QLineEdit::TrailingPosition);
+      ui->search_edit->addAction(QIcon(":/icons/action-close.svg"), QLineEdit::TrailingPosition);
   clear->setVisible(false);
   _sortTimer.setSingleShot(true);
   _sortTimer.setInterval(0);
@@ -99,7 +104,8 @@ ConversationSection::ConversationSection(QWidget *parent)
   connect(ui->chat_user_list, &ChatUserList::sig_context_menu_requested, this,
           [this](QListWidgetItem *item, const QPoint &position) {
             _contextMenu->Popup(item->data(ThreadIdRole).toInt(), item->data(PinnedRole).toBool(),
-                                item->data(UnreadRole).toBool(), position);
+                                item->data(UnreadRole).toBool(), position,
+                                IsMuted(item->data(ThreadIdRole).toInt()));
           });
   connect(_contextMenu, &ConversationMenu::sig_pin_changed, this,
           &ConversationSection::SetThreadPinned);
@@ -107,6 +113,20 @@ ConversationSection::ConversationSection(QWidget *parent)
           &ConversationSection::SetThreadPinned);
   connect(_contextMenu, &ConversationMenu::sig_unread_changed, this,
           &ConversationSection::sig_thread_unread_changed);
+  connect(_contextMenu, &ConversationMenu::sig_mute_changed, this,
+          &ConversationSection::SetThreadMuted);
+  connect(_contextMenu, &ConversationMenu::sig_hide_requested, this,
+          &ConversationSection::HideThread);
+  connect(_contextMenu, &ConversationMenu::sig_delete_requested, this,
+          &ConversationSection::DeleteLocalThread);
+  connect(_contextMenu, &ConversationMenu::sig_window_requested, this,
+          &ConversationSection::sig_window_requested);
+  connect(ChatStore::instance(), &ChatStore::accountChanged, this, [this] {
+    DockChat();
+    ui->chat_page->Reset();
+  });
+  connect(ui->chat_page, &ChatPage::sig_thread_mute_changed, this,
+          &ConversationSection::SetThreadMuted);
   connect(_contextMenu, &ConversationMenu::sig_placeholder, this, [this](const QString &title) {
     ui->chat_page->ShowStatus(tr("%1功能暂未实现").arg(title));
   });
@@ -127,10 +147,52 @@ ConversationSection::ConversationSection(QWidget *parent)
 ConversationSection::~ConversationSection()
 {
   qApp->removeEventFilter(this);
+  DockChat();
   delete ui;
 }
 
 ChatPage *ConversationSection::Chat() const { return ui->chat_page; }
+void ConversationSection::OpenChatWindow()
+{
+  if (!_chatWindow) {
+    _chatWindow = new ChatWindow(this);
+    connect(_chatWindow, &ChatWindow::dockRequested, this, &ConversationSection::DockChat);
+    connect(ui->chat_page, &ChatPage::conversationTitleChanged, _chatWindow,
+            &QWidget::setWindowTitle);
+    _detachedPlaceholder = new QWidget;
+    _detachedPlaceholder->setObjectName("detachedChatPlaceholder");
+    _detachedPlaceholder->setAttribute(Qt::WA_StyledBackground);
+    auto *body = new QVBoxLayout(_detachedPlaceholder);
+    body->addStretch();
+    auto *restore = new QPushButton(tr("聊天已在独立窗口打开 · 返回主窗口"), _detachedPlaceholder);
+    restore->setObjectName("restoreChatButton");
+    body->addWidget(restore, 0, Qt::AlignCenter);
+    body->addStretch();
+    connect(restore, &QPushButton::clicked, this, &ConversationSection::DockChat);
+  }
+  if (ui->main_splitter->indexOf(ui->chat_page) >= 0) {
+    _splitterSizes = ui->main_splitter->sizes();
+    ui->chat_page->SaveCurrentDraft();
+    ui->main_splitter->replaceWidget(1, _detachedPlaceholder);
+    _detachedPlaceholder->show();
+  }
+  _chatWindow->setWindowTitle(ui->chat_page->ConversationTitle());
+  _chatWindow->Host(ui->chat_page);
+}
+
+void ConversationSection::DockChat()
+{
+  if (!_chatWindow || ui->main_splitter->indexOf(ui->chat_page) >= 0)
+    return;
+  ui->chat_page->SaveCurrentDraft();
+  _chatWindow->layout()->removeWidget(ui->chat_page);
+  ui->main_splitter->replaceWidget(1, ui->chat_page);
+  _detachedPlaceholder->hide();
+  _detachedPlaceholder->setParent(this);
+  ui->chat_page->show();
+  ui->main_splitter->setSizes(_splitterSizes);
+  _chatWindow->hide();
+}
 bool ConversationSection::HasSearch() const { return !ui->search_edit->text().trimmed().isEmpty(); }
 void ConversationSection::ClearSearch() { ui->search_edit->clear(); }
 void ConversationSection::RefreshSearch()
@@ -173,12 +235,16 @@ QPoint ConversationSection::QuickMenuPosition(const QSize &menuSize) const
 
 void ConversationSection::Reset()
 {
+  DockChat();
   _sortTimer.stop();
   _searchTimer.stop();
   _sortDirty = false;
   _searchHistoryRequested = false;
   _contextMenu->hide();
   _pinnedThreads.clear();
+  _mutedThreads.clear();
+  _hiddenThreads.clear();
+  _deleting.clear();
   ClearSearch();
   ui->search_list->ClearResults();
   _threadItems.clear();
@@ -186,6 +252,149 @@ void ConversationSection::Reset()
   ui->chat_page->Reset();
   _addingItems = false;
   ShowSearch(false);
+}
+
+void ConversationSection::LoadLocalState()
+{
+  const auto state = ConversationPreferences::Load(UserMgr::GetInstance()->GetUid());
+  _mutedThreads = state.muted;
+  _hiddenThreads = state.hidden;
+}
+
+bool ConversationSection::IsMuted(int threadId) const { return _mutedThreads.contains(threadId); }
+bool ConversationSection::IsHidden(int threadId) const { return _hiddenThreads.contains(threadId); }
+bool ConversationSection::HasAlert(const QSet<int> &unread) const
+{
+  for (int id : unread)
+    if (!IsMuted(id) && !IsHidden(id))
+      return true;
+  return false;
+}
+
+void ConversationSection::SetThreadMuted(int threadId, bool muted)
+{
+  const auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(threadId);
+  if (!data)
+    return;
+  auto next = _mutedThreads;
+  if (muted)
+    next.insert(threadId);
+  else
+    next.remove(threadId);
+  if (!ConversationPreferences::SaveMuted(UserMgr::GetInstance()->GetUid(), next)) {
+    ui->chat_page->SetThreadMuted(threadId, IsMuted(threadId));
+    ui->chat_page->ShowStatus(tr("免打扰设置保存失败，请检查本机目录权限"));
+    return;
+  }
+  _mutedThreads = next;
+  ui->chat_page->SetThreadMuted(threadId, muted);
+  if (auto *item = _threadItems.value(threadId)) {
+    auto *widget = qobject_cast<ChatUserWid *>(ui->chat_user_list->itemWidget(item));
+    widget->ShowRedPoint(item->data(UnreadRole).toBool() && !muted);
+    item->setToolTip(muted ? tr("消息免打扰：消息正常接收，不显示未读红点")
+                           : data->GetLastChatTime());
+    widget->SetMuted(muted);
+  }
+  emit sig_alert_preferences_changed();
+}
+
+bool ConversationSection::RevealThread(int threadId)
+{
+  if (!IsHidden(threadId))
+    return true;
+  auto next = _hiddenThreads;
+  next.remove(threadId);
+  if (!ConversationPreferences::SaveHidden(UserMgr::GetInstance()->GetUid(), next)) {
+    ui->chat_page->ShowStatus(tr("会话显示设置保存失败，请重试"));
+    return false;
+  }
+  _hiddenThreads = next;
+  emit sig_alert_preferences_changed();
+  return true;
+}
+
+void ConversationSection::RemoveVisibleThread(int threadId)
+{
+  _contextMenu->hide();
+  if (auto *item = _threadItems.take(threadId))
+    delete ui->chat_user_list->takeItem(ui->chat_user_list->row(item));
+  ui->chat_page->SaveCurrentDraft();
+  ui->chat_page->RemoveChatThread(threadId, true);
+}
+
+bool ConversationSection::HideAt(int threadId, int boundary)
+{
+  auto next = _hiddenThreads;
+  next.insert(threadId, boundary);
+  if (!ConversationPreferences::SaveHidden(UserMgr::GetInstance()->GetUid(), next)) {
+    ui->chat_page->ShowStatus(tr("会话隐藏设置保存失败，列表仍然保留"));
+    return false;
+  }
+  _hiddenThreads = next;
+  RemoveVisibleThread(threadId);
+  emit sig_thread_hidden(threadId);
+  emit sig_alert_preferences_changed();
+  return true;
+}
+
+void ConversationSection::HideThread(int threadId)
+{
+  if (auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(threadId))
+    HideAt(threadId, data->GetLastMsgId());
+}
+
+void ConversationSection::DeleteLocalThread(int threadId)
+{
+  const auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(threadId);
+  auto *store = ChatStore::instance();
+  if (!data || !store->IsReady() || _deleting.contains(threadId))
+    return;
+  if (!data->GetPendingMessages().empty()) {
+    ui->chat_page->ShowStatus(tr("会话还有待确认消息，请先处理后再删除；也可仅隐藏会话"));
+    return;
+  }
+  const auto generation = store->Generation();
+  const int uid = UserMgr::GetInstance()->GetUid();
+  QMessageBox confirmation(QMessageBox::Question, tr("删除本机会话"),
+                           tr("清空本机已确认聊天记录并隐藏会话？\n服务器记录、好友和群关系、草稿及"
+                              "收藏、笔记和提醒会保留。\n新消息或主动打开时会重新显示。"),
+                           QMessageBox::NoButton, this);
+  confirmation.setObjectName("deleteLocalConversationConfirm");
+  auto *remove = confirmation.addButton(tr("删除本机记录并隐藏"), QMessageBox::DestructiveRole);
+  auto *cancel = confirmation.addButton(tr("取消"), QMessageBox::RejectRole);
+  confirmation.setDefaultButton(cancel);
+  confirmation.exec();
+  if (confirmation.clickedButton() != remove || store->Generation() != generation ||
+      UserMgr::GetInstance()->GetUid() != uid ||
+      UserMgr::GetInstance()->GetChatThreadByThreadId(threadId) != data)
+    return;
+  ui->chat_page->SaveCurrentDraft();
+  _deleting.insert(threadId);
+  const QPointer<ConversationSection> guard(this);
+  store->ClearLocalHistory(
+      threadId,
+      [guard, generation, uid, data, threadId](const ChatStoreResult &result) {
+        if (!guard || ChatStore::instance()->Generation() != generation ||
+            UserMgr::GetInstance()->GetUid() != uid)
+          return;
+        guard->_deleting.remove(threadId);
+        if (UserMgr::GetInstance()->GetChatThreadByThreadId(threadId) != data)
+          return;
+        if (!result.error.isEmpty()) {
+          guard->ui->chat_page->ShowStatus(guard->tr("本机记录删除失败，会话仍然保留"));
+          return;
+        }
+        data->ClearLocalMessages();
+        const int boundary = result.cursors.value(threadId, data->GetLastMsgId());
+        if (!guard->HideAt(threadId, boundary)) {
+          const auto *item = guard->_threadItems.value(threadId);
+          guard->UpdateThread(data, item && item->data(UnreadRole).toBool());
+          guard->ui->chat_page->SetChatData(data);
+          guard->ui->chat_page->ShowStatus(
+              guard->tr("本机记录已清空，但隐藏设置保存失败，会话仍保留"));
+        }
+      },
+      true);
 }
 
 void ConversationSection::SetPinnedThreads(const QSet<int> &threads)
@@ -242,7 +451,9 @@ void ConversationSection::AddThreads(const QSet<int> &unread, int limit)
   });
   int count = 0;
   for (const auto &data : threads) {
-    if (!data || _threadItems.contains(data->GetThreadId()))
+    if (!data || _threadItems.contains(data->GetThreadId()) ||
+        (IsHidden(data->GetThreadId()) &&
+         data->GetLastMsgId() <= _hiddenThreads.value(data->GetThreadId())))
       continue;
     UpdateThread(data, unread.contains(data->GetThreadId()));
     if (++count >= limit)
@@ -258,6 +469,9 @@ void ConversationSection::UpdateThread(std::shared_ptr<ChatThreadData> data, boo
   if (!data)
     return;
   const int threadId = data->GetThreadId();
+  if (IsHidden(threadId) &&
+      (data->GetLastMsgId() <= _hiddenThreads.value(threadId) || !RevealThread(threadId)))
+    return;
   auto *item = _threadItems.value(threadId, nullptr);
   if (!item && !addIfMissing)
     return;
@@ -275,7 +489,8 @@ void ConversationSection::UpdateThread(std::shared_ptr<ChatThreadData> data, boo
   }
   auto *widget = qobject_cast<ChatUserWid *>(ui->chat_user_list->itemWidget(item));
   widget->SetChatData(data);
-  widget->ShowRedPoint(unread);
+  widget->ShowRedPoint(unread && !IsMuted(threadId));
+  widget->SetMuted(IsMuted(threadId));
   widget->SetPinned(_pinnedThreads.contains(threadId));
   if (item->data(LastChatTimeRole).toString() != data->GetLastChatTime() ||
       item->data(LastMessageIdRole).toInt() != data->GetLastMsgId() ||
@@ -285,7 +500,8 @@ void ConversationSection::UpdateThread(std::shared_ptr<ChatThreadData> data, boo
   item->setData(LastMessageIdRole, data->GetLastMsgId());
   item->setData(PinnedRole, _pinnedThreads.contains(threadId));
   item->setData(UnreadRole, unread);
-  item->setToolTip(data->GetLastChatTime());
+  item->setToolTip(IsMuted(threadId) ? tr("消息免打扰：消息正常接收，不显示未读红点")
+                                     : data->GetLastChatTime());
   _addingItems = wasAdding;
   if (_sortDirty && !_addingItems && !_sortTimer.isActive())
     _sortTimer.start();
@@ -297,7 +513,13 @@ void ConversationSection::SelectThread(std::shared_ptr<ChatThreadData> data)
   ui->chat_user_list->setCurrentItem(_threadItems.value(data->GetThreadId()));
   ui->chat_page->SetChatData(data);
   ui->chat_page->SetThreadPinned(data->GetThreadId(), _pinnedThreads.contains(data->GetThreadId()));
+  ui->chat_page->SetThreadMuted(data->GetThreadId(), IsMuted(data->GetThreadId()));
   ui->chat_page->ShowStatus({});
+  if (_chatWindow && ui->main_splitter->indexOf(ui->chat_page) < 0) {
+    _chatWindow->showNormal();
+    _chatWindow->raise();
+    _chatWindow->activateWindow();
+  }
   ClearSearch();
 }
 
@@ -305,6 +527,8 @@ void ConversationSection::RemoveThread(int threadId)
 {
   _contextMenu->hide();
   _pinnedThreads.remove(threadId);
+  _mutedThreads.remove(threadId);
+  _hiddenThreads.remove(threadId);
   ConversationPreferences::RemoveThread(UserMgr::GetInstance()->GetUid(), threadId);
   if (auto *item = _threadItems.take(threadId))
     delete ui->chat_user_list->takeItem(ui->chat_user_list->row(item));

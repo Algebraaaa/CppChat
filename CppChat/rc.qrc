@@ -9,6 +9,7 @@
     <qresource prefix="/">
         <file>style/theme.json</file>
         <file>style/tokens.json</file>
+        <file>style/tokens-dark.json</file>
         <file>style/base.qss</file>
         <file>style/components/controls.qss</file>
         <file>style/components/icons.qss</file>
@@ -87,6 +88,7 @@
         <file alias="SIMPLE-ICONS-LICENSE.txt">Resources/discover/SIMPLE-ICONS-LICENSE.txt</file>
     </qresource>
     <qresource prefix="/icons">
+        <file alias="password-eye.svg">Resources/icons/password-eye.svg</file>
         <file alias="update-download.svg">Resources/icons/update-download.svg</file>
         <file alias="settings-plus.svg">Resources/icons/settings-plus.svg</file>
         <file alias="settings-switch-off.svg">Resources/icons/settings-switch-off.svg</file>

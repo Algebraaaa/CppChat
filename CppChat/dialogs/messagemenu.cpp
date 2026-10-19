@@ -60,7 +60,12 @@ MessageMenu::MessageMenu(QWidget *parent)
       (this->*action)();
     });
   }
-  for (auto *button : {ui->translate_btn, ui->remind_btn}) {
+  connect(ui->remind_btn, &QPushButton::clicked, this, [this] {
+    hide();
+    emit reminderRequested();
+  });
+  ui->remind_btn->setToolTip(tr("为这条已确认消息设置本机定时提醒"));
+  for (auto *button : {ui->translate_btn}) {
     connect(button, &QPushButton::clicked, this, [this, button] {
       hide();
       emit placeholderRequested(button->text());
@@ -72,6 +77,7 @@ MessageMenu::~MessageMenu() { delete ui; }
 
 void MessageMenu::Popup(const QPoint &position, const Options &options)
 {
+  ui->remind_btn->setEnabled(options.canCollect);
   ui->copy_btn->setEnabled(options.canCopy);
   ui->retry_btn->setVisible(options.showRetry);
   ui->retry_btn->setEnabled(options.canRetry);

@@ -18,6 +18,7 @@ public:
 signals:
   void createGroupRequested();
   void addFriendRequested();
+  void notesRequested();
   void placeholderRequested(const QString &title);
 
 protected:

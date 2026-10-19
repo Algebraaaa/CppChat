@@ -273,7 +273,7 @@
          <string>转发…</string>
         </property>
         <property name="toolTip">
-         <string>转发…（暂未实现）</string>
+         <string>选择好友或群聊，按新目标重新发送</string>
         </property>
         <property name="cursor">
          <cursorShape>PointingHandCursor</cursorShape>
@@ -320,7 +320,7 @@
          <string>收藏</string>
         </property>
         <property name="toolTip">
-         <string>收藏（暂未实现）</string>
+         <string>保存当前账号的独立本机收藏</string>
         </property>
         <property name="cursor">
          <cursorShape>PointingHandCursor</cursorShape>
@@ -367,7 +367,7 @@
          <string>多选</string>
         </property>
         <property name="toolTip">
-         <string>多选（暂未实现）</string>
+         <string>选择多条已确认消息进行收藏、转发或本机删除</string>
         </property>
         <property name="cursor">
          <cursorShape>PointingHandCursor</cursorShape>
@@ -410,7 +410,7 @@
          <string>提醒</string>
         </property>
         <property name="toolTip">
-         <string>提醒（暂未实现）</string>
+         <string>设置当前账号的本机定时提醒</string>
         </property>
         <property name="cursor">
          <cursorShape>PointingHandCursor</cursorShape>

@@ -1,5 +1,14 @@
 # CppChat 界面图标
 
+## 深浅色兼容
+
+中性单色 SVG 的描边统一调整为 `#818b98`，同时用于浅底和深底；以下旧章节中的
+原始深灰颜色由此替代。绿色/白色及其他有色图形保持原样，路径与许可证不变。
+`password-eye.svg` 复用 [Lucide 0.468.0 eye.svg](https://github.com/lucide-icons/lucide/blob/0.468.0/icons/eye.svg)，
+上游文件 SHA-256 为 `5bf90197dd7629cad64a2e48d1186a71559deb6121207d10e3dc5b19ebaffdcf`；
+仅替换 currentColor，沿用本目录 ISC/Feather 许可。密码隐藏状态复用已有 eye-off。
+项目自身的 `Resources/window/` 最小化/最大化/还原/关闭图标也采用同一中性色。
+
 ## 消息体右键菜单
 
 `message-languages.svg`、`message-corner-up-right.svg`、`message-box.svg`、

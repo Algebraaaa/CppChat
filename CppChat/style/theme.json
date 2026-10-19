@@ -25,5 +25,6 @@
     "pages/contacts.qss",
     "pages/dialogs.qss",
     "pages/profile.qss"
-  ]
+  ],
+  "darkTokens": "tokens-dark.json"
 }

@@ -5,6 +5,7 @@
 #include "common/userdata.h"
 #include <QWidget>
 class QEvent;
+class QLabel;
 namespace Ui {
 class ChatUserWid;
 }
@@ -22,6 +23,7 @@ public:
   void ShowRedPoint(bool show);
   void SetSelected(bool selected);
   void SetPinned(bool pinned);
+  void SetMuted(bool muted);
 
 protected:
   bool eventFilter(QObject *watched, QEvent *event) override;
@@ -29,6 +31,7 @@ protected:
 private:
   void UpdateVisibleText();
   Ui::ChatUserWid *ui;
+  QLabel *_muteIcon = nullptr;
   QString _name;
   QString _head;
   QString _msg;

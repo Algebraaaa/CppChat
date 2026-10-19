@@ -18,6 +18,8 @@ public:
   void PopupAt(QWidget *anchor);
 
 signals:
+  void historyRequested();
+  void settingsRequested();
   void sig_action_requested(const QString &title);
 
 protected:

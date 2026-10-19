@@ -99,11 +99,60 @@ class ChatThemeTests(unittest.TestCase):
             prefix = group.get("prefix", "").rstrip("/")
             for entry in group.findall("file"):
                 resources[":" + prefix + "/" + entry.get("alias", entry.text)] = entry.text
-        for relative in ["theme.json", self.manifest["tokens"], *self.manifest["styles"]]:
+        for relative in [
+            "theme.json",
+            self.manifest["tokens"],
+            self.manifest["darkTokens"],
+            *self.manifest["styles"],
+        ]:
             with self.subTest(resource=relative):
                 self.assertIn(":/style/" + relative, resources)
                 self.assertTrue((CLIENT / resources[":/style/" + relative]).is_file())
         self.assertEqual(len(self.manifest["styles"]), len(set(self.manifest["styles"])))
+
+    def test_dark_tokens_cover_readable_surfaces_and_selections(self):
+        overrides = json.loads(
+            (CLIENT / "style" / self.manifest["darkTokens"]).read_text(encoding="utf-8")
+        )
+        self.assertTrue(all(key.startswith("color.") and key in self.tokens for key in overrides))
+        dark = self.tokens | overrides
+        for background in (
+            "color.surface",
+            "color.surface.page",
+            "color.surface.subtle",
+            "color.chat.bubble.self",
+            "color.chat.bubble.other",
+        ):
+            with self.subTest(background=background):
+                self.assertGreaterEqual(contrast(dark["color.text.body"], dark[background]), 4.5)
+        for foreground, background in (
+            ("color.text.primary", "color.selection"),
+            ("color.text.onBrand", "color.brand"),
+            ("color.text.onSelected", "color.list.selected"),
+            ("color.text.muted", "color.surface"),
+            ("color.link", "color.surface"),
+        ):
+            with self.subTest(foreground=foreground, background=background):
+                self.assertGreaterEqual(contrast(dark[foreground], dark[background]), 4.5)
+
+    def test_normal_vector_ink_is_visible_in_both_schemes(self):
+        icon = ET.parse(CLIENT / "Resources/icons/conversation-bell-off.svg").getroot()
+        ink = icon.attrib["stroke"]
+        dark = json.loads(
+            (CLIENT / "style" / self.manifest["darkTokens"]).read_text(encoding="utf-8")
+        )
+        for background in (
+            self.tokens["color.surface"],
+            dark["color.surface"],
+            dark["color.panel"],
+        ):
+            self.assertGreaterEqual(contrast(ink, background), 3)
+        for name in ("minimize", "maximize", "restore", "close"):
+            window = ET.parse(CLIENT / f"Resources/window/{name}.svg").getroot()
+            for shape in window:
+                self.assertGreaterEqual(
+                    contrast(shape.attrib["stroke"], dark["color.surface.subtle"]), 3
+                )
 
 
 if __name__ == "__main__":

@@ -21,8 +21,12 @@ FavoritesPage::FavoritesPage(QWidget *parent) : QWidget(parent), ui(new Ui::Favo
 {
   ui->setupUi(this);
 
-  ui->write_note_btn->setEnabled(false);
-  ui->write_note_btn->setToolTip(tr("当前支持收藏聊天消息，独立笔记尚未开放"));
+  ui->write_note_btn->setToolTip(tr("打开当前账号的本机笔记，支持新建、编辑、搜索和发送"));
+  connect(ui->write_note_btn, &QPushButton::clicked, this, &FavoritesPage::notesRequested);
+  auto *reminders = new QPushButton(tr("提醒事项"), this);
+  reminders->setObjectName("openReminders");
+  ui->header_layout->addWidget(reminders);
+  connect(reminders, &QPushButton::clicked, this, &FavoritesPage::remindersRequested);
   ui->favorite_recent_btn->setToolTip(tr("最近 7 天收藏的消息"));
   auto *group = new QButtonGroup(this);
   const QList<QPair<QPushButton *, FavoriteCategory>> filters{

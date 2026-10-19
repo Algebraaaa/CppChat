@@ -1,10 +1,10 @@
 /* 发现：左侧入口列表和右侧空白占位。布局与尺寸由 discoverpage.ui 定义。 */
 DiscoverPage {
-    background: #fafafa;
+    background: ${color.surface.subtle};
 }
 
 DiscoverPage #discover_menu {
-    background: #ededee;
+    background: ${color.panel};
     border: none;
 }
 
@@ -26,16 +26,16 @@ DiscoverPage #discover_menu QPushButton {
 }
 
 DiscoverPage #discover_menu QPushButton:hover {
-    background: #e1e1e3;
+    background: ${color.panel};
 }
 
 DiscoverPage #discover_menu QPushButton:pressed,
 DiscoverPage #discover_menu QPushButton:checked {
-    background: #d8d8da;
+    background: ${color.surface.hover};
 }
 
 DiscoverPage #discover_content {
-    background: #fafafa;
+    background: ${color.surface.subtle};
     border: none;
 }
 

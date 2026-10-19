@@ -1,5 +1,6 @@
 #pragma once
 #include "common/favorite.h"
+#include "common/localorganizer.h"
 #include "common/userdata.h"
 #include <QObject>
 #include <QPointer>
@@ -27,6 +28,7 @@ signals:
   void forwardRequested(QVector<StoredFavorite> snapshots);
   void searchRequested(int thread);
   void selectionRequested(int serverId);
+  void reminderRequested(LocalReminder reminder);
 
 private:
   bool IsCurrent(const std::shared_ptr<ChatThreadData> &data,

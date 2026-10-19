@@ -4,6 +4,7 @@
 #include <QDateTime>
 #include <QEvent>
 #include <QFontMetrics>
+#include <QHBoxLayout>
 #include <QJsonArray>
 #include <QLabel>
 #include <QStyle>
@@ -19,6 +20,21 @@ ChatUserWid::ChatUserWid(QWidget *parent) : ListItemBase(parent), ui(new Ui::Cha
       QPixmap(":/icons/conversation-pin.svg")
           .scaled(ui->pin_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
   ui->pin_lb->hide();
+  delete ui->verticalLayout_2->takeAt(1);
+  auto *indicators = new QHBoxLayout;
+  indicators->setContentsMargins(0, 0, 0, 0);
+  indicators->setSpacing(4);
+  indicators->addStretch();
+  _muteIcon = new QLabel(this);
+  _muteIcon->setObjectName("conversationMuteIcon");
+  _muteIcon->setFixedSize(16, 16);
+  _muteIcon->setToolTip(tr("消息免打扰"));
+  _muteIcon->setPixmap(QPixmap(":/icons/conversation-bell-off.svg")
+                           .scaled(16, 16, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+  _muteIcon->hide();
+  indicators->addWidget(_muteIcon);
+  indicators->addWidget(ui->pin_lb);
+  ui->verticalLayout_2->addLayout(indicators);
   ui->icon_lb->setScaledContents(true);
   ui->user_name_lb->installEventFilter(this);
   ui->user_chat_lb->installEventFilter(this);
@@ -155,4 +171,12 @@ void ChatUserWid::SetPinned(bool pinned)
 {
   if (ui->pin_lb->isHidden() == pinned)
     ui->pin_lb->setVisible(pinned);
+}
+
+void ChatUserWid::SetMuted(bool muted)
+{
+  _muteIcon->setVisible(muted);
+  setProperty("muted", muted);
+  ui->time_lb->setToolTip(muted ? tr("消息免打扰") : QString());
+  ui->user_name_lb->setAccessibleDescription(muted ? tr("消息免打扰") : QString());
 }

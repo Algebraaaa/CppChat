@@ -12,6 +12,8 @@
 #include <QPointer>
 #include <QRegularExpression>
 #include <QSet>
+#include <QStyle>
+#include <QStyleFactory>
 #include <QTimer>
 #include <QWidget>
 
@@ -28,12 +30,14 @@ class WindowFrameFilter final : public QObject {
 public:
   WindowFrameFilter(QApplication &application, const UiTheme &theme)
       : QObject(&application), _border(theme.windowBorderColor), _caption(theme.windowCaptionColor),
-        _text(theme.windowTextColor)
+        _text(theme.windowTextColor), _dark(theme.dark)
   {
     setObjectName(QStringLiteral("cppchat_window_frame_filter"));
     application.installEventFilter(this);
-    for (auto *widget : QApplication::topLevelWidgets())
+    for (auto *widget : QApplication::topLevelWidgets()) {
+      widget->setProperty("cppchat_frame_update_pending", false);
       ApplyFrame(widget);
+    }
   }
 
 protected:
@@ -84,6 +88,10 @@ private:
     const COLORREF border = RGB(_border.red(), _border.green(), _border.blue());
     const COLORREF caption = RGB(_caption.red(), _caption.green(), _caption.blue());
     const COLORREF text = RGB(_text.red(), _text.green(), _text.blue());
+    const BOOL dark = _dark ? TRUE : FALSE;
+    // DWMWA_USE_IMMERSIVE_DARK_MODE; the frame colours below are supported on Windows 11.
+    if (FAILED(DwmSetWindowAttribute(hwnd, 20, &dark, sizeof(dark))))
+      DwmSetWindowAttribute(hwnd, 19, &dark, sizeof(dark));
     // 数值兼容 Qt 6.5 所用的旧 MinGW 头文件：34/35/36 分别为 BORDER/CAPTION/TEXT_COLOR。
     // Windows 11 支持这些属性；旧系统不支持时返回失败，安全保留系统原有外观。
     DwmSetWindowAttribute(hwnd, 34, &border, sizeof(border));
@@ -94,6 +102,7 @@ private:
   const QColor _border;
   const QColor _caption;
   const QColor _text;
+  const bool _dark;
 };
 #endif
 
@@ -172,7 +181,8 @@ bool expandTokens(const QString &source, const QJsonObject &tokens, const QStrin
 }
 } // namespace
 
-bool ThemeManager::load(const QString &manifestPath, UiTheme *theme, QString *error)
+bool ThemeManager::load(const QString &manifestPath, UiTheme *theme, QString *error,
+                        Variant variant)
 {
   if (error) {
     error->clear();
@@ -195,6 +205,17 @@ bool ThemeManager::load(const QString &manifestPath, UiTheme *theme, QString *er
   if (!readObject(directory.filePath(tokenFile), &tokens, error)) {
     return false;
   }
+  if (variant == Variant::Dark) {
+    QJsonObject overrides;
+    const auto darkFile = manifest.value("darkTokens").toString();
+    if (darkFile.isEmpty() || !readObject(directory.filePath(darkFile), &overrides, error))
+      return fail(error, QStringLiteral("Cannot load dark theme tokens: %1").arg(darkFile));
+    for (auto it = overrides.constBegin(); it != overrides.constEnd(); ++it) {
+      if (!it.key().startsWith("color.") || !tokens.contains(it.key()))
+        return fail(error, QStringLiteral("Unknown dark theme colour: %1").arg(it.key()));
+      tokens.insert(it.key(), it.value());
+    }
+  }
   for (auto it = tokens.constBegin(); it != tokens.constEnd(); ++it) {
     if (!it.value().isString() || it.value().toString().isEmpty() ||
         it.value().toString().contains(QStringLiteral("${"))) {
@@ -206,6 +227,32 @@ bool ThemeManager::load(const QString &manifestPath, UiTheme *theme, QString *er
   }
 
   UiTheme loaded;
+  loaded.dark = variant == Variant::Dark;
+  const auto color = [&tokens](const char *key) { return QColor(tokens.value(key).toString()); };
+  for (auto group : {QPalette::Active, QPalette::Inactive, QPalette::Disabled}) {
+    auto &palette = loaded.palette;
+    palette.setColor(group, QPalette::Window, color("color.surface.page"));
+    palette.setColor(group, QPalette::WindowText, color("color.text.primary"));
+    palette.setColor(group, QPalette::Base, color("color.surface"));
+    palette.setColor(group, QPalette::AlternateBase, color("color.surface.subtle"));
+    palette.setColor(group, QPalette::Text, color("color.text.body"));
+    palette.setColor(group, QPalette::Button, color("color.surface.subtle"));
+    palette.setColor(group, QPalette::ButtonText, color("color.text.body"));
+    palette.setColor(group, QPalette::ToolTipBase, color("color.surface"));
+    palette.setColor(group, QPalette::ToolTipText, color("color.text.body"));
+    palette.setColor(group, QPalette::Highlight, color("color.selection"));
+    palette.setColor(group, QPalette::HighlightedText, color("color.text.primary"));
+    palette.setColor(group, QPalette::PlaceholderText, color("color.text.muted"));
+    palette.setColor(group, QPalette::Link, color("color.link"));
+    palette.setColor(group, QPalette::LinkVisited, color("color.link"));
+    palette.setColor(group, QPalette::Light, color("color.surface.hover"));
+    palette.setColor(group, QPalette::Midlight, color("color.border.card"));
+    palette.setColor(group, QPalette::Mid, color("color.border.input"));
+    palette.setColor(group, QPalette::Dark, color("color.surface.pressed"));
+    palette.setColor(group, QPalette::Shadow, color("color.border.window"));
+  }
+  for (auto role : {QPalette::Text, QPalette::WindowText, QPalette::ButtonText})
+    loaded.palette.setColor(QPalette::Disabled, role, color("color.text.disabled"));
   loaded.windowBorderColor = QColor(tokens.value(QStringLiteral("color.border.window")).toString());
   loaded.windowCaptionColor =
       QColor(tokens.value(QStringLiteral("color.surface.subtle")).toString());
@@ -274,14 +321,17 @@ bool ThemeManager::load(const QString &manifestPath, UiTheme *theme, QString *er
   return true;
 }
 
-bool ThemeManager::apply(QApplication &application, QString *error)
+bool ThemeManager::apply(QApplication &application, QString *error, Variant variant)
 {
   UiTheme theme;
-  if (!load(QStringLiteral(":/style/theme.json"), &theme, error)) {
+  if (!load(QStringLiteral(":/style/theme.json"), &theme, error, variant)) {
     return false;
   }
   QList<int> registeredFonts;
+  auto cachedFonts = application.property("cppchat_registered_theme_fonts").toStringList();
   for (const auto &path : theme.fontResources) {
+    if (cachedFonts.contains(path))
+      continue;
     const int id = QFontDatabase::addApplicationFont(path);
     if (id < 0) {
       for (int registered : registeredFonts) {
@@ -291,13 +341,25 @@ bool ThemeManager::apply(QApplication &application, QString *error)
     }
     registeredFonts.append(id);
   }
+  cachedFonts.append(theme.fontResources);
+  cachedFonts.removeDuplicates();
+  application.setProperty("cppchat_registered_theme_fonts", cachedFonts);
+  application.setProperty("cppchat_theme_applying", true);
+  // Fusion honours QPalette for controls not covered by QSS (message boxes, calendars,
+  // colour/file dialogs). Windows' older native widget styles can paint light assets.
+  if (application.style()->objectName().compare("fusion", Qt::CaseInsensitive) != 0)
+    if (auto *style = QStyleFactory::create("Fusion"))
+      application.setStyle(style);
   application.setFont(theme.font);
+  application.setPalette(theme.palette);
   application.setStyleSheet(theme.stylesheet);
+  application.setProperty("cppchat_theme_dark", theme.dark);
 #ifdef Q_OS_WIN
   // 重复应用主题时替换旧过滤器；生命周期交给 QApplication 管理。
   delete application.findChild<QObject *>(QStringLiteral("cppchat_window_frame_filter"),
                                           Qt::FindDirectChildrenOnly);
   new WindowFrameFilter(application, theme);
 #endif
+  application.setProperty("cppchat_theme_applying", false);
   return true;
 }

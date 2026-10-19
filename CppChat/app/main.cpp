@@ -1,6 +1,7 @@
 #include "app/mainwindow.h"
 #include "app/securitycommands.h"
 #include "app/thememanager.h"
+#include "common/clientpreferences.h"
 #include "common/global.h"
 #include "common/logger.h"
 #include "common/runtimepaths.h"
@@ -46,7 +47,7 @@ int main(int argc, char *argv[])
   }
 
   QString themeError;
-  if (!ThemeManager::apply(a, &themeError)) {
+  if (!ThemeManager::followSystem(a, &themeError)) {
     qCritical() << "Failed to load UI theme:" << themeError;
     return EXIT_FAILURE;
   }
@@ -148,7 +149,7 @@ int main(int argc, char *argv[])
     // A local HTTP development server does not provide trusted releases.
     if (!ClientUpdateService::manifestUrlForServer(gateUrl).isEmpty())
       QTimer::singleShot(2000, &updates, [&]() {
-        if (!updatesStarted) {
+        if (!updatesStarted && ClientPreferences::instance()->Current().checkUpdatesOnStartup) {
           updatesStarted = true;
           updates.check();
         }

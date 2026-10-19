@@ -6,19 +6,19 @@ QDialog#ChatDialog #search_list {
 }
 
 QDialog#ChatDialog #search_list::item:selected {
-    background-color: #e3e8e5;
+    background-color: ${color.panel};
     border: none;
     outline: none;
 }
 
 QDialog#ChatDialog #search_list::item:hover:!selected {
-    background-color: #eef0ef;
+    background-color: ${color.surface.page};
     border: none;
     outline: none;
 }
 
 QDialog#ChatDialog #search_list::item:selected:hover {
-    background-color: #dce4de;
+    background-color: ${color.panel};
 }
 
 QDialog#ChatDialog #search_list:focus {
@@ -34,7 +34,7 @@ QDialog#ChatDialog #search_list QLabel#search_empty_tip {
 
 /* Address book: full-width sections and delegate-painted contact rows. */
 QDialog#ChatDialog #contact_manage_btn {
-    background: #fafafa;
+    background: ${color.surface.subtle};
     border: none;
     border-radius: ${radius.avatar};
     color: ${color.text.primary};
@@ -46,20 +46,20 @@ QDialog#ChatDialog #contact_manage_btn:hover {
 }
 
 QDialog#ChatDialog #contact_manage_btn:pressed {
-    background: #e1e2e4;
+    background: ${color.panel};
 }
 
 QDialog#ChatDialog #con_user_list {
-    background: #ededee;
+    background: ${color.panel};
     border: none;
     padding: 10px 0 0 0;
     color: ${color.text.primary};
     font-size: ${font.size.message};
-    selection-color: ${color.surface};
+    selection-color: ${color.text.onBrand};
     selection-background-color: ${color.list.selected};
     qproperty-secondaryColor: ${color.text.muted};
-    qproperty-dividerColor: #e0e0e4;
-    qproperty-applicationSelectionColor: #e1e1e5;
+    qproperty-dividerColor: ${color.border.card};
+    qproperty-applicationSelectionColor: ${color.panel};
 }
 
 QDialog#ChatDialog #con_user_list::item {
@@ -70,12 +70,12 @@ QDialog#ChatDialog #con_user_list::item {
 }
 
 QDialog#ChatDialog #con_user_list::item:hover:!selected {
-    background: #e1e1e5;
+    background: ${color.panel};
 }
 
 QDialog#ChatDialog #con_user_list::item:selected {
     background: ${color.list.selected};
-    color: ${color.surface};
+    color: ${color.text.onBrand};
 }
 
 QDialog#ChatDialog #con_user_list::item:selected:hover {
@@ -88,7 +88,7 @@ QDialog#ChatDialog #con_user_list:focus {
 }
 
 QDialog#ChatDialog #contact_placeholder_page {
-    background: #fafafa;
+    background: ${color.surface.subtle};
 }
 
 QDialog#ChatDialog #contact_placeholder_page QLabel {
@@ -117,56 +117,56 @@ QDialog#ChatDialog #friend_apply_page #apply_hint {
 }
 
 QDialog#ChatDialog #friend_apply_page #friend_apply_wid {
-    background-color: #f1f2f3;
-    border-bottom: 1px solid #ede9e7;
+    background-color: ${color.surface.page};
+    border-bottom: 1px solid ${color.border.card};
 }
 
 QDialog#ChatDialog #friend_apply_page #apply_friend_list {
-    background-color: #f1f2f3;
-    border-left: 1px solid #ede9e7;
+    background-color: ${color.surface.page};
+    border-left: 1px solid ${color.border.card};
     border-top: none;
     border-right: none;
     border-bottom: none;
 }
 
 ApplyFriendItem#ApplyFriendItem {
-    background-color: #f1f2f3;
-    border-bottom: 2px solid #dbd9d9;
+    background-color: ${color.surface.page};
+    border-bottom: 2px solid ${color.border.card};
 }
 
 ApplyFriendItem#ApplyFriendItem #user_chat_lb {
-    color: #a2a2a2;
+    color: ${color.text.muted};
     font-size: ${font.size.base};
 }
 
 ApplyFriendItem#ApplyFriendItem #addBtn[state='normal'] {
-    background-color: #d3d7d4;
-    color: #2cb46e;
+    background-color: ${color.surface.pressed};
+    color: ${color.secondary.text};
     font-size: ${font.size.subheading};
     border-radius: ${radius.pill};
 }
 
 ApplyFriendItem#ApplyFriendItem #addBtn[state='hover'] {
-    background-color: #D3D3D3;
-    color: #2cb46e;
+    background-color: ${color.surface.pressed};
+    color: ${color.secondary.text};
     font-size: ${font.size.subheading};
     border-radius: ${radius.pill};
 }
 
 ApplyFriendItem#ApplyFriendItem #addBtn[state='press'] {
-    background-color: #BEBEBE;
-    color: #2cb46e;
+    background-color: ${color.surface.pressed};
+    color: ${color.secondary.text};
     font-size: ${font.size.subheading};
     border-radius: ${radius.pill};
 }
 
 ApplyFriendItem#ApplyFriendItem #already_add_lb {
-    color: rgb(153,153,153);
+    color: ${color.text.muted};
     font-size: ${font.size.small};
 }
 
 ApplyFriendItem#ApplyFriendItem #user_name_lb {
-    color: rgb(0,0,0);
+    color: ${color.text.body};
     font-size: ${font.size.subheading};
     font-weight: ${font.weight.normal};
 }

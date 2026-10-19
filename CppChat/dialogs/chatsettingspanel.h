@@ -25,6 +25,7 @@ public:
   void SetUser(const std::shared_ptr<UserInfo> &user);
   void SetGroup(const std::shared_ptr<ChatThreadData> &group);
   void SetPinned(bool pinned);
+  void SetMuted(bool muted);
   qreal revealProgress() const;
   void setRevealProgress(qreal progress);
 
@@ -33,6 +34,7 @@ signals:
   void sig_history_requested();
   void sig_clear_history();
   void sig_pin_changed(bool pinned);
+  void sig_mute_changed(bool muted);
 
 protected:
   bool eventFilter(QObject *watched, QEvent *event) override;

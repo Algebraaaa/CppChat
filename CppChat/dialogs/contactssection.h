@@ -2,8 +2,10 @@
 #define CONTACTSSECTION_H
 
 #include "common/userdata.h"
+#include <QPointer>
 #include <QTimer>
 #include <QWidget>
+class ContactManagerDialog;
 namespace Ui {
 class ContactsSection;
 }
@@ -38,5 +40,6 @@ private:
   Ui::ContactsSection *ui;
   QTimer _searchTimer;
   QMap<int, QString> _groupNames;
+  QPointer<ContactManagerDialog> _manager;
 };
 #endif

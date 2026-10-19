@@ -117,7 +117,7 @@
             <bool>true</bool>
            </property>
            <property name="accessibleName">
-            <string>搜索聊天记录（暂未实现）</string>
+            <string>搜索本机聊天记录</string>
            </property>
           </widget>
          </item>
@@ -388,7 +388,7 @@
        <item>
         <widget class="QLabel" name="empty_description">
          <property name="text">
-          <string>搜索、分类和记录定位暂未接入</string>
+          <string>选择已有会话后搜索本机记录</string>
          </property>
          <property name="textFormat">
           <enum>Qt::PlainText</enum>

@@ -1,8 +1,10 @@
 #include "MessageTextEdit.h"
 #include "common/attachmentpreparer.h"
+#include "common/clientpreferences.h"
 #include "common/emojicatalog.h"
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QInputMethodEvent>
 #include <QKeyEvent>
 #include <QMimeData>
 #include <QPainter>
@@ -19,6 +21,9 @@ constexpr int kImageDataProperty = QTextFormat::UserProperty + 1;
 MessageTextEdit::MessageTextEdit(QWidget *parent) : QTextEdit(parent)
 {
   setAcceptRichText(false);
+  connect(ClientPreferences::instance(), &ClientPreferences::changed, this,
+          &MessageTextEdit::UpdateSendShortcut);
+  UpdateSendShortcut();
   connect(AttachmentPreparer::instance(), &AttachmentPreparer::prepared, this,
           [this](const QString &id) {
             if (const auto attachment = _attachments.value(id)) {
@@ -30,6 +35,15 @@ MessageTextEdit::MessageTextEdit(QWidget *parent) : QTextEdit(parent)
           });
 }
 MessageTextEdit::~MessageTextEdit() = default;
+
+void MessageTextEdit::changeEvent(QEvent *event)
+{
+  QTextEdit::changeEvent(event);
+  if (event->type() == QEvent::PaletteChange)
+    for (const auto &attachment : _attachments)
+      if (attachment && attachment->preview.isNull())
+        updatePreview(attachment);
+}
 
 void MessageTextEdit::insertQuote(const QString &sender, const QString &text)
 {
@@ -167,13 +181,33 @@ void MessageTextEdit::dropEvent(QDropEvent *event)
 }
 void MessageTextEdit::keyPressEvent(QKeyEvent *event)
 {
-  if ((event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return) &&
-      !(event->modifiers() & Qt::ShiftModifier)) {
+  const auto modifiers = event->modifiers() & ~Qt::KeypadModifier;
+  const bool sendKey =
+      _controlEnter ? modifiers == Qt::ControlModifier : modifiers == Qt::NoModifier;
+  if ((event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return) && sendKey && !_composing &&
+      !isReadOnly() && isEnabled()) {
     event->accept();
-    emit send();
+    if (!event->isAutoRepeat())
+      emit send();
     return;
   }
   QTextEdit::keyPressEvent(event);
+}
+
+void MessageTextEdit::UpdateSendShortcut()
+{
+  _controlEnter =
+      ClientPreferences::instance()->Current().sendKey == ClientPreferences::SendKey::ControlEnter;
+  setPlaceholderText(_controlEnter ? tr("输入消息，按 Ctrl+Enter 发送")
+                                   : tr("输入消息，按 Enter 发送"));
+  setToolTip(_controlEnter ? tr("Ctrl+Enter 发送；Enter / Shift+Enter 换行")
+                           : tr("Enter 发送；Shift+Enter / Ctrl+Enter 换行"));
+}
+
+void MessageTextEdit::inputMethodEvent(QInputMethodEvent *event)
+{
+  _composing = !event->preeditString().isEmpty();
+  QTextEdit::inputMethodEvent(event);
 }
 
 void MessageTextEdit::insertFileFromUrl(const QStringList &urls)
@@ -211,8 +245,8 @@ void MessageTextEdit::updatePreview(const std::shared_ptr<PreparedAttachment> &a
         QPoint((120 - attachment->preview.width()) / 2, (80 - attachment->preview.height()) / 2),
         attachment->preview);
   } else {
-    painter.fillRect(canvas.rect(), QColor("#edf0f2"));
-    painter.setPen(attachment->error.isEmpty() ? QColor("#7b8791") : QColor("#c44747"));
+    painter.fillRect(canvas.rect(), palette().color(QPalette::Base));
+    painter.setPen(palette().color(QPalette::Text));
     painter.drawText(canvas.rect(), Qt::AlignCenter,
                      attachment->error.isEmpty() ? tr("图片处理中") : tr("图片处理失败"));
   }

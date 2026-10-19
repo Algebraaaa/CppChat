@@ -1,6 +1,8 @@
 #include "chatdialog.h"
 #include "addfrienddialog.h"
+#include "chathistorydialog.h"
 #include "chatpage.h"
+#include "clientsettingsdialog.h"
 #include "common/avatarimage.h"
 #include "common/chatstore.h"
 #include "common/conversationpreferences.h"
@@ -8,10 +10,13 @@
 #include "network/resourcemgr.h"
 #include "network/tcpmgr.h"
 #include "network/usermgr.h"
+#include "notesdialog.h"
 #include "profiledialog.h"
 #include "quickactionmenu.h"
+#include "remindersdialog.h"
 #include "services/chatsyncservice.h"
 #include "services/messageforwarder.h"
+#include "services/reminderservice.h"
 #include "sidemenupopup.h"
 #include "ui_chatdialog.h"
 #include <QApplication>
@@ -31,6 +36,25 @@ ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog
   _sync = new ChatSyncService(this);
   auto *chatPage = ui->conversation_section->Chat();
   _forwarder = new MessageForwarder(this, chatPage, _sync);
+  _reminders = new ReminderService(this);
+  connect(ChatStore::instance(), &ChatStore::accountChanged, this, [this] {
+    _notesDialog.clear();
+    _remindersDialog.clear();
+    _globalHistory.clear();
+  });
+  connect(_reminders, &ReminderService::dueAvailable, this, [this](const QVector<LocalReminder> &) {
+    ShowReminders();
+    if (_remindersDialog)
+      _remindersDialog->Reload();
+    QApplication::alert(window());
+  });
+  connect(chatPage, &ChatPage::sig_reminder_requested, this, [this](const LocalReminder &reminder) {
+    ShowReminders();
+    if (_remindersDialog)
+      _remindersDialog->Schedule(reminder);
+  });
+  connect(ui->favorites_page, &FavoritesPage::notesRequested, this, &ChatDialog::ShowNotes);
+  connect(ui->favorites_page, &FavoritesPage::remindersRequested, this, &ChatDialog::ShowReminders);
   connect(chatPage, &ChatPage::sig_forward_messages, _forwarder, &MessageForwarder::Begin);
   connect(ui->favorites_page, &FavoritesPage::resendRequested, _forwarder,
           &MessageForwarder::Begin);
@@ -42,6 +66,14 @@ ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog
           &ChatDialog::OpenChat);
   connect(ui->conversation_section, &ConversationSection::sig_open_thread, this,
           &ChatDialog::SelectThread);
+  connect(ui->conversation_section, &ConversationSection::sig_window_requested, this,
+          [this](int thread) {
+            if (!UserMgr::GetInstance()->GetChatThreadByThreadId(thread))
+              return;
+            SelectThread(thread);
+            if (_currentThread == thread)
+              ui->conversation_section->OpenChatWindow();
+          });
   connect(ui->conversation_section, &ConversationSection::sig_thread_unread_changed, this,
           [this](int threadId, bool unread) { SetThreadUnread(threadId, unread, true); });
   connect(ui->conversation_section, &ConversationSection::sig_load_more, this, [this] {
@@ -94,11 +126,12 @@ ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog
       _currentThread = 0;
       ui->conversation_section->Chat()->ShowStatus(tr("你已退出群聊，或该群已被解散"));
     }
-    ui->chat_unread_dot->setVisible(!_unreadThreads.isEmpty());
+    ui->chat_unread_dot->setVisible(ui->conversation_section->HasAlert(_unreadThreads));
   });
   connect(quickMenu, &QuickActionMenu::placeholderRequested, this, [this](const QString &title) {
     QMessageBox::information(this, tr("功能建设中"), tr("%1功能暂未实现。").arg(title));
   });
+  connect(quickMenu, &QuickActionMenu::notesRequested, this, &ChatDialog::ShowNotes);
   connect(quickMenu, &QuickActionMenu::addFriendRequested, this, [this] {
     if (_addFriendDialog) {
       _addFriendDialog->show();
@@ -140,6 +173,8 @@ ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog
                        phoneButton->toolTip(), phoneButton);
   });
   _sideMenu = new SideMenuPopup(this);
+  connect(_sideMenu, &SideMenuPopup::historyRequested, this, &ChatDialog::ShowHistory);
+  connect(_sideMenu, &SideMenuPopup::settingsRequested, this, &ChatDialog::ShowSettings);
   ui->side_menu_btn->setAccessibleName(tr("更多菜单"));
   connect(ui->side_menu_btn, &QPushButton::clicked, this, [this] {
     ++_navigationRevision;
@@ -205,6 +240,18 @@ ChatDialog::ChatDialog(QWidget *parent) : QDialog(parent), ui(new Ui::ChatDialog
   connect(_sync, &ChatSyncService::incomingMessage, this, [this](int threadId) {
     SetThreadUnread(threadId, !(_currentThread == threadId && IsChatVisible()));
   });
+  connect(ui->conversation_section, &ConversationSection::sig_thread_hidden, this,
+          [this](int threadId) {
+            if (_currentThread == threadId) {
+              _currentThread = 0;
+              ++_navigationRevision;
+            }
+            SetThreadUnread(threadId, false);
+          });
+  connect(ui->conversation_section, &ConversationSection::sig_alert_preferences_changed, this,
+          [this] {
+            ui->chat_unread_dot->setVisible(ui->conversation_section->HasAlert(_unreadThreads));
+          });
   connect(_sync, &ChatSyncService::status, ui->conversation_section->Chat(), &ChatPage::ShowStatus);
   connect(_sync, &ChatSyncService::initializationFailed, this, [this](const QString &error) {
     QMessageBox::warning(this, tr("本地聊天记录初始化失败"),
@@ -248,9 +295,10 @@ void ChatDialog::StartSession()
 {
   ResetSession();
   const auto preferences = ConversationPreferences::Load(UserMgr::GetInstance()->GetUid());
+  ui->conversation_section->LoadLocalState();
   _unreadThreads = preferences.unread;
   ui->conversation_section->SetPinnedThreads(preferences.pinned);
-  ui->chat_unread_dot->setVisible(!_unreadThreads.isEmpty());
+  ui->chat_unread_dot->setVisible(ui->conversation_section->HasAlert(_unreadThreads));
   RefreshAvatar();
   RefreshContacts();
   _profileDialog->Refresh();
@@ -326,8 +374,8 @@ void ChatDialog::SwitchSection(Section section)
 
 bool ChatDialog::IsChatVisible() const
 {
-  return _currentSection == Section::Chat && ui->conversation_section->isVisible() &&
-         window()->isActiveWindow() && !window()->isMinimized();
+  const auto *page = ui->conversation_section->Chat();
+  return page->isVisible() && page->window()->isActiveWindow() && !page->window()->isMinimized();
 }
 
 void ChatDialog::MarkCurrentRead()
@@ -366,10 +414,87 @@ void ChatDialog::ShowContactPage() { SwitchSection(Section::Contacts); }
 void ChatDialog::ShowFavoritesPage() { SwitchSection(Section::Favorites); }
 void ChatDialog::ShowDiscoverPage() { SwitchSection(Section::Discover); }
 
+void ChatDialog::ShowSettings()
+{
+  if (!_settingsDialog) {
+    _settingsDialog = new ClientSettingsDialog(this);
+    _settingsDialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(_settingsDialog, &ClientSettingsDialog::checkUpdatesRequested, this,
+            &ChatDialog::checkUpdatesRequested);
+  }
+  _settingsDialog->showNormal();
+  _settingsDialog->raise();
+  _settingsDialog->activateWindow();
+}
+
+void ChatDialog::ShowHistory()
+{
+  if (!ChatStore::instance()->IsReady())
+    return;
+  if (!_globalHistory) {
+    _globalHistory = new ChatHistoryDialog(this);
+    _globalHistory->setAttribute(Qt::WA_DeleteOnClose);
+    connect(_globalHistory, &ChatHistoryDialog::openThreadRequested, this, [this](int id) {
+      SelectThread(id);
+      auto *chatWindow = ui->conversation_section->Chat()->window();
+      chatWindow->showNormal();
+      chatWindow->raise();
+      chatWindow->activateWindow();
+    });
+  }
+  _globalHistory->SetAllConversations();
+  _globalHistory->showNormal();
+  _globalHistory->raise();
+  _globalHistory->activateWindow();
+}
+
+void ChatDialog::ShowNotes()
+{
+  if (!ChatStore::instance()->IsReady()) {
+    ui->conversation_section->Chat()->ShowStatus(tr("请登录并等待本机记录加载完成"));
+    return;
+  }
+  if (!_notesDialog) {
+    _notesDialog = new NotesDialog(this);
+    _notesDialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(_notesDialog, &NotesDialog::sendRequested, this, [this](const QString &text) {
+      StoredFavorite snapshot;
+      snapshot.type = 0;
+      snapshot.content = text;
+      snapshot.senderUid = UserMgr::GetInstance()->GetUid();
+      snapshot.senderName = tr("我");
+      _forwarder->Begin({snapshot});
+    });
+  }
+  _notesDialog->show();
+  _notesDialog->raise();
+  _notesDialog->activateWindow();
+}
+void ChatDialog::ShowReminders()
+{
+  if (!ChatStore::instance()->IsReady())
+    return;
+  if (!_remindersDialog) {
+    _remindersDialog = new RemindersDialog(this);
+    _remindersDialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(_remindersDialog, &RemindersDialog::openThreadRequested, this, [this](int thread) {
+      if (UserMgr::GetInstance()->GetChatThreadByThreadId(thread))
+        SelectThread(thread);
+      else
+        ui->conversation_section->Chat()->ShowStatus(
+            tr("原会话已不可用，提醒摘要仍保留，可在提醒事项中处理"));
+    });
+  }
+  _remindersDialog->show();
+  _remindersDialog->raise();
+  _remindersDialog->activateWindow();
+}
+
 bool ChatDialog::eventFilter(QObject *watched, QEvent *event)
 {
   // 恢复窗口焦点后再判断可见性；搜索事件分别由两个业务模块处理。
-  if (watched == window() && event->type() == QEvent::WindowActivate)
+  if ((watched == window() || watched == ui->conversation_section->Chat()->window()) &&
+      event->type() == QEvent::WindowActivate)
     QTimer::singleShot(0, this, &ChatDialog::MarkCurrentRead);
   return QDialog::eventFilter(watched, event);
 }
@@ -404,7 +529,7 @@ void ChatDialog::RefreshConversationList(bool complete)
   if (oldPinned != preferences.pinned)
     ConversationPreferences::SavePinned(uid, preferences.pinned);
   ui->conversation_section->SetPinnedThreads(preferences.pinned);
-  ui->chat_unread_dot->setVisible(!_unreadThreads.isEmpty());
+  ui->chat_unread_dot->setVisible(ui->conversation_section->HasAlert(_unreadThreads));
   AddChatUserList();
   if (_currentThread == 0 && _creatingUser == 0 && ui->conversation_section->ThreadCount() > 0 &&
       _currentSection == Section::Chat)
@@ -420,7 +545,7 @@ void ChatDialog::UpdateChatItem(int threadId, bool addIfMissing)
 {
   ui->conversation_section->UpdateThread(UserMgr::GetInstance()->GetChatThreadByThreadId(threadId),
                                          _unreadThreads.contains(threadId), addIfMissing);
-  ui->chat_unread_dot->setVisible(!_unreadThreads.isEmpty());
+  ui->chat_unread_dot->setVisible(ui->conversation_section->HasAlert(_unreadThreads));
 }
 
 void ChatDialog::OpenChat(std::shared_ptr<UserInfo> user)
@@ -446,6 +571,8 @@ void ChatDialog::SelectThread(int threadId)
 {
   const auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(threadId);
   if (!data)
+    return;
+  if (!ui->conversation_section->RevealThread(threadId))
     return;
   _manuallyUnreadThreads.remove(threadId);
   _currentThread = threadId;
@@ -489,7 +616,7 @@ void ChatDialog::FriendDeleted(int uid)
     _currentThread = 0;
     ui->conversation_section->Chat()->ShowStatus(tr("好友关系已解除，重新添加好友后可继续聊天"));
   }
-  ui->chat_unread_dot->setVisible(!_unreadThreads.isEmpty());
+  ui->chat_unread_dot->setVisible(ui->conversation_section->HasAlert(_unreadThreads));
 }
 void ChatDialog::RequestFailed(ReqId request, const QString &message)
 {

@@ -71,4 +71,23 @@ CREATE TABLE IF NOT EXISTS favorites (
     created_ms INTEGER NOT NULL,
     UNIQUE(thread_id, server_id)
 );
-PRAGMA user_version = 4;
+CREATE TABLE IF NOT EXISTS local_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    revision INTEGER NOT NULL DEFAULT 1,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_ms INTEGER NOT NULL,
+    updated_ms INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS local_reminders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    thread_id INTEGER NOT NULL,
+    server_id INTEGER NOT NULL,
+    subject TEXT NOT NULL,
+    excerpt TEXT NOT NULL,
+    due_ms INTEGER NOT NULL,
+    created_ms INTEGER NOT NULL,
+    due INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_local_reminders_due ON local_reminders(due_ms);
+PRAGMA user_version = 5;

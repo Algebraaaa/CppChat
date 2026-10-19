@@ -43,6 +43,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
   setupTitleBar();
   setupPages();
+  connect(_chatDialog, &ChatDialog::checkUpdatesRequested, this,
+          &MainWindow::checkUpdatesRequested);
   setupMouseTracking();
   connect(_loginDialog, &LoginDialog::switchRegister, this,
           [this]() { _pages->setCurrentWidget(_registerDialog); });

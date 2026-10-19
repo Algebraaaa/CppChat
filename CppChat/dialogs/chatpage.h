@@ -1,6 +1,7 @@
 #ifndef CHATPAGE_H
 #define CHATPAGE_H
 #include "common/favorite.h"
+#include "common/localorganizer.h"
 #include "common/userdata.h"
 #include <QHash>
 #include <QMap>
@@ -29,19 +30,24 @@ public:
   void UpdateChatStatus(const QString &uniqueId, int status);
   void ShowStatus(const QString &message);
   void Reset();
-  void RemoveChatThread(int threadId);
+  void RemoveChatThread(int threadId, bool preserveLocalState = false);
   void SaveCurrentDraft();
+  QString ConversationTitle() const;
   void SetThreadPinned(int threadId, bool pinned);
+  void SetThreadMuted(int threadId, bool muted);
   void CallContact(int uid, bool video);
   bool ForwardSnapshots(const QVector<StoredFavorite> &snapshots,
                         const std::shared_ptr<ChatThreadData> &target);
 signals:
+  void conversationTitleChanged(const QString &title);
   void sig_group_settings(int threadId);
   void sig_reload_local(int threadId);
   void sig_messages_changed(int threadId);
   void sig_open_favorites();
   void sig_thread_pin_changed(int threadId, bool pinned);
+  void sig_thread_mute_changed(int threadId, bool muted);
   void sig_forward_messages(QVector<StoredFavorite> snapshots);
+  void sig_reminder_requested(LocalReminder reminder);
 
 protected:
   bool eventFilter(QObject *watched, QEvent *event) override;

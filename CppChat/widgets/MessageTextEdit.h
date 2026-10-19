@@ -32,10 +32,15 @@ protected:
   void dragEnterEvent(QDragEnterEvent *event) override;
   void dropEvent(QDropEvent *event) override;
   void keyPressEvent(QKeyEvent *e) override;
+  void inputMethodEvent(QInputMethodEvent *event) override;
+  void changeEvent(QEvent *event) override;
   bool canInsertFromMimeData(const QMimeData *source) const override;
   void insertFromMimeData(const QMimeData *source) override;
 
 private:
+  void UpdateSendShortcut();
+  bool _controlEnter = false;
+  bool _composing = false;
   void insertImageData(const QByteArray &bytes);
   void insertPrepared(const std::shared_ptr<PreparedAttachment> &attachment);
   void updatePreview(const std::shared_ptr<PreparedAttachment> &attachment);

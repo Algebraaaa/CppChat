@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(CppChat VERSION 0.1.16 LANGUAGES C CXX)
+project(CppChat VERSION 0.1.17 LANGUAGES C CXX)
 set(CPPCHAT_APP_VERSION "AUTO" CACHE STRING "AUTO follows the source version; packaging may override it")
 set(cppchat_version "${CPPCHAT_APP_VERSION}")
 if(cppchat_version STREQUAL "AUTO")

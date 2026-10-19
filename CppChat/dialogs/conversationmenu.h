@@ -13,11 +13,15 @@ class ConversationMenu : public QWidget {
 public:
   explicit ConversationMenu(QWidget *parent = nullptr);
   ~ConversationMenu() override;
-  void Popup(int threadId, bool pinned, bool unread, const QPoint &position);
+  void Popup(int threadId, bool pinned, bool unread, const QPoint &position, bool muted = false);
 
 signals:
   void sig_pin_changed(int threadId, bool pinned);
   void sig_unread_changed(int threadId, bool unread);
+  void sig_mute_changed(int threadId, bool muted);
+  void sig_hide_requested(int threadId);
+  void sig_delete_requested(int threadId);
+  void sig_window_requested(int threadId);
   void sig_placeholder(const QString &title);
 
 protected:
@@ -28,5 +32,6 @@ private:
   int _threadId = 0;
   bool _pinned = false;
   bool _unread = false;
+  bool _muted = false;
 };
 #endif

@@ -1,17 +1,17 @@
 /* Conversation list, chat header, composer, messages and delivery status. */
 
 QDialog#ChatDialog {
-    background: #f5f5f5;
+    background: ${color.surface.page};
     color: ${color.text.primary};
 }
 
 QDialog#ChatDialog #side_bar {
-    background-color: #e1e1e7;
+    background-color: ${color.sidebar};
     border: none;
 }
 
 QDialog#ChatDialog #search_wid {
-    background-color: #ededee;
+    background-color: ${color.panel};
     border: none;
 }
 
@@ -37,7 +37,7 @@ QDialog#ChatDialog #search_edit:focus {
 
 QDialog#ChatDialog #chat_user_wid,
 QDialog#ChatDialog #contacts_list_wid {
-    background-color: #ededee;
+    background-color: ${color.panel};
 }
 
 QDialog#ChatDialog QSplitter#main_splitter::handle,
@@ -47,7 +47,7 @@ QDialog#ChatDialog QSplitter#contact_splitter::handle {
 }
 
 QDialog#ChatDialog #chat_user_list {
-    background-color: #ededee;
+    background-color: ${color.panel};
     border: none;
     padding: 0;
 }
@@ -60,11 +60,11 @@ QDialog#ChatDialog #chat_user_list::item {
 }
 
 QDialog#ChatDialog #chat_user_list::item:hover:!selected {
-    background-color: #dedfe0;
+    background-color: ${color.surface.hover};
 }
 
 QDialog#ChatDialog #chat_user_list::item:pressed:!selected {
-    background-color: #d4d5d6;
+    background-color: ${color.surface.pressed};
 }
 
 QDialog#ChatDialog #chat_user_list::item:selected {
@@ -102,19 +102,19 @@ ChatUserWid#ChatUserWid #user_name_lb {
 }
 
 ChatUserWid#ChatUserWid #time_lb {
-    color: #a0a5ab;
+    color: ${color.text.muted};
     font-size: ${font.size.caption};
 }
 
 ChatUserWid#ChatUserWid #user_name_lb[selected="true"],
 ChatUserWid#ChatUserWid #user_chat_lb[selected="true"],
 ChatUserWid#ChatUserWid #time_lb[selected="true"] {
-    color: ${color.surface};
+    color: ${color.text.onBrand};
 }
 
 ChatUserWid#ChatUserWid #icon_lb {
-    background: #eef0f2;
-    border: 1px solid #e0e3e5;
+    background: ${color.surface.page};
+    border: 1px solid ${color.border.card};
     border-radius: ${radius.avatar};
 }
 
@@ -136,157 +136,157 @@ ChatPage #messageSelectionBar QPushButton:disabled {
     color: ${color.text.muted};
 }
 
-QDialog#ChatDialog #chat_page,
-QDialog#ChatDialog #chat_page #chat_data_wid {
-    background: #f5f5f5;
+ChatPage,
+ChatPage #chat_data_wid {
+    background: ${color.surface.page};
 }
 
-QDialog#ChatDialog #chat_page #composer_wid {
-    background: #f5f5f5;
+ChatPage #composer_wid {
+    background: ${color.surface.page};
     border: none;
 }
 
 /* 输入区独立卡片：外边距在 .ui 中，编辑框和底部工具栏共用背景。 */
-QDialog#ChatDialog #chat_page #composer_card {
-    background: #fafafa;
-    border: 1px solid #dedede;
+ChatPage #composer_card {
+    background: ${color.surface.subtle};
+    border: 1px solid ${color.border.card};
     border-radius: ${radius.card};
 }
 
-QDialog#ChatDialog #chat_page QSplitter#chat_splitter::handle {
+ChatPage QSplitter#chat_splitter::handle {
     background: transparent;
     border: none;
 }
 
-QDialog#ChatDialog #chat_page #title_wid {
-    background: #f5f5f5;
-    border-bottom: 1px solid #dedede;
+ChatPage #title_wid {
+    background: ${color.surface.page};
+    border-bottom: 1px solid ${color.border.card};
 }
 
-QDialog#ChatDialog #chat_page #title_label {
+ChatPage #title_label {
     color: ${color.text.primary};
     font-size: ${font.size.heading};
     font-weight: ${font.weight.medium};
 }
 
-QDialog#ChatDialog #chat_page #chatEdit {
+ChatPage #chatEdit {
     background-color: transparent;
     border: none;
-    color: #25282c;
+    color: ${color.text.body};
     font-size: ${font.size.message};
     padding: 4px 6px;
     selection-background-color: ${color.selection};
 }
 
-QDialog#ChatDialog #chat_page #chatEdit:disabled {
-    color: #a5aaaf;
+ChatPage #chatEdit:disabled {
+    color: ${color.text.disabled};
     background: transparent;
 }
 
-QDialog#ChatDialog #chat_page #tool_wid {
+ChatPage #tool_wid {
     background-color: transparent;
     border: none;
 }
 
-QDialog#ChatDialog #chat_page #send_btn {
-    background-color: #f5f5f5;
-    color: #07a957;
+ChatPage #send_btn {
+    background-color: ${color.surface.page};
+    color: ${color.secondary.text};
     font-size: ${font.size.message};
     font-weight: ${font.weight.medium};
     border: 1px solid ${color.surface.pressed};
     border-radius: ${radius.avatar};
 }
 
-QDialog#ChatDialog #chat_page #send_btn:hover:enabled {
-    background-color: #e9e9e9;
+ChatPage #send_btn:hover:enabled {
+    background-color: ${color.panel};
 }
 
-QDialog#ChatDialog #chat_page #send_btn:pressed:enabled {
-    background-color: #dedede;
+ChatPage #send_btn:pressed:enabled {
+    background-color: ${color.surface.hover};
 }
 
-QDialog#ChatDialog #chat_page #send_btn:disabled {
-    background-color: #f1f1f1;
-    color: #b8b8b8;
-    border-color: #ededed;
+ChatPage #send_btn:disabled {
+    background-color: ${color.surface.page};
+    color: ${color.text.disabled};
+    border-color: ${color.border.card};
 }
 
-QDialog#ChatDialog #chat_page #chat_data_list,
-QDialog#ChatDialog #chat_page #chat_bg {
-    background-color: #f5f5f5;
+ChatPage #chat_data_list,
+ChatPage #chat_bg {
+    background-color: ${color.surface.page};
 }
 
-QDialog#ChatDialog #chat_page #chat_area {
+ChatPage #chat_area {
     border: none;
 }
 
-QDialog#ChatDialog #chat_page #chat_user_name {
-    color: #8b929a;
+ChatPage #chat_user_name {
+    color: ${color.text.muted};
     font-size: ${font.size.label};
 }
 
-QDialog#ChatDialog #chat_page QLabel#chat_time_separator {
-    color: #a3a3a3;
+ChatPage QLabel#chat_time_separator {
+    color: ${color.text.muted};
     background: transparent;
     font-size: ${font.size.small};
     padding: 8px 0 5px 0;
 }
 
-QDialog#ChatDialog #chat_page QLabel#message_status {
-    color: #999999;
+ChatPage QLabel#message_status {
+    color: ${color.text.muted};
     font-size: ${font.size.caption};
     background: transparent;
 }
 
-QDialog#ChatDialog #chat_page QLabel#message_status[failed="true"] {
-    color: #d94c4c;
+ChatPage QLabel#message_status[failed="true"] {
+    color: ${color.status.error};
 }
 
-QDialog#ChatDialog #chat_page QLabel#chat_status {
-    background: #fff5df;
-    color: #86632c;
+ChatPage QLabel#chat_status {
+    background: ${color.status.warning.surface};
+    color: ${color.status.warning.text};
     border: none;
-    border-bottom: 1px solid #f0dfb8;
+    border-bottom: 1px solid ${color.status.warning.border};
     padding: 7px 22px;
     font-size: ${font.size.small};
 }
 
 QDialog#ChatDialog #chat_user_list QLabel#unread_dot {
-    background: #fa5151;
+    background: ${color.status.badge};
     border: none;
     border-radius: ${radius.dot};
 }
 
 /* ChatSettingsPanel（chatsettingspanel.ui）：悬浮于聊天内容右侧，不占布局宽度。
    位置由 QPropertyAnimation 平移；背景和左边界明确区分抽屉与聊天内容。 */
-QDialog#ChatDialog #chat_page ChatSettingsPanel {
+ChatPage ChatSettingsPanel {
     background: ${color.surface.subtle};
     border: none;
     border-left: 1px solid ${color.border.card};
 }
 
-QDialog#ChatDialog #chat_page ChatSettingsPanel QWidget,
-QDialog#ChatDialog #chat_page ChatSettingsPanel QLabel {
+ChatPage ChatSettingsPanel QWidget,
+ChatPage ChatSettingsPanel QLabel {
     background: transparent;
     border: none;
     color: ${color.text.primary};
     font-size: ${font.size.message};
 }
 
-QDialog#ChatDialog #chat_page ChatSettingsPanel #member_name,
-QDialog#ChatDialog #chat_page ChatSettingsPanel #add_member_label {
+ChatPage ChatSettingsPanel #member_name,
+ChatPage ChatSettingsPanel #add_member_label {
     color: ${color.text.muted};
     font-size: ${font.size.label};
 }
 
-QDialog#ChatDialog #chat_page ChatSettingsPanel #settings_separator_1,
-QDialog#ChatDialog #chat_page ChatSettingsPanel #settings_separator_2,
-QDialog#ChatDialog #chat_page ChatSettingsPanel #settings_separator_3 {
+ChatPage ChatSettingsPanel #settings_separator_1,
+ChatPage ChatSettingsPanel #settings_separator_2,
+ChatPage ChatSettingsPanel #settings_separator_3 {
     background: ${color.border.subtle};
     border: none;
 }
 
-QDialog#ChatDialog #chat_page ChatSettingsPanel QPushButton {
+ChatPage ChatSettingsPanel QPushButton {
     background: transparent;
     border: none;
     border-radius: ${radius.control};
@@ -295,43 +295,43 @@ QDialog#ChatDialog #chat_page ChatSettingsPanel QPushButton {
     padding: 0;
 }
 
-QDialog#ChatDialog #chat_page ChatSettingsPanel QPushButton:hover {
+ChatPage ChatSettingsPanel QPushButton:hover {
     background: ${color.surface.hover};
 }
 
-QDialog#ChatDialog #chat_page ChatSettingsPanel QPushButton:pressed {
+ChatPage ChatSettingsPanel QPushButton:pressed {
     background: ${color.surface.pressed};
 }
 
-QDialog#ChatDialog #chat_page ChatSettingsPanel #add_member_btn {
-    border: 1px dashed #d7dadd;
+ChatPage ChatSettingsPanel #add_member_btn {
+    border: 1px dashed ${color.border.card};
     border-radius: ${radius.compact};
 }
 
-QDialog#ChatDialog #chat_page ChatSettingsPanel #find_content_btn {
+ChatPage ChatSettingsPanel #find_content_btn {
     text-align: left;
 }
 
-QDialog#ChatDialog #chat_page ChatSettingsPanel #clear_history_btn {
-    color: #fa5151;
+ChatPage ChatSettingsPanel #clear_history_btn {
+    color: ${color.status.error};
 }
 
 /* QCheckBox 原生维护 :checked 状态，用两张 SVG 实现开关，不需要自定义 state。 */
-QDialog#ChatDialog #chat_page ChatSettingsPanel QCheckBox {
+ChatPage ChatSettingsPanel QCheckBox {
     background: transparent;
     border: none;
     spacing: 0;
     padding: 0;
 }
 
-QDialog#ChatDialog #chat_page ChatSettingsPanel QCheckBox::indicator {
+ChatPage ChatSettingsPanel QCheckBox::indicator {
     width: 40px;
     height: 24px;
     border: none;
     image: url(:/icons/settings-switch-off.svg);
 }
 
-QDialog#ChatDialog #chat_page ChatSettingsPanel QCheckBox::indicator:checked {
+ChatPage ChatSettingsPanel QCheckBox::indicator:checked {
     image: url(:/icons/settings-switch-on.svg);
 }
 

@@ -47,7 +47,7 @@
        <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
        <property name="maximumSize"><size><width>16777215</width><height>38</height></size></property>
        <property name="text"><string>消息免打扰</string></property>
-       <property name="toolTip"><string>消息免打扰（暂未实现）</string></property>
+       <property name="toolTip"><string>关闭未读红点，消息仍正常接收</string></property>
        <property name="accessibleName"><string>消息免打扰</string></property>
        <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
        <property name="focusPolicy"><enum>Qt::StrongFocus</enum></property>
@@ -64,7 +64,7 @@
        <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
        <property name="maximumSize"><size><width>16777215</width><height>38</height></size></property>
        <property name="text"><string>独立窗口显示</string></property>
-       <property name="toolTip"><string>独立窗口显示（暂未实现）</string></property>
+         <property name="toolTip"><string>将聊天区域移到独立窗口；关闭后返回主界面</string></property>
        <property name="accessibleName"><string>独立窗口显示</string></property>
        <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
        <property name="focusPolicy"><enum>Qt::StrongFocus</enum></property>
@@ -75,9 +75,9 @@
       <item><widget class="QPushButton" name="hide_btn">
        <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
        <property name="maximumSize"><size><width>16777215</width><height>38</height></size></property>
-       <property name="text"><string>不显示</string></property>
-       <property name="toolTip"><string>不显示（暂未实现）</string></property>
-       <property name="accessibleName"><string>不显示</string></property>
+       <property name="text"><string>隐藏会话</string></property>
+       <property name="toolTip"><string>隐藏会话，保留记录；新消息或主动打开时重新显示</string></property>
+       <property name="accessibleName"><string>隐藏会话</string></property>
        <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
        <property name="focusPolicy"><enum>Qt::StrongFocus</enum></property>
        <property name="autoDefault"><bool>false</bool></property>
@@ -92,9 +92,9 @@
       <item><widget class="QPushButton" name="delete_btn">
        <property name="minimumSize"><size><width>0</width><height>38</height></size></property>
        <property name="maximumSize"><size><width>16777215</width><height>38</height></size></property>
-       <property name="text"><string>删除</string></property>
-       <property name="toolTip"><string>删除（暂未实现）</string></property>
-       <property name="accessibleName"><string>删除</string></property>
+       <property name="text"><string>删除本机会话</string></property>
+       <property name="toolTip"><string>仅删除本机已确认记录并隐藏会话</string></property>
+       <property name="accessibleName"><string>删除本机会话</string></property>
        <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
        <property name="focusPolicy"><enum>Qt::StrongFocus</enum></property>
        <property name="autoDefault"><bool>false</bool></property>

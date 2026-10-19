@@ -175,6 +175,61 @@ private slots:
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
   }
   void cleanupTestCase() { ChatStore::instance()->Shutdown(); }
+  void composerKeepsFocusAfterKeyboardAndMouseSendWithoutStealingNewFocus()
+  {
+    LoginPeer peer;
+    gate_url_prefix = peer.url();
+    LoginDialog login;
+    login.findChild<QLineEdit *>("email_edit")->setText("user@example.invalid");
+    login.findChild<QLineEdit *>("pass_edit")->setText("Password123");
+    login.findChild<QPushButton *>("login_btn")->click();
+    QTRY_VERIFY(TcpMgr::GetInstance()->IsConnected());
+    auto mgr = UserMgr::GetInstance();
+    mgr->SetUserInfo(std::make_shared<UserInfo>(101, "self", ""));
+    mgr->AddFriend(std::make_shared<UserInfo>(102, "friend", ""));
+    auto thread = std::make_shared<ChatThreadData>(102, 7, 0);
+    mgr->AddChatThreadData(thread, 102);
+    auto *store = ChatStore::instance();
+    auto result = QtFixtures::awaitStore(
+        [&](auto done) { store->OpenAccount(101, "https://focus.example.test", done); });
+    QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+    result = QtFixtures::awaitStore([&](auto done) { store->SaveConversations({{7, 102}}, done); });
+    QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+    ChatPage page;
+    page.SetChatData(thread);
+    page.show();
+    page.activateWindow();
+    auto *edit = page.findChild<MessageTextEdit *>();
+    QTRY_VERIFY(edit->isEnabled());
+    edit->setFocus();
+    QTRY_VERIFY(edit->hasFocus());
+    const auto sentCount = [&] {
+      return std::count_if(
+          peer.chatRequests.begin(), peer.chatRequests.end(),
+          [](const QJsonObject &request) { return request["id"].toInt() == ID_TEXT_CHAT_MSG_REQ; });
+    };
+    for (int n = 1; n <= 3; ++n) {
+      // The next message is typed without clicking or explicitly focusing again.
+      QTest::keyClicks(edit, "continuous message");
+      if (n == 3)
+        QTest::mouseClick(page.findChild<QPushButton *>("send_btn"), Qt::LeftButton);
+      else
+        QTest::keyClick(edit, Qt::Key_Return);
+      QTRY_COMPARE(sentCount(), n);
+      QTRY_VERIFY(edit->isEnabled() && edit->toPlainText().isEmpty());
+      QVERIFY(edit->hasFocus());
+    }
+    QPushButton other("Another control", &page);
+    other.show();
+    QTest::keyClicks(edit, "preserve user focus");
+    QTest::keyClick(edit, Qt::Key_Return);
+    QVERIFY(!edit->isEnabled());
+    other.setFocus(Qt::OtherFocusReason);
+    QVERIFY(other.hasFocus());
+    QTRY_COMPARE(sentCount(), 4);
+    QTRY_VERIFY(edit->isEnabled() && edit->toPlainText().isEmpty());
+    QVERIFY(other.hasFocus());
+  }
   void forwardingUsesExplicitTargetNewIdsPreservesDraftsAndRejectsLateReplies()
   {
     QString themeError;

@@ -27,7 +27,12 @@ SideMenuPopup::SideMenuPopup(QWidget *parent) : QDialog(parent), ui(new Ui::Side
     button->setAccessibleName(button->text());
     connect(button, &QPushButton::clicked, this, [this, button] {
       hide(); // 先收起菜单，再由主窗口处理入口，避免占位窗口与 Popup 抢焦点。
-      emit sig_action_requested(button->text());
+      if (button == ui->chat_history_btn)
+        emit historyRequested();
+      else if (button == ui->settings_btn)
+        emit settingsRequested();
+      else
+        emit sig_action_requested(button->text());
     });
   }
 }

@@ -109,7 +109,7 @@
            </size>
           </property>
           <property name="toolTip">
-           <string>添加聊天成员（暂未实现）</string>
+           <string>发起群聊或查看群成员</string>
           </property>
           <property name="accessibleName">
            <string>添加聊天成员</string>
@@ -269,7 +269,7 @@
      <item>
       <widget class="QCheckBox" name="mute_switch">
        <property name="toolTip">
-        <string>消息免打扰（暂未实现）</string>
+        <string>关闭未读红点，消息仍正常接收</string>
        </property>
        <property name="accessibleName">
         <string>消息免打扰</string>

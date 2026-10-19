@@ -1,5 +1,31 @@
 /* Search/add-friend dialogs, sidebar menu, tags, emoji picker, image viewer and screen capture. */
 
+QDialog#detachedChatWindow,
+QWidget#detachedChatPlaceholder {
+    background: ${color.surface};
+    color: ${color.text.body};
+}
+QPushButton#dockChatButton,
+QPushButton#restoreChatButton {
+    background: ${color.surface};
+    color: ${color.accent.text};
+    border: 1px solid ${color.border.subtle};
+    border-radius: ${radius.control};
+    padding: 8px;
+}
+QDialog#ChatHistoryDialog QLabel {
+    color: ${color.text.body};
+    background: transparent;
+}
+QDialog#ChatHistoryDialog QListWidget#results_list,
+QDialog#ChatHistoryDialog QComboBox#historyConversationFilter,
+QDialog#ChatHistoryDialog QComboBox#historyConversationFilter QAbstractItemView {
+    color: ${color.text.body};
+    background: ${color.surface};
+    selection-background-color: ${color.selection};
+    selection-color: ${color.text.body};
+}
+
 QDialog#VoiceCallDialog {
     background-color: ${color.surface};
     color: ${color.text.primary};
@@ -40,7 +66,7 @@ QDialog#ChatHistoryDialog QLineEdit#search_edit {
 }
 
 QDialog#ChatHistoryDialog QPushButton {
-    color: #244a91;
+    color: ${color.link};
     background: transparent;
     border: none;
     border-radius: ${radius.control};
@@ -80,7 +106,7 @@ QDialog#ChatHistoryDialog QScrollBar:vertical {
 }
 
 QDialog#ChatHistoryDialog QScrollBar::handle:vertical {
-    background: #b1b1b1;
+    background: ${color.surface.pressed};
     border-radius: ${radius.dot};
     min-height: 30px;
 }
@@ -144,7 +170,7 @@ QWidget#MessageMenu {
 }
 
 QWidget#MessageMenu QFrame#menu_panel {
-    background: #f7f7f7;
+    background: ${color.surface.page};
     border: 1px solid ${color.border.window};
     border-radius: ${radius.panel};
 }
@@ -331,7 +357,7 @@ QDialog#AddFriendDialog CustomizeEdit#add_friend_search_edit:focus {
 }
 
 QDialog#AddFriendDialog QPushButton#add_friend_search_btn {
-    color: ${color.surface};
+    color: ${color.text.onBrand};
     background-color: ${color.brand};
     border: none;
     border-radius: ${radius.action};
@@ -347,7 +373,7 @@ QDialog#AddFriendDialog QPushButton#add_friend_search_btn:pressed {
 }
 
 QDialog#AddFriendDialog QPushButton#add_friend_search_btn:disabled {
-    color: ${color.surface};
+    color: ${color.text.onBrand};
     background-color: ${color.brand.disabled};
 }
 
@@ -370,7 +396,7 @@ QFrame#capture_toolbar QPushButton {
 }
 
 QDialog#LoadingDlg {
-    background-color: #f2eada;
+    background-color: ${color.status.warning.surface};
     border: 1px solid ${color.border.window};
 }
 
@@ -380,7 +406,7 @@ QFrame#emoji_popup {
 }
 
 QFrame#emoji_popup QFrame#emoji_panel {
-    background-color: #fafafa;
+    background-color: ${color.surface.subtle};
     border: 1px solid ${color.border.window};
     border-radius: 14px;
 }
@@ -393,7 +419,7 @@ QFrame#emoji_popup QWidget#emoji_content QWidget {
 }
 
 QFrame#emoji_popup QLabel#emoji_title {
-    color: #9698a1;
+    color: ${color.text.muted};
     font-size: ${font.size.heading};
     padding: 8px 6px 0;
 }
@@ -412,17 +438,17 @@ QFrame#emoji_popup QToolButton#emoji_option {
 }
 
 QFrame#emoji_popup QToolButton#emoji_option:hover {
-    background-color: #eeeeef;
+    background-color: ${color.panel};
 }
 
 QFrame#emoji_popup QToolButton#emoji_option:pressed {
-    background-color: #e2e2e5;
+    background-color: ${color.panel};
 }
 
 QFrame#emoji_popup QFrame#emoji_toolbar {
-    background: #fafafa;
+    background: ${color.surface.subtle};
     border: none;
-    border-top: 1px solid #e5e5e7;
+    border-top: 1px solid ${color.border.card};
     border-bottom-left-radius: 14px;
     border-bottom-right-radius: 14px;
 }
@@ -435,21 +461,21 @@ QFrame#emoji_popup QToolButton#emoji_tab {
 }
 
 QFrame#emoji_popup QToolButton#emoji_tab:hover {
-    background-color: #eeeeef;
+    background-color: ${color.panel};
 }
 
 QFrame#emoji_popup QToolButton#emoji_tab:checked {
-    background-color: #dff3e8;
+    background-color: ${color.secondary.surface};
 }
 
 QFrame#emoji_popup QToolButton#emoji_tab:pressed {
-    background-color: #d4e8dc;
+    background-color: ${color.secondary.surface};
 }
 
 /* 鼠标点击不会获取 TabFocus，键盘焦点只显示细边框。 */
 QFrame#emoji_popup QToolButton#emoji_tab:focus,
 QFrame#emoji_popup QToolButton#emoji_option:focus {
-    border-color: #86bea1;
+    border-color: ${color.secondary.border.hover};
 }
 
 QFrame#emoji_popup QLineEdit#emoji_search {
@@ -468,7 +494,7 @@ QFrame#emoji_popup QScrollBar:vertical {
 }
 
 QFrame#emoji_popup QScrollBar::handle:vertical {
-    background: #d5d5d8;
+    background: ${color.surface.pressed};
     border-radius: 3px;
     min-height: 30px;
 }
@@ -501,13 +527,13 @@ QDialog#FindFailDlg #fail_tip {
 }
 
 QDialog#FindFailDlg #fail_tip2 {
-    color: #8a8f98;
+    color: ${color.text.muted};
     font-size: ${font.size.label};
     padding-left: 12px;
 }
 
 QDialog#FindFailDlg #fail_sure_btn {
-    color: ${color.surface};
+    color: ${color.text.onBrand};
     border: none;
     border-radius: ${radius.control};
     font-size: ${font.size.base};
@@ -531,8 +557,8 @@ QDialog#FindSuccessDlg QWidget {
 }
 
 QDialog#FindSuccessDlg #head_lb {
-    background-color: #f2f4f5;
-    border: 1px solid #e7eaec;
+    background-color: ${color.surface.page};
+    border: 1px solid ${color.border.card};
     border-radius: ${radius.avatar};
 }
 
@@ -562,7 +588,7 @@ QDialog#FindSuccessDlg #description_text {
 }
 
 QDialog#FindSuccessDlg #add_friend_btn {
-    color: ${color.surface};
+    color: ${color.text.onBrand};
     border: none;
     border-radius: ${radius.control};
     font-size: ${font.size.base};
@@ -611,7 +637,7 @@ QDialog#ApplyFriend #apply_wid QFrame#line {
 }
 
 QDialog#ApplyFriend #apply_wid QLabel {
-    color: #7d838b;
+    color: ${color.text.muted};
     font-size: ${font.size.label};
     background-color: transparent;
 }
@@ -620,12 +646,12 @@ QDialog#ApplyFriend #name_ed,
 QDialog#ApplyFriend #back_ed,
 QDialog#ApplyFriend #lb_ed {
     color: ${color.text.primary};
-    background-color: #f6f7f8;
-    border: 1px solid #e3e6e8;
+    background-color: ${color.surface.subtle};
+    border: 1px solid ${color.border.card};
     border-radius: ${radius.control};
     padding: 0 10px;
     font-size: ${font.size.base};
-    selection-background-color: #95dcb7;
+    selection-background-color: ${color.secondary.surface.pressed};
     outline: none;
 }
 
@@ -633,7 +659,7 @@ QDialog#ApplyFriend #name_ed:hover,
 QDialog#ApplyFriend #back_ed:hover,
 QDialog#ApplyFriend #lb_ed:hover {
     background-color: ${color.surface};
-    border-color: #b9ddc9;
+    border-color: ${color.secondary.border.hover};
 }
 
 QDialog#ApplyFriend #name_ed:focus,
@@ -648,34 +674,34 @@ QDialog#ApplyFriend #more_lb {
 }
 
 QDialog#ApplyFriend #tipslb {
-    color: #4f555c;
-    background-color: #f1f3f4;
-    border: 1px solid #e5e8ea;
+    color: ${color.text.muted};
+    background-color: ${color.surface.page};
+    border: 1px solid ${color.border.card};
     border-radius: ${radius.panel};
     padding: 2px 8px;
 }
 
 QDialog#ApplyFriend #tipslb[state="hover"] {
     color: ${color.secondary.text};
-    background-color: #edf9f2;
-    border-color: #a9e5c4;
+    background-color: ${color.surface.subtle};
+    border-color: ${color.secondary.border.hover};
 }
 
 QDialog#ApplyFriend #tipslb[state="pressed"] {
-    color: #067f3e;
-    background-color: #dff4e9;
-    border-color: #7ed3a5;
+    color: ${color.secondary.text};
+    background-color: ${color.secondary.surface};
+    border-color: ${color.secondary.border.hover};
 }
 
 QDialog#ApplyFriend #tipslb[selected="true"] {
-    color: ${color.surface};
+    color: ${color.text.onBrand};
     background-color: ${color.brand};
     border-color: ${color.brand};
 }
 
 QDialog#ApplyFriend #input_tip_wid {
-    background-color: #edf9f2;
-    border: 1px solid #c8ead7;
+    background-color: ${color.surface.subtle};
+    border: 1px solid ${color.secondary.border.hover};
     border-radius: ${radius.control};
 }
 
@@ -706,7 +732,7 @@ QDialog#ApplyFriend #cancel_btn {
 }
 
 QDialog#ApplyFriend #sure_btn {
-    color: ${color.surface};
+    color: ${color.text.onBrand};
     border: 1px solid ${color.brand};
 }
 
@@ -725,8 +751,8 @@ QDialog#ApplyFriend #sure_btn[state="press"] {
 }
 
 QDialog#ApplyFriend #cancel_btn {
-    color: #35383c;
-    border: 1px solid #d9dde0;
+    color: ${color.text.body};
+    border: 1px solid ${color.border.card};
 }
 
 QDialog#ApplyFriend #cancel_btn[state="normal"] {
@@ -735,18 +761,18 @@ QDialog#ApplyFriend #cancel_btn[state="normal"] {
 
 QDialog#ApplyFriend #cancel_btn[state="hover"] {
     color: ${color.secondary.text};
-    background-color: #f2fbf6;
+    background-color: ${color.surface.subtle};
     border-color: ${color.secondary.border.hover};
 }
 
 QDialog#ApplyFriend #cancel_btn[state="press"] {
-    color: #067f3e;
-    background-color: #e5f6ed;
+    color: ${color.secondary.text};
+    background-color: ${color.secondary.surface};
     border-color: ${color.secondary.border.pressed};
 }
 
 QDialog#ApplyFriend #apply_wid #FriendLabel {
-    background-color: #daf6e7;
+    background-color: ${color.secondary.surface.hover};
     color: ${color.secondary.text};
     border-radius: ${radius.panel};
 }
@@ -762,7 +788,7 @@ FriendLabel#FriendLabel #close_lb {
 
 QDialog#ApplyFriend #sure_btn:disabled,
 QDialog#ApplyFriend #cancel_btn:disabled {
-    background: #e4e4e4;
+    background: ${color.panel};
     color: ${color.text.disabled};
 }
 
@@ -798,12 +824,36 @@ QDialog[groupDialog="true"] QLineEdit:focus {
     border-color: ${color.brand};
 }
 QDialog[groupDialog="true"] QListWidget,
-QDialog[groupDialog="true"] QPlainTextEdit {
+QDialog[groupDialog="true"] QPlainTextEdit,
+QDialog[groupDialog="true"] QTableView {
     color: ${color.text.body};
     background: ${color.surface};
     border: 1px solid ${color.border.subtle};
     border-radius: ${radius.panel};
     outline: none;
+}
+QDialog[groupDialog="true"] QTableView {
+    selection-background-color: ${color.selection};
+    selection-color: ${color.text.body};
+    gridline-color: ${color.border.subtle};
+}
+QDialog[groupDialog="true"] QHeaderView::section {
+    color: ${color.text.body};
+    background: ${color.surface.subtle};
+    border: 1px solid ${color.border.subtle};
+    padding: 8px;
+}
+QDialog[groupDialog="true"] QComboBox,
+QDialog[groupDialog="true"] QDateTimeEdit {
+    color: ${color.text.body};
+    background: ${color.surface.subtle};
+    border: 1px solid ${color.border.input};
+    border-radius: ${radius.control};
+    min-height: 32px;
+    padding: 2px 8px;
+}
+QDialog[groupDialog="true"] QCheckBox {
+    color: ${color.text.body};
 }
 QDialog[groupDialog="true"] QListWidget::item {
     padding: 0 8px;
@@ -841,7 +891,7 @@ QDialog[groupDialog="true"] QPushButton:hover {
     background: ${color.surface.hover};
 }
 QDialog[groupDialog="true"] QPushButton[primary="true"] {
-    color: ${color.surface};
+    color: ${color.text.onBrand};
     background: ${color.brand};
     border-color: ${color.brand};
 }
@@ -876,23 +926,23 @@ QDialog#image_preview_dialog {
 
 QDialog#image_preview_dialog QScrollArea {
     border: none;
-    background: #eef0f2;
+    background: ${color.surface.page};
 }
 
 QDialog#image_preview_dialog QLabel {
-    color: #666d75;
+    color: ${color.text.muted};
     font-size: ${font.size.label};
 }
 
 QDialog#image_preview_dialog QPushButton {
-    color: #30353b;
+    color: ${color.text.body};
     background: ${color.surface};
-    border: 1px solid #dce1e5;
+    border: 1px solid ${color.border.card};
     border-radius: ${radius.compact};
     padding: 6px 12px;
 }
 
 QDialog#image_preview_dialog QPushButton:hover {
-    background: #edf4ef;
-    border-color: #b8cec0;
+    background: ${color.surface.page};
+    border-color: ${color.secondary.border.hover};
 }

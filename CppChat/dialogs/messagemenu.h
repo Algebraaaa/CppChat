@@ -38,6 +38,7 @@ signals:
   void forwardRequested();
   void searchRequested();
   void selectRequested();
+  void reminderRequested();
   void placeholderRequested(const QString &title);
 
 protected:

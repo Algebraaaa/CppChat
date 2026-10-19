@@ -46,12 +46,8 @@ ChatSettingsPanel::ChatSettingsPanel(QWidget *parent)
   ui->pin_switch->setCursor(Qt::PointingHandCursor);
   ui->mute_switch->setFixedSize(44, 28);
   ui->pin_switch->setFixedSize(44, 28);
-  connect(ui->mute_switch, &QCheckBox::toggled, this, [this] {
-    // 暂未接入消息通知，不让视觉开关误导用户以为已经生效。
-    const QSignalBlocker blocker(ui->mute_switch);
-    ui->mute_switch->setChecked(false);
-    ShowPlaceholder(tr("消息免打扰"));
-  });
+  ui->mute_switch->setToolTip(tr("关闭该会话的未读红点提醒，消息仍正常接收"));
+  connect(ui->mute_switch, &QCheckBox::toggled, this, &ChatSettingsPanel::sig_mute_changed);
   connect(ui->pin_switch, &QCheckBox::toggled, this, &ChatSettingsPanel::sig_pin_changed);
   qApp->installEventFilter(this);
 }
@@ -81,6 +77,12 @@ void ChatSettingsPanel::SetPinned(bool pinned)
 {
   const QSignalBlocker blocker(ui->pin_switch);
   ui->pin_switch->setChecked(pinned);
+}
+
+void ChatSettingsPanel::SetMuted(bool muted)
+{
+  const QSignalBlocker blocker(ui->mute_switch);
+  ui->mute_switch->setChecked(muted);
 }
 
 void ChatSettingsPanel::SetToggleButton(QWidget *button) { _toggleButton = button; }
