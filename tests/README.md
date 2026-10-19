@@ -2,8 +2,11 @@
 
 `client.theme`（`qt/theme_tests.cpp`，`theme-junit.xml`）覆盖深浅色颜色/选区对比度、
 旧偏好兼容与外观持久化、系统信号和手动覆盖、重复切换不增字体/观察器、草稿/笔记保留，
-以及实际聊天、认证、设置、记录等窗口。离屏运行跳过 DWM；另用 Windows 原生平台运行
-同一套夹具，查询 DWM 属性并截图。全程临时数据，不更改系统主题或真实账号。
+以及实际聊天、认证、设置、记录等窗口。CTest 明确选择可运行的跨平台函数；
+原生 DWM 检查不属于 Linux/离屏计划，必须在 Windows 桌面额外执行
+`theme_tests windowsNativeCaptionsUseDarkDwmAttributes`（`QT_QPA_PLATFORM=windows`），
+查询真实属性。不得把未执行原生检查计为通过；失败和缺失验证分别记录。
+全程临时数据，不更改系统主题或真实账号。
 Qt 6.4 的只读注册表回退仍需旧 Kit 人工验收。
 
 `client.settings_export`（`qt/settings_export_tests.cpp`，`settings-export-junit.xml`）覆盖

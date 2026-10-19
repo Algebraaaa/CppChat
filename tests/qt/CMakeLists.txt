@@ -66,7 +66,22 @@ add_test(NAME client.workspace COMMAND chat_workspace_tests -o "${CMAKE_BINARY_D
 set_tests_properties(client.workspace PROPERTIES TIMEOUT 90 LABELS "qt;workspace;storage")
 add_test(NAME client.settings_export COMMAND settings_export_tests -o "${CMAKE_BINARY_DIR}/settings-export-junit.xml,junitxml")
 set_tests_properties(client.settings_export PROPERTIES TIMEOUT 90 LABELS "qt;preferences;storage")
-add_test(NAME client.theme COMMAND theme_tests -o "${CMAKE_BINARY_DIR}/theme-junit.xml,junitxml")
+# The required portable plan must not include the opt-in native DWM check.
+# Run that explicitly on a Windows desktop with QT_QPA_PLATFORM=windows:
+# theme_tests windowsNativeCaptionsUseDarkDwmAttributes
+set(theme_portable_cases
+  darkTokensLoadAndReadablePaletteIsComplete
+  olderPreferencesDefaultToSystemAndManualModePersists
+  liveSwitchPreservesEditorCursorAndUpdatesExistingBubbles
+  repeatedSwitchesDoNotRegisterMoreFontsOrWatchers
+  settingsAndSecondaryWindowsRecolourInPlace)
+if(Qt6_VERSION VERSION_GREATER_EQUAL "6.5")
+  list(APPEND theme_portable_cases systemSignalsAndManualOverrideApplyWithoutFeedback)
+endif()
+# MainWindow tears down ChatStore; keep its fixture last.
+list(APPEND theme_portable_cases realMainWindowAuthenticationPagesUseDarkTheme)
+add_test(NAME client.theme COMMAND theme_tests ${theme_portable_cases}
+  -o "${CMAKE_BINARY_DIR}/theme-junit.xml,junitxml")
 set_tests_properties(client.theme PROPERTIES TIMEOUT 90 LABELS "qt;theme;ui")
 set_tests_properties(client.organizer PROPERTIES TIMEOUT 90 LABELS "qt;organizer;storage")
 add_test(NAME client.conversations COMMAND conversation_management_tests -o "${CMAKE_BINARY_DIR}/conversations-junit.xml,junitxml")
