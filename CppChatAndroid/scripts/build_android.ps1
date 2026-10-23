@@ -83,6 +83,13 @@ Invoke-Checked "$tools/apksigner$scriptSuffix" @('sign','--ks',$key,'--ks-key-al
 Invoke-Checked "$tools/apksigner$scriptSuffix" @('verify','--verbose','--print-certs',$apk) (Join-Path $report 'signature.txt')
 Invoke-Checked "$tools/zipalign$executableSuffix" @('-c','-P','16','-v','4',$apk) (Join-Path $report 'alignment.txt')
 Invoke-Checked "$tools/aapt2$executableSuffix" @('dump','badging',$apk) (Join-Path $report 'manifest.txt')
+$badging = Get-Content -LiteralPath (Join-Path $report 'manifest.txt') -Raw
+$versionCode = [regex]::Match((Get-Content -LiteralPath (Join-Path $projectRoot 'CMakeLists.txt') -Raw), 'QT_ANDROID_VERSION_CODE\s+([0-9]+)').Groups[1].Value
+if ($badging -notmatch "package: name='org\.algebra\.cppchat' versionCode='$versionCode' versionName='$([regex]::Escape($projectVersion))'") {
+    throw 'Packaged application ID or version does not match the Android project'
+}
+$certificate = [regex]::Match((Get-Content -LiteralPath (Join-Path $report 'signature.txt') -Raw), 'Signer #1 certificate SHA-256 digest: ([0-9a-fA-F]{64})').Groups[1].Value
+if (-not $certificate) { throw 'Cannot record verified APK signing certificate' }
 Invoke-Checked 'python' @('-B',"$projectRoot/tests/audit_android_apk.py",$apk,'--output',"$report/apk-audit.json",'--badging',"$report/manifest.txt",'--media') (Join-Path $report 'audit.log')
 $hash = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
 [IO.File]::WriteAllText($apk + '.sha256', "$hash  $([IO.Path]::GetFileName($apk))`n")
@@ -98,11 +105,13 @@ $sourceCommit = (& git -C $projectRoot rev-parse HEAD)
 if ($LASTEXITCODE -ne 0) { throw 'Cannot record APK source commit' }
 [ordered]@{
     version = $projectVersion
+    versionCode = [int]$versionCode
     commit = $sourceCommit
     apk = [IO.Path]::GetFileName($apk)
     sha256 = $hash
     bytes = (Get-Item -LiteralPath $apk).Length
     signing = if ($configuredSigning) { 'configured-keystore' } else { 'local-test-key-not-a-release-identity' }
+    certificate_sha256 = $certificate.ToLowerInvariant()
     run = $env:GITHUB_RUN_ID
 } | ConvertTo-Json | Set-Content -LiteralPath ($apk + '.build.json') -Encoding utf8
 Write-Output "Verified ARM64 APK: $apk"

@@ -35,7 +35,8 @@ jobs:
           version: '6.12.0'
           host: linux
           arch: linux_gcc_64
-          modules: qtmultimedia qtimageformats qtshadertools qtsvg
+          # QtSvg is part of the base archive, not a separately selectable module.
+          modules: qtmultimedia qtimageformats qtshadertools
           dir: ${{ github.workspace }}/build/qt
           aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@076e1659807d0b362a3ed684d54c2e9c775eb9c7'
           cache: true
@@ -46,7 +47,7 @@ jobs:
           host: linux
           target: android
           arch: android_arm64_v8a
-          modules: qtmultimedia qtimageformats qtshadertools qtsvg
+          modules: qtmultimedia qtimageformats qtshadertools
           dir: ${{ github.workspace }}/build/qt
           aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@076e1659807d0b362a3ed684d54c2e9c775eb9c7'
           cache: true
