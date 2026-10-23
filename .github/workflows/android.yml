@@ -61,6 +61,10 @@ jobs:
         with:
           path: CppChatAndroid/build/openssl-arm64
           key: android-openssl-ubuntu24-ndk27.2.12479018-${{ hashFiles('CppChatAndroid/scripts/build_android_openssl.py') }}
+      - name: Verify the real QML chat layout and interactions
+        env:
+          QT_QUICK_BACKEND: software
+        run: python -B CppChatAndroid/tests/run_chat_ui.py --qmltestrunner "$GITHUB_WORKSPACE/build/qt/Qt/6.12.0/gcc_64/bin/qmltestrunner"
       - name: Build OpenSSL from verified upstream source
         if: steps.openssl.outputs.cache-hit != 'true'
         run: |
@@ -121,6 +125,7 @@ jobs:
           path: |
             CppChatAndroid/build/regression/android-*/
             CppChatAndroid/build/dependencies/openssl-build.log
+            build/android-ui/
           retention-days: 14
       - name: Remove runner signing material and private configuration
         if: always()
