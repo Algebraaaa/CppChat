@@ -115,7 +115,9 @@ Qt Creator 直接打开 CMakeLists.txt；本机的 `CMakeUserPresets.json` 可�
 ### GitHub Actions 自动交付
 
 `.github/workflows/android.yml` 的 `Android APK` 在 `android`、`android/**`、
-`codex/android`、`codex/android/**` 的每次 push、目标为 `android` 的 PR 及手动执行时构建。
+`codex/android`、`codex/android/**` 的每次 push、目标为 `android` 的 PR 时构建。
+`workflow_dispatch` 已声明；GitHub 的手动运行按钮要求工作流同时存在于默认分支，
+当前默认 `main` 保留桌面版，因此使用安卓分支 push 或发行标签触发即可。
 不设置路径过滤，不因新提交取消旧构建，因此共享后端的修改也会触发 APK 检查。
 每个 push 构建其触发提交；一次 push 包含多条提交时构建该次 push 的最终版本。
 

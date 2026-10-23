@@ -147,4 +147,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "CppChat Android ${RELEASE_TAG#android-v}" --notes 'ARM64 / Android 9+. APK signature, alignment and dependency checks passed. Real-device media validation remains separate.' --latest=false build/android-release/*
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "CppChat Android ${RELEASE_TAG#android-v}" --notes 'ARM64 / Android 9+. APK signature, alignment and dependency checks passed. The signing identity changed after 0.1.20: users of that old build must preserve needed local data and reinstall once. Versions from 0.1.21 share the persistent signing identity. Real-device media validation remains separate.' --latest=false build/android-release/*

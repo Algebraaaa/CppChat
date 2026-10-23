@@ -13,7 +13,7 @@ param(
     [string]$SigningKey = '',
     [string]$SigningAlias = 'cppchat-android-test',
     [ValidatePattern('^[A-Za-z0-9_-]*$')][string]$ArtifactSuffix = '',
-    [string]$ReleaseNotes = '安卓语音消息、语音/视频通话和文件收发；断线自动恢复，保留本地记录与草稿。',
+    [string]$ReleaseNotes = '安卓语音消息、语音/视频通话和文件收发；自动构建与固定签名。旧 0.1.20 签名已更换，升级前请保留需要的数据，再卸载重装；从 0.1.21 起沿用同一签名。',
     [int]$Jobs = 6
 )
 $ErrorActionPreference = 'Stop'
