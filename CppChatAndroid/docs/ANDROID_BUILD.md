@@ -112,6 +112,62 @@ Qt Creator 直接打开 CMakeLists.txt；本机的 `CMakeUserPresets.json` 可�
 
 ## 重新生成安装包
 
+### GitHub Actions 自动交付
+
+`.github/workflows/android.yml` 的 `Android APK` 在 `android`、`android/**`、
+`codex/android`、`codex/android/**` 的每次 push、目标为 `android` 的 PR 及手动执行时构建。
+不设置路径过滤，不因新提交取消旧构建，因此共享后端的修改也会触发 APK 检查。
+每个 push 构建其触发提交；一次 push 包含多条提交时构建该次 push 的最终版本。
+
+运行页面 Artifacts 中的 `android-arm64-<commit>-<attempt>` 包含 APK、SHA256、更新 JSON
+与 `.build.json` 来源记录，保留 30 天；`android-validation-<run>-<attempt>` 保留构建、签名、
+16 KiB ZIP/ELF、权限及 TLS/媒体库检查证据 14 天，失败同样上传日志。
+这是构建和包检查，不能代替安装启动、Android Keystore 或真实音视频验收。
+
+复用本项目 `build_android.ps1`、`build_android_openssl.py` 与 `audit_android_apk.py`；
+仅给既有脚本补 Linux 工具路径和外部签名接口，不维护第二套 APK 构建命令。
+GitHub 托管 Ubuntu 24.04 使用 Qt 6.12.0 Linux 主机工具及 Android ARM64、
+JDK 21、SDK/build-tools 36/36.0.0、NDK 27.2.12479018。
+OpenSSL 仍为固定官方 SHA256 的 3.5.9，缓存键包含 NDK、系统和构建脚本哈希；
+只缓存 Qt/OpenSSL 公共依赖，不缓存私有配置或密钥。
+
+仓库 Actions Secrets：
+
+| 名称 | 用途 |
+| --- | --- |
+| `CPPCHAT_ANDROID_CONFIG` | 构建时的 HTTPS 网关、聊天 TLS 和资源 TLS 配置，禁止含服务端口令 |
+| `CPPCHAT_ANDROID_KEYSTORE_BASE64` | 固定 Android JKS/PKCS12 签名身份的 Base64，不能提交到仓库 |
+| `CPPCHAT_ANDROID_KEY_ALIAS` | 同一身份中的签名别名 |
+| `CPPCHAT_ANDROID_STORE_PASSWORD` | keystore 密码，通过环境变量传给签名程序 |
+| `CPPCHAT_ANDROID_KEY_PASSWORD` | 私钥密码，通过环境变量传给签名程序 |
+
+PR 不获得上述配置或签名身份，使用保留域名示例配置及一次性测试签名；其 APK 仅供构建验证。
+普通 push 缺少 Secrets 时同样生成明确标记的测试构建；发行标签缺少固定身份或部署配置时直接失败。
+签名文件和私有配置在 runner 收尾删除，不进入 Artifacts；已编入 APK 的客户端端点本来就能被客户端用户读取，不能用于保存服务端秘密。
+
+正式生成 GitHub 下载包时，先提升 `CMakeLists.txt` 的三段版本及 versionCode，
+再推送指向该提交的 `android-v<版本>` 标签。标签必须与项目版本一致；
+APK 和更新清单使用标准发行文件名，成功后创建独立 Android GitHub Release，
+不会把安卓包标成 Windows 的 latest。已有发行不覆盖不同内容。
+普通 push 的文件名带 `ci-<commit>`，仅交付 Actions 产物；服务器更新清单仍由已有
+`deploy-updates.py --platform android` 事务式发布控制，避免每次源码提交替换用户正在下载的包。
+
+0.1.21 使用用户授权重新生成的固定签名。旧 0.1.20 的私钥未找到，Android 不允许不同
+证书覆盖安装同一应用；首次改用新版须卸载重装，先导出需要保留的本机数据。
+之后沿用同一签名并提高版本/versionCode。签名与受保护的密码备份保留在构建维护机的
+忽略目录中，不能随着测试清理删除；GitHub Secrets 是 runner 的签名来源。
+这项 Android APK 签名与 Windows Authenticode 证书是独立机制。
+
+方案依据与依赖审查：使用 [Qt 官方 CMake APK 目标](https://doc.qt.io/qt-6/android-building-projects-from-commandline.html)
+和 [Qt 6.12 前置版本](https://doc.qt.io/qt-6/android-configure-dev-environment.html)，
+[install-qt-action v4.4.1](https://github.com/jurplel/install-qt-action/tree/a9c63c7c123f3069cff414e7e482d95dfa9d8125)
+沿用仓库已有 MIT 工具及固定 aqt 提交，上游有安装矩阵与 issue 跟踪；
+[upload-artifact v4](https://github.com/actions/upload-artifact) 使用 GitHub 官方 MIT 实现及不可变运行产物。
+Actions 全部固定提交，最小 `contents: read`，仅标签发布 job 可写 Release；
+没有引入新的客户端运行库，也不授予 PR 云端部署权限。
+OpenSSL Linux 适配依据固定版本的 [NOTES-ANDROID](https://github.com/openssl/openssl/blob/openssl-3.5.9/NOTES-ANDROID.md)，
+避免 Windows/MSYS2 专用路径进入 Linux。现有库许可不变；这些检查不是全量安全审计。
+
 从仓库根目录进入 `CppChatAndroid` 后，复制 `android/config.example.ini` 为 `android/config.ini`，
 填写自己的 HTTPS 网关及资源服务地址。示例域名不可用于登录；真实地址只写私有配置，普通 UI 没有编辑入口。
 下例环境变量分别指向本机工具根目录；默认公共后端为同仓库的 `../CppChat`。

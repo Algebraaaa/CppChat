@@ -1,4 +1,4 @@
-"""Build pinned OpenSSL 3.5.9 for Qt/Android ARM64 on Windows with MSYS2.
+"""Build pinned OpenSSL 3.5.9 for Qt/Android ARM64 on Linux or Windows/MSYS2.
 
 Uses OpenSSL's Android build and KDAB's Qt library naming/export adaptation.
 The Windows linker receives upstream arguments through response files, avoiding
@@ -6,6 +6,7 @@ cmd.exe's command length limit. Sources, objects and logs belong under build/.
 """
 import argparse
 import hashlib
+import os
 from pathlib import Path
 import shlex
 import shutil
@@ -17,9 +18,12 @@ SHA256 = "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("archive", "workdir", "ndk", "msys", "output"):
+    for name in ("archive", "workdir", "ndk", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--msys", type=Path, help="Required only on Windows")
     args = parser.parse_args()
+    if os.name == "nt" and args.msys is None:
+        parser.error("--msys is required on Windows")
     with args.archive.open("rb") as source:
         if hashlib.file_digest(source, "sha256").hexdigest() != SHA256:
             raise SystemExit("OpenSSL archive does not match publisher SHA256")
@@ -40,14 +44,24 @@ def main():
     text = exports.read_text(encoding="utf-8")
     exports.write_text(text.replace("OPENSSL${SO_VARIANT}_$thisversion", "OPENSSL_$thisversion"),
                        encoding="utf-8", newline="\n")
-    bash = args.msys / "usr/bin/bash.exe"
-    make = args.msys / "ucrt64/bin/mingw32-make.exe"
-    shell = args.msys / "usr/bin/sh.exe"
     ndk = args.ndk.resolve().as_posix()
-    prefix = ("set -e; export PATH=/usr/bin:/ucrt64/bin:$PATH; "
-              f"export ANDROID_NDK_ROOT=$(cygpath -u {shlex.quote(ndk)}); "
-              'export PATH="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/windows-x86_64/bin:/usr/bin:/ucrt64/bin:$PATH"; '
-              f"cd {shlex.quote(source.as_posix())}; ")
+    if os.name == "nt":
+        bash = args.msys / "usr/bin/bash.exe"
+        make = args.msys / "ucrt64/bin/mingw32-make.exe"
+        shell = args.msys / "usr/bin/sh.exe"
+        prefix = ("set -e; export PATH=/usr/bin:/ucrt64/bin:$PATH; "
+                  f"export ANDROID_NDK_ROOT=$(cygpath -u {shlex.quote(ndk)}); "
+                  'export PATH="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/windows-x86_64/bin:/usr/bin:/ucrt64/bin:$PATH"; '
+                  f"cd {shlex.quote(source.as_posix())}; ")
+        make_command = f"{shlex.quote(make.as_posix())} SHELL={shlex.quote(shell.as_posix())}"
+    else:
+        bash = shutil.which("bash")
+        if not bash or not shutil.which("make"):
+            raise SystemExit("Linux build requires bash, make and perl")
+        prefix = (f"set -e; export ANDROID_NDK_ROOT={shlex.quote(ndk)}; "
+                  'export PATH="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"; '
+                  f"cd {shlex.quote(source.as_posix())}; ")
+        make_command = "make"
 
     def run(command, **kwargs):
         return subprocess.run([str(bash), "--noprofile", "--norc", "-c", prefix + command],
@@ -55,11 +69,10 @@ def main():
 
     run("perl Configure android-arm64 -D__ANDROID_API__=28 shared no-tests no-apps no-docs "
         "no-module no-legacy no-comp no-asm '-Wl,-z,max-page-size=16384'", check=True)
-    make_command = f"{shlex.quote(make.as_posix())} SHELL={shlex.quote(shell.as_posix())}"
     result = run(make_command + " -j6 build_libs", capture_output=True)
     (args.workdir / "openssl-build.log").write_text(result.stdout + result.stderr, encoding="utf-8")
     if result.returncode:
-        if "command line is too long" not in result.stdout + result.stderr:
+        if os.name != "nt" or "command line is too long" not in result.stdout + result.stderr:
             raise SystemExit("OpenSSL compilation failed; inspect openssl-build.log")
         dry = run(make_command + " -n libcrypto_3.so libssl_3.so", capture_output=True, check=True)
         logical = dry.stdout.replace("\\\n", " ")
