@@ -552,7 +552,9 @@ class Cluster:
         self.accounts.append(account)
         return account
 
-    def login(self, account, node=None, voice_messages=False, device="desktop", file_messages=False):
+    def login(
+        self, account, node=None, voice_messages=False, device="desktop", file_messages=False
+    ):
         reply = self.post("/user_login", {"email": account["email"], "passwd": account["passwd"]})
         require(reply.get("error") == 0, "HTTP login failed")
         peer = Peer("127.0.0.1", self.ports[node] if node else int(reply["port"]))

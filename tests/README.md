@@ -1,5 +1,11 @@
 # CppChat 回归测试
 
+`integration/test_file_messages.py` 的原生 TLS 往返使用 `qt/file_transport_probe.cpp`，
+实际复用 AttachmentPreparer、MessageSender、ChatSyncService、加密 SQLite 和 ResourceMgr，
+核验回执、另一账号重新授权上传、下载和保存后字节一致。主线用 `CPPCHAT_QT_BUILD` 中的
+`file_transport_probe`，不依赖独立 Android 分支的 AppBridge；缺少探测程序仍记 BLOCKED，
+不放宽必需测试的跳过门槛。Android 分支另保留其 MobileFacade 原生探测。
+
 `client.call_stability` 使用实际 `VoiceCallService` 和可控单调时钟，验证已接通后的迟到媒体、
 限流/短暂后端故障不误挂断、有效媒体恢复、长期失联结束、鉴权及显式挂断保持终止，
 以及摄像头状态的 pong 补偿。不会打开设备。`integration/test_call_stability.py` 用真实双节点、

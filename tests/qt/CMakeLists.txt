@@ -1,4 +1,8 @@
 find_package(Qt6 REQUIRED COMPONENTS Test)
+qt_add_executable(file_transport_probe file_transport_probe.cpp)
+target_link_libraries(file_transport_probe PRIVATE CppChatCore)
+target_sources(file_transport_probe PRIVATE "${repository_root}/CppChat/common/securitypolicy.cpp")
+add_dependencies(file_transport_probe CppChatSqliteCipher)
 qt_add_executable(call_stability_tests call_stability_tests.cpp
   "${repository_root}/CppChat/services/voicecallservice.cpp"
   "${repository_root}/CppChat/services/voicecallservice.h")
