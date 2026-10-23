@@ -1,8 +1,8 @@
 # CppChat Android 构建与联调
 
-## 当前交付
+## 0.1.20 历史交付
 
-综合安装包为 `build/release/CppChat-0.1.20-android-arm64.apk`（versionCode 120），
+此前综合安装包为 `build/release/CppChat-0.1.20-android-arm64.apk`（versionCode 120），
 保留同包名、同测试签名和既有应用数据。包含下述基础适配、会话恢复和本轮媒体功能。
 配套服务和安卓更新清单已上线；最终 APK SHA256 为 `8d8ebbca328aecb933fe5f052141195265b06f40bf57c726242e6651ff9427f3`。
 0.1.19 的测试与交付记录仅为基础版本历史，不能代替本轮验证。
@@ -126,7 +126,7 @@ Qt Creator 直接打开 CMakeLists.txt；本机的 `CMakeUserPresets.json` 可�
 
 复用本项目 `build_android.ps1`、`build_android_openssl.py` 与 `audit_android_apk.py`；
 仅给既有脚本补 Linux 工具路径和外部签名接口，不维护第二套 APK 构建命令。
-GitHub 托管 Ubuntu 24.04 使用 Qt 6.12.0 Linux 主机工具及 Android ARM64、
+GitHub 托管 Ubuntu 24.04 使用 Qt 6.12.0 Linux 主机工具及来自 `all_os/android` 仓库的 Android ARM64、
 JDK 21、SDK/build-tools 36/36.0.0、NDK 27.2.12479018。
 OpenSSL 仍为固定官方 SHA256 的 3.5.9，缓存键包含 NDK、系统和构建脚本哈希；
 只缓存 Qt/OpenSSL 公共依赖，不缓存私有配置或密钥。

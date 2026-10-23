@@ -44,7 +44,8 @@ jobs:
         uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
         with:
           version: '6.12.0'
-          host: linux
+          # Qt 6.7+ distributes Android kits from the host-independent repository.
+          host: all_os
           target: android
           arch: android_arm64_v8a
           modules: qtmultimedia qtimageformats qtshadertools
