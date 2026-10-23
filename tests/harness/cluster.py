@@ -552,13 +552,20 @@ class Cluster:
         self.accounts.append(account)
         return account
 
-    def login(self, account, node=None, voice_messages=False):
+    def login(self, account, node=None, voice_messages=False, device="desktop", file_messages=False):
         reply = self.post("/user_login", {"email": account["email"], "passwd": account["passwd"]})
         require(reply.get("error") == 0, "HTTP login failed")
         peer = Peer("127.0.0.1", self.ports[node] if node else int(reply["port"]))
         self.peers.append(peer)
         logged_in = peer.request(
-            1005, {"uid": account["uid"], "token": reply["token"], "voice_messages": voice_messages}
+            1005,
+            {
+                "uid": account["uid"],
+                "token": reply["token"],
+                "voice_messages": voice_messages,
+                "device": device,
+                "file_messages": file_messages,
+            },
         )
         require(logged_in.get("error") == 0, "Chat login failed")
         account["token"] = logged_in["token"]

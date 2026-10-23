@@ -1,4 +1,11 @@
 find_package(Qt6 REQUIRED COMPONENTS Test)
+qt_add_executable(call_stability_tests call_stability_tests.cpp
+  "${repository_root}/CppChat/services/voicecallservice.cpp"
+  "${repository_root}/CppChat/services/voicecallservice.h")
+target_include_directories(call_stability_tests PRIVATE "${repository_root}/CppChat" "${repository_root}/shared")
+target_link_libraries(call_stability_tests PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME client.call_stability COMMAND call_stability_tests -o "${CMAKE_BINARY_DIR}/call-stability-junit.xml,junitxml")
+set_tests_properties(client.call_stability PROPERTIES TIMEOUT 60 LABELS "qt;voice;video;network")
 qt_add_executable(video_tests video_tests.cpp)
 target_link_libraries(video_tests PRIVATE CppChatCore Qt6::Test)
 target_sources(video_tests PRIVATE "${repository_root}/CppChat/common/securitypolicy.cpp")

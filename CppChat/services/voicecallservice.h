@@ -3,6 +3,7 @@
 #include <QJsonObject>
 #include <QObject>
 #include <QTimer>
+#include <functional>
 
 // Transport-independent call state. Owns neither widgets nor audio devices.
 class VoiceCallService : public QObject {
@@ -10,12 +11,14 @@ class VoiceCallService : public QObject {
 public:
   enum class State { Idle, Outgoing, Incoming, Connecting, Active };
   Q_ENUM(State)
-  explicit VoiceCallService(QObject *parent = nullptr);
+  using Clock = std::function<qint64()>;
+  explicit VoiceCallService(QObject *parent = nullptr, Clock clock = {});
   State state() const { return state_; }
   int peer() const { return peer_; }
   QString callId() const { return call_; }
   bool start(int peer, bool video = false);
   bool isVideo() const { return video_; }
+  bool recovering() const { return recovering_; }
   void setCameraEnabled(bool enabled);
   void sendVideo(const QByteArray &jpeg);
   void receiveVideo(const QJsonObject &event);
@@ -33,10 +36,13 @@ signals:
   void sendVideoFrame(QJsonObject body);
   void videoFrame(QByteArray jpeg);
   void peerCameraChanged(bool enabled);
+  void networkChanged(bool recovering);
 
 private:
   void command(const QString &action);
   void reset(const QString &reason);
+  void progress(bool recovering = false);
+  void setRecovering(bool recovering);
   State state_ = State::Idle;
   int peer_ = 0;
   QString call_;
@@ -45,5 +51,8 @@ private:
   int videoSequence_ = 0, receivedVideo_ = 0;
   bool video_ = false, cameraEnabled_ = true, peerCameraEnabled_ = true;
   QTimer deadline_, keepalive_;
-  QElapsedTimer lastAck_;
+  QElapsedTimer monotonic_;
+  Clock now_;
+  qint64 lastProgress_ = 0;
+  bool recovering_ = false;
 };

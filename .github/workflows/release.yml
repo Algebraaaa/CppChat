@@ -74,7 +74,8 @@ jobs:
           ctest --test-dir build/linux-release --no-tests=error --output-on-failure
           node --test tests/node/verify.test.cjs
           python -B -m unittest discover -s tests/deployment
-          python -m pytest -c tests/pytest.ini tests/unit tests/integration/test_journey.py tests/integration/test_resources.py tests/integration/test_groups.py tests/integration/test_voice_calls.py tests/integration/test_video_calls.py --server-build build/linux-release --configuration Release --artifacts build/release-tests --junitxml build/release-tests.xml
+          python -B -m unittest discover -s tests/packaging -p test_publish_updates.py
+          python -m pytest -c tests/pytest.ini tests/unit tests/integration/test_journey.py tests/integration/test_resources.py tests/integration/test_groups.py tests/integration/test_voice_calls.py tests/integration/test_video_calls.py tests/integration/test_call_stability.py tests/integration/test_mobile_calls.py tests/integration/test_multi_device.py tests/integration/test_file_messages.py --server-build build/linux-release --configuration Release --artifacts build/release-tests --junitxml build/release-tests.xml
       - name: Export the tested server artifact
         env:
           RELEASE_VERSION: ${{ needs.identity.outputs.version }}

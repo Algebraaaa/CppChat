@@ -118,3 +118,56 @@ text_array 的 UUID 和去重规则不变。群图片（msg_type=1）当前拒�
 本地复用加密的聊天记录库；群资料保存在附加的 group_profiles 表，原私聊表不重建，
 旧库自动补表，不迁移到普通明文 SQLite。成员撤销后移除会话入口和发送队列，保留已有本地数据。
 群会话和权限在完整分页刷新后核对，默认 10 秒；实时通知可能先于会话列表到达。
+
+## 平台会话槽与安卓更新
+
+1005 聊天登录增加可选 `device`，仅允许字符串 `desktop` / `android`；缺省 desktop。
+1006 声明 `multi_device=true`，其余既有能力不变。桌面和 Android 各保留一条认证连接，
+同平台新登录替换本平台旧连接。手机断线/退出不会注销桌面活动令牌；资源请求的 uid/token 格式不变。
+待登录 token 彼此独立，不能拿桌面活动 token 替换安卓槽。1019 也可能通知自己从另一端发送的消息，
+客户端按既有消息 ID/UUID 合并，不为自己发送的同步消息增加未读。发送回执 1018 的请求关联语义不变。
+
+`ClientUpdateService` 增加显式 Android 平台参数，Windows 缺省行为保持原样。
+安卓清单为同源 HTTPS `/updates/android/latest.json`，下载后缀必须 APK；Windows 清单继续要求 EXE。
+两者都要求三段版本、字节数、SHA-256，拒绝跨源/HTTP/重定向；平台清单独立发布和回滚。
+
+## 安卓 0.1.20 文件消息
+
+1005 增加可选布尔 `file_messages`，1006 声明服务端支持能力。缺省关闭；旧端的 1019/1030 文件项转换成文字升级提示，
+防止把资源 ID 当聊天正文。新端 `msg_type=2` 的 content 仍为 32 位资源 ID，UUID/请求关联/幂等规则不变。
+1050 增加 `media_type=2`；1052/1054 沿用 32 KiB 分块、断点和 SHA256。文件媒体与原有图片/语音共用 20 MiB 上限，
+ready 租约前缀为 `file:`，群范围仍带 `group:发送者:thread_id:`。不得跨类型、跨收件人或跨群复用资源 ID。
+服务端资源保存在独立 `files/`，读取继续即时核查原有群成员身份；不新增数据库表或修改消息表。
+
+客户端 `common/fileattachment` 直接使用 Qt Core 标准 CBOR：固定 map `{v:1,name:text,data:bytes}`，
+文件名为不含路径/控制字符的单个名称，长度最多 255 UTF-8 字节，原始负载最多 `20 MiB - 1024` 字节。
+整个 CBOR 文档接受原有资源 SHA256 校验和账号附件存储；不进行隐式解压、自动执行或自动导出。
+桌面/安卓共用 AttachmentPreparer、MessageSender 和 ResourceMgr，保存仅写用户明确选择的目标。
+复用依据见 [Qt CBOR](https://doc.qt.io/qt-6/qcborvalue.html) 与安卓构建说明中的固定版本/许可记录。
+
+语音/视频通话继续使用 1070–1075；在服务端将 Redis 通话租约绑定双方 `device + session_id`，
+目标有安卓槽时优先安卓，否则桌面。后续控制/媒体始终按租约中的槽路由，不能改由同账号另一设备接管。
+Lua 同时核对当前双方设备租约与读到的目标会话，换机/替换/迟到媒体失败关闭；两个节点的本地及 RPC 投递均匹配实际会话 ID。
+保留每账号最多一通电话、原有忙线/速率/序号规则，不向同账号未接听设备广播媒体；超时预算见下节。
+
+## 通话短时网络抖动恢复（2026-10-24）
+
+1070–1075 的编号、鉴权及双方 device/session 绑定不变。已接通通话中的迟到媒体帧和
+短暂媒体 RPC 故障不等于挂断：客户端丢弃对应帧，服务端不再因单帧转发失败删除通话租约。
+1010 等鉴权错误、好友关系撤销、租约失效的控制回包及显式挂断仍结束通话；错误帧不续期。
+
+共享 `shared/media/callpolicy.h` 约定 3 秒探测、6 秒提示恢复中、30 秒无有效进展结束，
+活动 Redis 租约为 45 秒；合法媒体同样刷新发送方活跃时间。恢复期间保留原 call_id，
+暂停新的本地视频传输、优先音频和控制，不重启设备或重放过期媒体。ping 成功回包可增加
+`peer_idle_ms` 和 `peer_camera_enabled`，供新端提示对端恢复、补偿丢失的摄像头状态通知；
+旧端可忽略新增字段。重拨、重登或另一设备不得借此接管已结束或绑定他端的通话。
+
+本改动处理现有 TCP/TLS 连接仍有效时的有限停顿、突发和媒体转发故障；实际 TCP 断开、
+被替换登录、手机离开前台仍按现有安全生命周期结束，不宣称已实现跨登录的无缝通话恢复。
+Android 的网络类型变化通知不再主动关闭仍有效的 TLS 连接；实际失败由 socket 错误和心跳确认，
+依据 [Qt QNetworkInformation 的状态提示限制](https://doc.qt.io/qt-6/qnetworkinformation.html)。
+复用现有 Qt/Opus、PLC 和有限媒体队列，无新增第三方库或复制上游源码。参考
+[WebRTC NetEq 的迟到包/缓冲设计](https://webrtc.googlesource.com/src/+/refs/heads/main/modules/audio_coding/neteq/g3doc/index.md)
+与 [gRPC 截止时间](https://grpc.io/docs/guides/deadlines/)；NetEq 为 BSD 风格许可，但直接引入其
+RTP/调度体系会改变当前协议及 Qt/Android 构建，故这里只借鉴故障分层，不引入该实现。
+既有 Qt、Opus、gRPC 版本和许可证保持不变；网络故障测试不替代手机/耳机及真实弱网体验验收。

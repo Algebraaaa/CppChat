@@ -1,7 +1,9 @@
 #include "attachmentpreparer.h"
+#include "fileattachment.h"
 #include <QBuffer>
 #include <QCoreApplication>
 #include <QFile>
+#include <QFileInfo>
 #include <QImageReader>
 #include <QMutexLocker>
 #include <QRunnable>
@@ -112,6 +114,30 @@ std::shared_ptr<PreparedAttachment> AttachmentPreparer::FromFile(const QString &
         return result;
       },
       kMaximumBytes);
+}
+
+std::shared_ptr<PreparedAttachment> AttachmentPreparer::FromDocument(const QString &path)
+{
+  return Start([path] {
+    Result result;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly) || file.size() < 0 ||
+        file.size() > FileAttachment::MaximumPayloadBytes) {
+      result.error = tr("文件无法读取或超过 20 MiB（含文件信息）");
+      return result;
+    }
+    const auto size = file.size();
+    const auto bytes = file.read(FileAttachment::MaximumPayloadBytes + 1);
+    if (bytes.size() != size || !file.atEnd()) {
+      result.error = tr("文件读取失败或读取期间发生变化");
+      return result;
+    }
+    // QFileInfo resolves Android document-provider display names through Qt.
+    result.bytes = FileAttachment::Pack(QFileInfo(file).fileName(), bytes);
+    if (result.bytes.isEmpty())
+      result.error = tr("文件名包含不支持的字符，或文件超过大小限制");
+    return result;
+  }, kMaximumBytes * 2);
 }
 
 std::shared_ptr<PreparedAttachment> AttachmentPreparer::FromBytes(const QByteArray &bytes)

@@ -141,6 +141,7 @@ public:
   QString Summary() const
   {
     return _msg_type == ChatMsgType::PIC     ? QStringLiteral("[图片]")
+             : _msg_type == ChatMsgType::FILE  ? QStringLiteral("[文件]")
            : _msg_type == ChatMsgType::AUDIO ? QStringLiteral("[语音]")
                                              : _content;
   }

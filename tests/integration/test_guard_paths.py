@@ -208,7 +208,7 @@ def test_pending_token_expiry_and_node_lease_selection(cluster):
     account = cluster.register()
     reply = cluster.post("/user_login", {"email": account["email"], "passwd": account["passwd"]})
     require(reply.get("error") == 0)
-    cluster.redis.delete("utoken_" + str(account["uid"]))
+    cluster.redis.delete("utoken_" + str(account["uid"]) + ":" + reply["token"])
     from harness.protocol import Peer
 
     with Peer("127.0.0.1", int(reply["port"])) as peer:

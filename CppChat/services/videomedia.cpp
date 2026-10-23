@@ -48,10 +48,16 @@ QImage VideoMedia::decodeFrame(const QByteArray &jpeg)
     return {}; // Validate dimensions before the decoder allocates a pixel buffer.
   return reader.read();
 }
-bool VideoMedia::start(QString &error)
+bool VideoMedia::start(QString &error, bool preferFront)
 {
   stop();
-  const auto device = QMediaDevices::defaultVideoInput();
+  auto device = QMediaDevices::defaultVideoInput();
+  const auto position = preferFront ? QCameraDevice::FrontFace : QCameraDevice::BackFace;
+  for (const auto &candidate : QMediaDevices::videoInputs())
+    if (candidate.position() == position) {
+      device = candidate;
+      break;
+    }
   if (device.isNull()) {
     error = tr("找不到摄像头，请检查设备及系统摄像头权限");
     return false;

@@ -75,7 +75,7 @@ def test_accept_bidirectional_audio_and_end(cluster, pair, node):
     assert a.receive()[1]["error"] == 1023
     assert control(a, second["uid"], call, "accept")["error"] == 1023
     assert control(b, first["uid"], call, "accept")["error"] == 0
-    assert 15 <= cluster.redis.ttl("voice:" + str(first["uid"])) <= 20
+    assert 40 <= cluster.redis.ttl("voice:" + str(first["uid"])) <= 45
     notification(a, call, "accept")
     assert control(b, first["uid"], call, "accept")["error"] == 1023
     # A valid 20ms Opus silence packet, conveyed unchanged in both directions.
@@ -151,8 +151,18 @@ def test_unauthenticated_and_malformed_requests(cluster, pair):
 
 
 @pytest.mark.smoke
-@pytest.mark.parametrize("tls,video", [(False, False), (True, False), (False, True), (True, True)])
-def test_two_native_qt_clients_encode_and_decode(cluster, pair, tls, video):
+@pytest.mark.parametrize(
+    "tls,video,stall",
+    [
+        pytest.param(False, False, False, id="tcp-audio"),
+        pytest.param(True, False, False, id="tls-audio"),
+        pytest.param(False, True, False, id="tcp-video"),
+        pytest.param(True, True, False, id="tls-video"),
+        pytest.param(True, False, True, id="tls-jitter-audio"),
+        pytest.param(True, True, True, id="tls-jitter-video"),
+    ],
+)
+def test_two_native_qt_clients_encode_and_decode(cluster, pair, tls, video, stall):
     """Both clients use production TcpMgr/state/Opus code, with a synthetic source."""
     root = Path(__file__).resolve().parents[2]
     qt_build = Path(os.environ.get("CPPCHAT_QT_BUILD", root / "CppChat/build/debug"))
@@ -179,7 +189,14 @@ def test_two_native_qt_clients_encode_and_decode(cluster, pair, tls, video):
             ca, cert, key = certificates(directory / "tls")
             for node in ports:
                 ports[node] = proxies.enter_context(
-                    TLSProxy(cert, key, ("127.0.0.1", cluster.ports[node]))
+                    TLSProxy(
+                        cert,
+                        key,
+                        ("127.0.0.1", cluster.ports[node]),
+                        stall_after=2 if stall else None,
+                        stall_seconds=14 if stall else 0,
+                        idle_timeout=40 if stall else 5,
+                    )
                 ).port
         for index, account, other, node in (
             (0, second, first, "chat2"),
@@ -202,6 +219,12 @@ def test_two_native_qt_clients_encode_and_decode(cluster, pair, tls, video):
                         ca_file=str(ca) if ca else "",
                         caller=bool(index),
                         video=video,
+                        device="android" if stall and index == 0 else "desktop",
+                        minimum_active_ms=20000 if stall else 0,
+                        expected_gap_ms=10000 if stall else 0,
+                        expected_recoveries=1 if stall else 0,
+                        inject_replay=stall,
+                        timeout_ms=35000 if stall else 17000,
                     )
                 ),
                 encoding="utf-8",
@@ -223,16 +246,17 @@ def test_two_native_qt_clients_encode_and_decode(cluster, pair, tls, video):
                 assert time.monotonic() < timeout, "Native client login timed out"
                 time.sleep(0.05)
         for index, process in enumerate(processes):
-            assert process.wait(timeout=20) == 0, (directory / f"client-{index}.log").read_text(
-                encoding="utf-8", errors="replace"
-            )
+            assert process.wait(timeout=40 if stall else 20) == 0, (
+                directory / f"client-{index}.log"
+            ).read_text(encoding="utf-8", errors="replace")
             results = [
                 json.loads(line)
                 for line in (directory / f"client-{index}.log")
                 .read_text(encoding="utf-8", errors="replace")
                 .splitlines()
-                if line.startswith('{"decoded"')
+                if line.startswith("{")
             ]
+            results = [result for result in results if "decoded" in result]
             assert results and results[-1]["decoded"] >= 40
             if video:
                 assert results[-1]["video_decoded"] >= 5

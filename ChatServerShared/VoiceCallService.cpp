@@ -4,9 +4,11 @@
 #include "ConfigMgr.h"
 #include "MysqlMgr.h"
 #include "RedisMgr.h"
+#include "ServicePolicy.h"
 #include "UserMgr.h"
 #include "const.h"
 #include <algorithm>
+#include <chrono>
 #include <json/json.h>
 #include <regex>
 
@@ -16,16 +18,16 @@ bool Deliver(int peer, const std::string &session, const Json::Value &body, bool
   Json::StreamWriterBuilder writer;
   writer["indentation"] = "";
   const auto data = Json::writeString(writer, body);
-  if (auto target = UserMgr::GetInstance()->GetSession(peer)) {
-    if (target->GetSessionId() != session || target->IsClosed())
-      return false;
-    target->Send(data, video ? ID_VIDEO_IMAGE : audio ? ID_VOICE_AUDIO : ID_VOICE_EVENT);
-    return true;
-  }
-  std::string node;
-  if (!RedisMgr::GetInstance()->Get(std::string(USER_IP_PREFIX) + std::to_string(peer), node))
-    return false;
-  return ChatGrpcClient::GetInstance()->RelayVoice(node, peer, session, data, audio, video);
+  for (const auto &target : UserMgr::GetInstance()->GetSessions(peer))
+    if (target->GetSessionId() == session && !target->IsClosed()) {
+      target->Send(data, video ? ID_VIDEO_IMAGE : audio ? ID_VOICE_AUDIO : ID_VOICE_EVENT);
+      return true;
+    }
+  // Another local slot must not shadow the bound peer on the other node.
+  for (const auto &node : RedisMgr::GetInstance()->Destinations(peer))
+    if (ChatGrpcClient::GetInstance()->RelayVoice(node, peer, session, data, audio, video))
+      return true;
+  return false;
 }
 } // namespace
 
@@ -82,24 +84,60 @@ void VoiceCallService::Handle(const std::shared_ptr<CSession> &session, short id
     }
   }
   std::string target_session;
+  std::string target_device;
+  Json::Value lease;
   if (valid) {
     auto redis = RedisMgr::GetInstance();
     if (action == "invite" || action == "accept" || action == "ping")
       error = MysqlMgr::GetInstance()->CheckFriendship(uid, peer);
     else
       error = ErrorCodes::Success;
-    if (error == ErrorCodes::Success &&
-        !redis->Get(std::string(USER_SESSION_PREFIX) + std::to_string(peer), target_session))
-      error = ErrorCodes::VoiceOffline;
+    if (error == ErrorCodes::Success) {
+      if (action == "invite") {
+        // One call per account. Prefer the phone, then fall back to desktop.
+        for (const std::string device : {"android", "desktop"})
+          if (redis->Get(std::string(USER_SESSION_PREFIX) + ServicePolicy::DeviceKey(peer, device),
+                         target_session)) {
+            target_device = device;
+            break;
+          }
+      } else {
+        std::string raw;
+        if (redis->Get("voice:" + std::to_string(uid), raw) && raw.size() <= 4096 &&
+            std::unique_ptr<Json::CharReader>(reader.newCharReader())
+                ->parse(raw.data(), raw.data() + raw.size(), &lease, &errors) &&
+            lease["id"].asString() == call) {
+          const bool caller = lease["a"].asInt() == uid && lease["b"].asInt() == peer;
+          target_device = lease.get(caller ? "db" : "da", "desktop").asString();
+          if (!ServicePolicy::ValidDevice(target_device) ||
+              !redis->Get(std::string(USER_SESSION_PREFIX) +
+                              ServicePolicy::DeviceKey(peer, target_device),
+                          target_session))
+            target_device.clear();
+        }
+      }
+      if (target_device.empty())
+        error = action == "invite" ? ErrorCodes::VoiceOffline : ErrorCodes::VoiceInvalid;
+    }
     if (error == ErrorCodes::Success)
       error = redis->VoiceTransition(uid, peer, session->GetSessionId(), call, action, sequence,
-                                     video, action != "camera" || payload["enabled"].asBool());
+                                     video, action != "camera" || payload["enabled"].asBool(),
+                                     session->GetDevice(), target_device, target_session);
   }
   reply["error"] = error;
   reply["call_id"] = call;
   reply["peer"] = peer;
   reply["action"] = action;
   reply["video"] = video;
+  if (error == ErrorCodes::Success && action == "ping") {
+    const bool caller = lease["a"].asInt() == uid;
+    const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count();
+    reply["peer_idle_ms"] =
+        Json::Int64(std::max(0.0, now - lease[caller ? "tb" : "ta"].asDouble()));
+    reply["peer_camera_enabled"] = lease.get(caller ? "eb" : "ea", true);
+  }
   if (action == "camera" && payload["enabled"].isBool())
     reply["enabled"] = payload["enabled"];
   if (request.isObject() && payload["request_id"].isString() &&
@@ -116,14 +154,23 @@ void VoiceCallService::Handle(const std::shared_ptr<CSession> &session, short id
         event[picture ? "image" : "audio"] = payload[picture ? "image" : "audio"];
       }
       if (!Deliver(peer, target_session, event, id == ID_VOICE_FRAME, picture)) {
-        RedisMgr::GetInstance()->VoiceTransition(uid, peer, session->GetSessionId(), call, "end");
-        reply["error"] = ErrorCodes::VoiceOffline;
+        if (media || action == "camera") {
+          // A dropped media relay is not a hangup. Ping/lease expiry decides
+          // actual peer loss, while camera state is reconciled by later pongs.
+          reply["error"] = ErrorCodes::VoiceUnavailable;
+        } else {
+          RedisMgr::GetInstance()->VoiceTransition(uid, peer, session->GetSessionId(), call, "end",
+                                                   0, video, true, session->GetDevice(),
+                                                   target_device, target_session);
+          reply["error"] = ErrorCodes::VoiceOffline;
+        }
       }
     }
   }
   if (!media || reply["error"].asInt() != ErrorCodes::Success) {
     // A token-bucket drop is expected under a short capture burst.
-    if (!(media && reply["error"].asInt() == ErrorCodes::VoiceRateLimited))
+    if (!(media && (reply["error"].asInt() == ErrorCodes::VoiceRateLimited ||
+                    reply["error"].asInt() == ErrorCodes::VoiceUnavailable)))
       session->Send(reply.toStyledString(), ID_VOICE_EVENT);
   }
 }
