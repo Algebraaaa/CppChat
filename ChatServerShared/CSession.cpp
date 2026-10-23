@@ -69,12 +69,11 @@ const std::string &CSession::GetUuid() const { return uuid_; }
 
 const std::string &CSession::GetSessionId() const { return uuid_; }
 
-bool CSession::BindAuthenticatedUser(int uid, const std::string &device)
+bool CSession::BindAuthenticatedUser(int uid)
 {
   std::lock_guard<std::mutex> lock(login_mutex_);
   if (uid <= 0 || IsClosed() || cleanup_started_ || user_id_ != 0)
     return false;
-  device_ = device;
   user_id_ = uid;
   UserMgr::GetInstance()->SetUserSession(uid, shared_from_this());
   return true;

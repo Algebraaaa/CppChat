@@ -65,7 +65,6 @@ private:
   void SetupMediaControls();
   void StartCall(bool video);
   void RecordVoiceMessage();
-  void SendDocument();
   void UpdateMediaControls();
   void StartScreenCapture();
   void on_send_btn_clicked();

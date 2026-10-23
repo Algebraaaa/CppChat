@@ -11,15 +11,8 @@
 #include <algorithm>
 #include <cctype>
 
-void MessageService::PresentMessage(Json::Value &message, bool voiceMessages, bool fileMessages)
+void MessageService::PresentMessage(Json::Value &message, bool voiceMessages)
 {
-  if (message.get("msg_type", 0).asInt() == 2 && !fileMessages) {
-    message["msg_type"] = 0;
-    message["content"] = "[文件消息] 请升级客户端以下载";
-    message["msg_content"] = message["content"];
-    message["media_size"] = 0;
-    return;
-  }
   if (message.get("msg_type", 0).asInt() != 3)
     return;
   if (!voiceMessages) {
@@ -51,9 +44,9 @@ int MessageService::Store(int actor, std::vector<std::shared_ptr<ChatMessage>> &
   for (const auto &message : messages) {
     if (!message || message->sender_id != actor || message->recv_id <= 0 || message->thread_id <= 0)
       return ErrorCodes::UidInvalid;
-    if (message->msg_type < 0 || message->msg_type > 3)
+    if (message->msg_type != 0 && message->msg_type != 1 && message->msg_type != 3)
       return ErrorCodes::Error_Json;
-    if (message->msg_type != 0) {
+    if (message->msg_type == 1 || message->msg_type == 3) {
       const auto &id = message->content;
       if (id.size() != 32 ||
           !std::all_of(id.begin(), id.end(), [](unsigned char c) { return std::isxdigit(c) != 0; }))
@@ -65,8 +58,7 @@ int MessageService::Store(int actor, std::vector<std::shared_ptr<ChatMessage>> &
           isGroup
               ? "group:" + std::to_string(actor) + ":" + std::to_string(message->thread_id) + ":"
               : std::to_string(actor) + ":" + std::to_string(message->recv_id) + ":";
-      const std::string prefix = (message->msg_type == 3 ? "audio:" :
-                                 message->msg_type == 2 ? "file:" : "") + scope;
+      const std::string prefix = (message->msg_type == 3 ? "audio:" : "") + scope;
       if (ready.rfind(prefix, 0) != 0)
         return ErrorCodes::Error_Json;
       try {
@@ -101,37 +93,38 @@ void MessageService::Deliver(int from, int to, int thread,
     if (MysqlMgr::GetInstance()->GetGroup(to, thread, group) != ErrorCodes::Success)
       return;
   }
-  for (const auto &destination : RedisMgr::GetInstance()->Destinations(to)) {
-    if (destination == ConfigMgr::GetInstance()["SelfServer"]["Name"]) {
-      for (const auto &target : UserMgr::GetInstance()->GetSessions(to)) {
-        auto notification = payload;
-        for (auto &item : notification["chat_datas"])
-          PresentMessage(item, target->SupportsVoiceMessages(), target->SupportsFileMessages());
-        target->Send(notification.toStyledString(), ID_NOTIFY_TEXT_CHAT_MSG_REQ);
-      }
-      continue;
+  std::string destination;
+  if (!RedisMgr::GetInstance()->Get(std::string(USER_IP_PREFIX) + std::to_string(to), destination))
+    return;
+  if (destination == ConfigMgr::GetInstance()["SelfServer"]["Name"]) {
+    if (auto target = UserMgr::GetInstance()->GetSession(to)) {
+      auto notification = payload;
+      for (auto &item : notification["chat_datas"])
+        PresentMessage(item, target->SupportsVoiceMessages());
+      target->Send(notification.toStyledString(), ID_NOTIFY_TEXT_CHAT_MSG_REQ);
     }
-    message::TextChatMsgReq request;
-    request.set_fromuid(from);
-    request.set_touid(to);
-    request.set_thread_id(thread);
-    for (const auto &item : messages) {
-      auto *value = request.add_textmsgs();
-      value->set_msgid(item->unique_id);
-      value->set_msgcontent(item->content);
-      value->set_message_id(item->message_id);
-      value->set_chat_time(item->chat_time);
-      value->set_status(item->status);
-      value->set_msg_type(item->msg_type);
-      value->set_media_size(item->media_size);
-    }
-    const auto reply =
-        ChatGrpcClient::GetInstance()->NotifyTextChatMsg(destination, request, payload);
-    if (reply.error() != ErrorCodes::Success)
-      LOG_WARNING("Message persisted; live delivery failed; recipient can fetch "
-                  "history: thread=",
-                  thread);
+    return;
   }
+  message::TextChatMsgReq request;
+  request.set_fromuid(from);
+  request.set_touid(to);
+  request.set_thread_id(thread);
+  for (const auto &item : messages) {
+    auto *value = request.add_textmsgs();
+    value->set_msgid(item->unique_id);
+    value->set_msgcontent(item->content);
+    value->set_message_id(item->message_id);
+    value->set_chat_time(item->chat_time);
+    value->set_status(item->status);
+    value->set_msg_type(item->msg_type);
+    value->set_media_size(item->media_size);
+  }
+  const auto reply =
+      ChatGrpcClient::GetInstance()->NotifyTextChatMsg(destination, request, payload);
+  if (reply.error() != ErrorCodes::Success)
+    LOG_WARNING("Message persisted; live delivery failed; recipient can fetch "
+                "history: thread=",
+                thread);
 }
 
 int MessageService::CreatePrivate(int uid, int other, int &thread)

@@ -175,7 +175,6 @@ void TcpMgr::resetConnectionState()
   _groupChat = false;
   _groupImages = false;
   _voiceMessages = false;
-  _fileMessages = false;
   _commonGroups = false;
   _voiceCall = false;
   _videoCall = false;
@@ -328,10 +327,8 @@ void TcpMgr::slot_send_data(ReqId id, QByteArray body)
       return;
     }
     request = document.object();
-    if (id == ID_CHAT_LOGIN) {
+    if (id == ID_CHAT_LOGIN)
       request["voice_messages"] = true;
-      request["file_messages"] = true;
-    }
     // Every attempt has a new transport ID; message UUIDs remain unchanged.
     request["request_id"] = QUuid::createUuid().toString(QUuid::WithoutBraces);
     body = QJsonDocument(request).toJson(QJsonDocument::Compact);
@@ -497,7 +494,6 @@ void TcpMgr::initHandlers()
     _groupChat = o["group_chat"].toBool(false);
     _groupImages = _groupChat && o["group_images"].toBool(false);
     _voiceMessages = o["voice_messages"].toBool(false);
-    _fileMessages = o["file_messages"].toBool(false);
     _commonGroups = o["common_groups"].toBool(false);
     _voiceCall = o["voice_call"].toBool(false);
     _videoCall = o["video_call"].toBool(false);
@@ -610,7 +606,7 @@ void TcpMgr::initHandlers()
       const auto content = row.contains("content") ? row["content"] : row["msg_content"];
       const int type = row["msg_type"].toInt(-1);
       if (!value.isObject() || !content.isString() || !row["chat_time"].isString() ||
-          (type != 0 && type != 1 && type != 2 && type != 3))
+          (type != 0 && type != 1 && type != 3))
         valid = false;
     }
     const auto messages = readMessages(o);

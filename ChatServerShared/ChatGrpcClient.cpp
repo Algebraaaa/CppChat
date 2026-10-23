@@ -142,7 +142,7 @@ TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_name,
 }
 
 KickUserRsp ChatGrpcClient::NotifyKickUser(const std::string &server_name,
-                                           const KickUserReq &request, const std::string &device)
+                                           const KickUserReq &request)
 {
   KickUserRsp reply;
   reply.set_error(ErrorCodes::RPCFailed);
@@ -161,7 +161,6 @@ KickUserRsp ChatGrpcClient::NotifyKickUser(const std::string &server_name,
   Defer return_stub([&pool, &stub]() { pool->ReturnStub(std::move(stub)); });
   ClientContext context;
   context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(3));
-  context.AddMetadata("x-cppchat-device", device);
   const Status status = stub->NotifyKickUser(&context, request, &reply);
   if (!status.ok()) {
     reply.set_error(ErrorCodes::RPCFailed);

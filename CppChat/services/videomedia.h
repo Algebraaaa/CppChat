@@ -14,7 +14,7 @@ public:
   static constexpr int Width = 320, Height = 240, FrameInterval = 125;
   explicit VideoMedia(QObject *parent = nullptr);
   ~VideoMedia() override;
-  bool start(QString &error, bool preferFront = false);
+  bool start(QString &error);
   void stop();
   bool capturing() const { return camera_ != nullptr; }
   static QByteArray encodeFrame(const QImage &image);

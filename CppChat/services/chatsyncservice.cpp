@@ -398,10 +398,6 @@ void ChatSyncService::ReceiveMessages(const std::vector<std::shared_ptr<TextChat
   QHash<int, quint64> threadRevisions;
   for (const auto &message : messages) {
     auto data = UserMgr::GetInstance()->GetChatThreadByThreadId(message->GetThreadId());
-    if (!data && message->GetSendUid() == UserMgr::GetInstance()->GetUid()) {
-      ReloadThreads(); // Another device may have created this conversation.
-      continue;
-    }
     if (!data && !reply)
       data = EnsureThread(message->GetThreadId(), message->GetSendUid());
     if (!data)
@@ -437,7 +433,7 @@ void ChatSyncService::ReceiveMessages(const std::vector<std::shared_ptr<TextChat
           const bool known = !result.newMessageKeys.contains(QString::number(thread) + ':' +
                                                              QString::number(message->GetMsgId()));
           data->MoveMsg(message);
-          if (!reply && !known && message->GetSendUid() != UserMgr::GetInstance()->GetUid())
+          if (!reply && !known)
             emit guard->incomingMessage(thread);
           refresh.insert(thread);
         }

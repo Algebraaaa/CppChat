@@ -36,8 +36,7 @@ void FillUserJson(const UserInfo &user, Json::Value &value)
   UserService::WriteProfile(user, value);
 }
 
-void FillChatJson(const ChatMessage &message, Json::Value &value, bool voiceMessages = true,
-                  bool fileMessages = true)
+void FillChatJson(const ChatMessage &message, Json::Value &value, bool voiceMessages = true)
 {
   value["message_id"] = message.message_id;
   value["thread_id"] = message.thread_id;
@@ -50,7 +49,7 @@ void FillChatJson(const ChatMessage &message, Json::Value &value, bool voiceMess
   value["status"] = message.status;
   value["msg_type"] = message.msg_type;
   value["media_size"] = Json::UInt64(message.media_size);
-  MessageService::PresentMessage(value, voiceMessages, fileMessages);
+  MessageService::PresentMessage(value, voiceMessages);
 }
 
 bool DecodeAvatar(const std::string &encoded, std::string &decoded)
@@ -214,21 +213,15 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session, short,
   try {
     Json::Value request, response;
     if (!ParseRequest(message_data, request) || !request["uid"].isInt() ||
-        !request["token"].isString() || request["token"].asString().size() > 128 ||
-        (request.isMember("device") && !request["device"].isString()) ||
+        !request["token"].isString() ||
         (request.isMember("login_chunks") && !request["login_chunks"].isBool())) {
       response["error"] = ErrorCodes::Error_Json;
     } else {
-      if (session->GetUserId() == 0) {
+      if (session->GetUserId() == 0)
         session->SetVoiceMessages(request.get("voice_messages", false).isBool() &&
                                   request.get("voice_messages", false).asBool());
-        session->SetFileMessages(request.get("file_messages", false).isBool() &&
-                                 request.get("file_messages", false).asBool());
-      }
-      response = SessionService::Login(session, request["uid"].asInt(), request["token"].asString(),
-                                       request.isMember("device") && request["device"].isString()
-                                           ? request["device"].asString()
-                                           : "desktop");
+      response =
+          SessionService::Login(session, request["uid"].asInt(), request["token"].asString());
     }
     RequestContract::EchoId(request, response);
     if (response["error"].asInt() != ErrorCodes::Success) {
@@ -458,8 +451,7 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session, short,
     message->chat_time = timestamp;
     message->status = 2;
     message->msg_type = item.get("msg_type", 0).asInt();
-    if ((message->msg_type == 3 && !session->SupportsVoiceMessages()) ||
-        (message->msg_type == 2 && !session->SupportsFileMessages())) {
+    if (message->msg_type == 3 && !session->SupportsVoiceMessages()) {
       response["error"] = ErrorCodes::Error_Json;
       return;
     }
@@ -498,9 +490,6 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session, short,
     }
   } else
     MessageService::Deliver(from_uid, to_uid, thread_id, messages, response);
-  // Fan out committed messages to the sender's other device as well. UUID/server-ID
-  // merge makes the origin session's notification and acknowledgement idempotent.
-  MessageService::Deliver(from_uid, from_uid, thread_id, messages, response);
 }
 
 void LogicSystem::HeartBeatHandler(std::shared_ptr<CSession> session, short,
@@ -746,7 +735,7 @@ void LogicSystem::LoadChatMsg(std::shared_ptr<CSession> session, short,
   response["chat_datas"] = Json::Value(Json::arrayValue);
   for (const auto &message : page->messages) {
     Json::Value value;
-    FillChatJson(message, value, session->SupportsVoiceMessages(), session->SupportsFileMessages());
+    FillChatJson(message, value, session->SupportsVoiceMessages());
     Json::Value candidate = response;
     candidate["chat_datas"].append(value);
     candidate["last_message_id"] = message.message_id;

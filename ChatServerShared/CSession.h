@@ -29,13 +29,10 @@ public:
   boost::asio::ip::tcp::socket &GetSocket();
   const std::string &GetUuid() const;
   const std::string &GetSessionId() const;
-  bool BindAuthenticatedUser(int uid, const std::string &device = "desktop");
-  const std::string &GetDevice() const { return device_; }
+  bool BindAuthenticatedUser(int uid);
   int GetUserId() const;
   void SetVoiceMessages(bool enabled) { voice_messages_.store(enabled); }
   bool SupportsVoiceMessages() const { return voice_messages_.load(); }
-  void SetFileMessages(bool enabled) { file_messages_.store(enabled); }
-  bool SupportsFileMessages() const { return file_messages_.load(); }
   // A retiring session may still flush its final notice, but cannot start work.
   bool IsClosed() const { return closed_.load() || retiring_.load(); }
 
@@ -67,7 +64,6 @@ private:
   boost::asio::strand<boost::asio::io_context::executor_type> strand_;
   boost::asio::ip::tcp::socket socket_;
   std::string uuid_;
-  std::string device_ = "desktop";
   std::array<char, MAX_LENGTH> data_{};
   std::weak_ptr<CServer> server_;
   boost::asio::steady_timer drain_timer_;
@@ -75,7 +71,6 @@ private:
   std::vector<std::function<void()>> close_handlers_;
   std::atomic_bool closed_{false};
   std::atomic_bool voice_messages_{false};
-  std::atomic_bool file_messages_{false};
   std::atomic_bool retiring_{false};
   std::atomic_bool cleanup_started_{false};
   std::atomic_int user_id_{0};

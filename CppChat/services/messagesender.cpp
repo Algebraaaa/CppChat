@@ -1,6 +1,5 @@
 #include "messagesender.h"
 #include "common/chatstore.h"
-#include "common/fileattachment.h"
 #include "common/emojicatalog.h"
 #include "media/pcmwave.h"
 #include "network/resourcemgr.h"
@@ -167,13 +166,7 @@ bool MessageSender::Send(const QVector<MsgInfo> &inputs,
   QVector<StoredMessage> records;
   for (const auto &input : inputs) {
     const bool audio = input.msgFlag == "audio";
-    const bool file = input.msgFlag == "file";
-    const bool image = input.msgFlag == "image" || audio || file;
-    if (file && (!TcpMgr::GetInstance()->SupportsFileMessages() ||
-                 !FileAttachment::Unpack(input.imageData).valid)) {
-      emit status(data->GetThreadId(), tr("服务器不支持文件传输，或文件无效"));
-      return false;
-    }
+    const bool image = input.msgFlag == "image" || audio;
     if (audio && (!TcpMgr::GetInstance()->SupportsVoiceMessages() ||
                   cppchat::media::WaveDurationMs(
                       std::string_view(input.imageData.constData(), input.imageData.size()),
@@ -181,7 +174,7 @@ bool MessageSender::Send(const QVector<MsgInfo> &inputs,
       emit status(data->GetThreadId(), tr("服务器不支持语音，或语音格式/时长无效"));
       return false;
     }
-    if (image && !audio && !file && data->IsGroup() && !TcpMgr::GetInstance()->SupportsGroupImages()) {
+    if (image && !audio && data->IsGroup() && !TcpMgr::GetInstance()->SupportsGroupImages()) {
       emit status(data->GetThreadId(), tr("服务器尚不支持群图片，请升级服务器后重试"));
       return false;
     }
@@ -196,8 +189,7 @@ bool MessageSender::Send(const QVector<MsgInfo> &inputs,
       const auto id = QUuid::createUuid().toString(QUuid::WithoutBraces);
       const auto message = std::make_shared<TextChatData>(
           id, data->GetThreadId(), ChatFormType::PRIVATE,
-          file    ? ChatMsgType::FILE
-          : audio ? ChatMsgType::AUDIO
+          audio   ? ChatMsgType::AUDIO
           : image ? ChatMsgType::PIC
                   : ChatMsgType::TEXT,
           image ? "pending:" + id : part, UserMgr::GetInstance()->GetUid(), UN_READ,
@@ -298,11 +290,6 @@ void MessageSender::RetryMessage(const std::shared_ptr<TextChatData> &message,
     emit status(data->GetThreadId(), tr("请升级服务器以重试语音消息"));
     return;
   }
-  if (message->GetMsgType() == ChatMsgType::FILE &&
-      !TcpMgr::GetInstance()->SupportsFileMessages()) {
-    emit status(data->GetThreadId(), tr("请升级服务器以重试文件消息"));
-    return;
-  }
   const auto id = message->GetUniqueId();
   _retryingIds.insert(id);
   const QPointer<MessageSender> guard(this);
@@ -315,8 +302,7 @@ void MessageSender::RetryMessage(const std::shared_ptr<TextChatData> &message,
       return;
     }
     const bool picture =
-        message->GetMsgType() == ChatMsgType::PIC || message->GetMsgType() == ChatMsgType::AUDIO ||
-        message->GetMsgType() == ChatMsgType::FILE;
+        message->GetMsgType() == ChatMsgType::PIC || message->GetMsgType() == ChatMsgType::AUDIO;
     const bool needsUpload = picture && !image.image.isEmpty();
     if (!image.error.isEmpty() ||
         (picture && message->GetContent().startsWith("pending:") && image.image.isEmpty())) {
@@ -345,8 +331,7 @@ void MessageSender::RetryMessage(const std::shared_ptr<TextChatData> &message,
           }
           MsgInfo content;
           content.msgFlag = needsUpload
-                                ? (message->GetMsgType() == ChatMsgType::FILE ? "file" :
-                                   message->GetMsgType() == ChatMsgType::AUDIO ? "audio" : "image")
+                                ? (message->GetMsgType() == ChatMsgType::AUDIO ? "audio" : "image")
                                 : "text";
           content.content = message->GetContent();
           content.imageData = image.image;
@@ -355,8 +340,7 @@ void MessageSender::RetryMessage(const std::shared_ptr<TextChatData> &message,
           guard->SendNextMessage();
         });
   };
-  if (message->GetMsgType() == ChatMsgType::PIC || message->GetMsgType() == ChatMsgType::AUDIO ||
-      message->GetMsgType() == ChatMsgType::FILE)
+  if (message->GetMsgType() == ChatMsgType::PIC || message->GetMsgType() == ChatMsgType::AUDIO)
     ChatStore::instance()->LoadPendingImage(id, retry);
   else
     retry(ChatStoreResult{});
@@ -377,13 +361,11 @@ void MessageSender::SendNextMessage()
       emit status(data->GetThreadId(), tr("会话无法发送，消息保留在本机待确认记录中"));
       continue;
     }
-    if (item.content.msgFlag == "image" || item.content.msgFlag == "audio" ||
-        item.content.msgFlag == "file") {
+    if (item.content.msgFlag == "image" || item.content.msgFlag == "audio") {
       const auto id = item.message->GetUniqueId();
       _imageUploads.insert(id, item);
       ResourceMgr::instance()->uploadMedia(item.content.imageData, data->GetOtherId(), id,
                                            data->IsGroup() ? data->GetThreadId() : 0,
-                                           item.content.msgFlag == "file" ? 2 :
                                            item.content.msgFlag == "audio" ? 3 : 1);
       return;
     }

@@ -1,4 +1,4 @@
-"""Publish platform-specific update artifacts through the existing Nginx HTTPS site."""
+"""Publish validated Windows update artifacts through the existing Nginx HTTPS site."""
 
 import argparse
 import hashlib
@@ -29,55 +29,34 @@ def publish(
     site: Path = Path("/etc/nginx/sites-available/cppchat-https"),
     snippet: Path = Path("/etc/nginx/snippets/cppchat-updates.conf"),
     backups: Path = Path("/opt/cppchat/backups"),
-    platform: str = "windows",
 ) -> None:
     if incoming.parent != root or not incoming.name.startswith(".incoming-"):
-        raise ValueError(
-            "Incoming artifacts must be inside the managed update directory"
-        )
-    if not re.fullmatch(
-        r"(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})", version
-    ):
+        raise ValueError("Incoming artifacts must be inside the managed update directory")
+    if not re.fullmatch(r"(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})", version):
         raise ValueError("Invalid release version")
-    if platform not in ("windows", "android"):
-        raise ValueError("Unknown update platform")
-    installer_name = (
-        f"CppChat-Setup-{version}-x64.exe"
-        if platform == "windows"
-        else f"CppChat-{version}-android-arm64.apk"
-    )
+    installer_name = f"CppChat-Setup-{version}-x64.exe"
     installer = incoming / installer_name
     manifest_bytes = (incoming / f"CppChat-Update-{version}.json").read_bytes()
     manifest = json.loads(manifest_bytes)
-    if (
-        manifest["version"] != version
-        or manifest["downloadUrl"] != "./" + installer_name
-    ):
+    if manifest["version"] != version or manifest["downloadUrl"] != "./" + installer_name:
         raise ValueError("Release manifest does not match installer")
-    if (
-        installer.stat().st_size != manifest["size"]
-        or not 0 < manifest["size"] <= 512 * 1024 * 1024
-    ):
+    if installer.stat().st_size != manifest["size"] or not 0 < manifest["size"] <= 512 * 1024 * 1024:
         raise ValueError("Installer size does not match manifest")
     with installer.open("rb") as source:
         if hashlib.file_digest(source, "sha256").hexdigest() != manifest["sha256"]:
             raise ValueError("Installer SHA256 does not match manifest")
-    destination = root / platform
+    destination = root / "windows"
     destination.mkdir(mode=0o755, parents=True, exist_ok=True)
     latest = destination / "latest.json"
     if latest.exists():
         previous = json.loads(latest.read_bytes())
-        if tuple(map(int, previous["version"].split("."))) > tuple(
-            map(int, version.split("."))
-        ):
+        if tuple(map(int, previous["version"].split("."))) > tuple(map(int, version.split("."))):
             raise ValueError("Refusing to publish an older version as latest")
     final_installer = destination / installer_name
     if final_installer.exists():
         with final_installer.open("rb") as source:
             if hashlib.file_digest(source, "sha256").hexdigest() != manifest["sha256"]:
-                raise ValueError(
-                    "Version already published with different content; bump the version"
-                )
+                raise ValueError("Version already published with different content; bump the version")
 
     include = "    include /etc/nginx/snippets/cppchat-updates.conf;\n"
     old_site = site.read_bytes()
@@ -94,11 +73,9 @@ def publish(
     if include.strip() not in site_text:
         fallback = "    location / { return 404; }"
         if site_text.count(fallback) != 1:
-            raise ValueError(
-                "Unexpected HTTPS site layout; preserve config and adapt explicitly"
-            )
+            raise ValueError("Unexpected HTTPS site layout; preserve config and adapt explicitly")
         site_text = site_text.replace(fallback, include + fallback)
-    snippet_bytes = b"""# CppChat managed update feeds (HTTPS site only).
+    snippet_bytes = b'''# CppChat managed Windows update feed (HTTPS site only).
 location = /updates/windows/latest.json {
     alias /opt/cppchat/updates/windows/latest.json;
     default_type application/json;
@@ -113,21 +90,7 @@ location ~ ^/updates/windows/(CppChat-Setup-[0-9]+\\.[0-9]+\\.[0-9]+-x64\\.exe)$
     add_header X-Content-Type-Options nosniff always;
     limit_except GET { deny all; }
 }
-location = /updates/android/latest.json {
-    alias /opt/cppchat/updates/android/latest.json;
-    default_type application/json;
-    add_header Cache-Control "no-store" always;
-    add_header X-Content-Type-Options nosniff always;
-    limit_except GET { deny all; }
-}
-location ~ ^/updates/android/(CppChat-[0-9]+\\.[0-9]+\\.[0-9]+-android-arm64\\.apk)$ {
-    alias /opt/cppchat/updates/android/$1;
-    default_type application/vnd.android.package-archive;
-    add_header Cache-Control "public, max-age=31536000, immutable";
-    add_header X-Content-Type-Options nosniff always;
-    limit_except GET { deny all; }
-}
-"""
+'''
     try:
         atomic_write(snippet, snippet_bytes)
         atomic_write(site, site_text.encode("utf-8"))
@@ -151,11 +114,7 @@ location ~ ^/updates/android/(CppChat-[0-9]+\\.[0-9]+\\.[0-9]+-android-arm64\\.a
         subprocess.run(["nginx", "-t"], check=True)
         subprocess.run(["systemctl", "reload", "nginx"], check=True)
         raise
-    print(
-        json.dumps(
-            {"version": version, "sha256": manifest["sha256"], "backup": str(backup)}
-        )
-    )
+    print(json.dumps({"version": version, "sha256": manifest["sha256"], "backup": str(backup)}))
     shutil.rmtree(incoming)  # Validated, exclusively owned staging directory.
 
 
@@ -165,9 +124,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--incoming", required=True, type=Path)
     parser.add_argument("--version", required=True)
-    parser.add_argument("--platform", choices=("windows", "android"), default="windows")
     arguments = parser.parse_args()
     # Serialize publication so concurrent operators cannot move latest backwards.
     with (arguments.incoming.parent / ".publish.lock").open("a") as lock:
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-        publish(arguments.incoming, arguments.version, platform=arguments.platform)
+        publish(arguments.incoming, arguments.version)

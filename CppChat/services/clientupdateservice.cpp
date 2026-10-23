@@ -1,6 +1,5 @@
 #include "services/clientupdateservice.h"
 #include <QCoreApplication>
-#include <QDesktopServices>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -50,10 +49,9 @@ QNetworkRequest updateRequest(const QUrl &url)
 } // namespace
 
 ClientUpdateService::ClientUpdateService(const QUrl &manifestUrl, const QString &currentVersion,
-                                         QObject *parent, QNetworkAccessManager *network,
-                                         bool android)
+                                         QObject *parent, QNetworkAccessManager *network)
     : QObject(parent), _manifestUrl(manifestUrl), _currentVersion(currentVersion),
-      _network(network ? network : new QNetworkAccessManager(this)), _android(android)
+      _network(network ? network : new QNetworkAccessManager(this))
 {
   _deadline.setSingleShot(true);
   connect(&_deadline, &QTimer::timeout, this, [this]() { fail(tr("检查或下载更新超时，请重试")); });
@@ -85,16 +83,15 @@ QString ClientUpdateService::releaseNotes() const
   return notes.join(QStringLiteral("\n\n"));
 }
 
-QUrl ClientUpdateService::manifestUrlForServer(const QUrl &serverUrl, bool android)
+QUrl ClientUpdateService::manifestUrlForServer(const QUrl &serverUrl)
 {
   return secureUrl(serverUrl)
-             ? serverUrl.resolved(QUrl(android ? QStringLiteral("/updates/android/latest.json")
-                                               : QStringLiteral("/updates/windows/latest.json")))
+             ? serverUrl.resolved(QUrl(QStringLiteral("/updates/windows/latest.json")))
              : QUrl();
 }
 
 bool ClientUpdateService::parseManifest(const QByteArray &json, const QUrl &manifestUrl,
-                                        ClientUpdateInfo &info, QString &error, bool android)
+                                        ClientUpdateInfo &info, QString &error)
 {
   QJsonParseError parseError;
   const auto document = QJsonDocument::fromJson(json, &parseError);
@@ -114,8 +111,7 @@ bool ClientUpdateService::parseManifest(const QByteArray &json, const QUrl &mani
   static const QRegularExpression hashPattern(QStringLiteral("^[0-9a-f]{64}$"));
   if (!validVersion(candidate.version) || candidate.notes.size() > 8000 || download.isEmpty() ||
       !sameOrigin(manifestUrl, candidate.downloadUrl) ||
-      !candidate.downloadUrl.path().endsWith(
-          android ? QStringLiteral(".apk") : QStringLiteral(".exe"), Qt::CaseInsensitive) ||
+      !candidate.downloadUrl.path().endsWith(QStringLiteral(".exe"), Qt::CaseInsensitive) ||
       !hashPattern.match(QString::fromLatin1(candidate.sha256)).hasMatch() || size < 1 ||
       size > kInstallerLimit || std::floor(size) != size) {
     error = tr("更新信息不完整或下载地址不可信");
@@ -212,7 +208,7 @@ void ClientUpdateService::check()
       return;
     }
     QString error;
-    if (!parseManifest(_manifest, _manifestUrl, _info, error, _android)) {
+    if (!parseManifest(_manifest, _manifestUrl, _info, error)) {
       fail(error);
       return;
     }
@@ -235,8 +231,7 @@ void ClientUpdateService::download()
     return;
   }
   _directory = std::make_unique<QTemporaryDir>(cache + "/download-XXXXXX");
-  _readyPath = _directory->filePath(_android ? "CppChat-" + _info.version + "-android-arm64.apk"
-                                             : "CppChat-Setup-" + _info.version + "-x64.exe");
+  _readyPath = _directory->filePath("CppChat-Setup-" + _info.version + "-x64.exe");
   _file = std::make_unique<QSaveFile>(_readyPath);
   if (!_directory->isValid() || !_file->open(QIODevice::WriteOnly)) {
     fail(tr("无法保存更新安装包"));
@@ -312,7 +307,7 @@ QStringList ClientUpdateService::installerArguments(const QString &installationD
 
 bool ClientUpdateService::launchInstaller(const QString &installationDirectory, QString &error)
 {
-#if defined(Q_OS_WIN) || defined(Q_OS_ANDROID)
+#ifdef Q_OS_WIN
   QFile installer(_readyPath);
   if (_state != State::Ready || !installer.open(QIODevice::ReadOnly) ||
       installer.size() != _info.size) {
@@ -325,15 +320,8 @@ bool ClientUpdateService::launchInstaller(const QString &installationDirectory, 
     return false;
   }
   installer.close();
-#ifdef Q_OS_ANDROID
-  Q_UNUSED(installationDirectory);
-  const bool launched = _android && QDesktopServices::openUrl(QUrl::fromLocalFile(_readyPath));
-#else
-  const bool launched =
-      !_android && QProcess::startDetached(_readyPath, installerArguments(installationDirectory),
-                                           installationDirectory);
-#endif
-  if (!launched) {
+  if (!QProcess::startDetached(_readyPath, installerArguments(installationDirectory),
+                               installationDirectory)) {
     error = tr("无法启动更新安装程序");
     return false;
   }

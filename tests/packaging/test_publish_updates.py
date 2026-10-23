@@ -18,8 +18,6 @@ SPEC.loader.exec_module(deploy)
 
 
 class PublishTests(unittest.TestCase):
-    platform = "windows"
-
     def setUp(self):
         work = REPOSITORY / "build/packaging/publish-tests"
         work.mkdir(parents=True, exist_ok=True)
@@ -29,7 +27,7 @@ class PublishTests(unittest.TestCase):
         self.root = self.directory / "updates"
         self.incoming = self.root / ".incoming-test"
         self.incoming.mkdir(parents=True)
-        self.destination = self.root / self.platform
+        self.destination = self.root / "windows"
         self.destination.mkdir()
         self.site = self.directory / "site.conf"
         self.original_site = b"server {\n    location / { return 404; }\n}\n"
@@ -39,11 +37,7 @@ class PublishTests(unittest.TestCase):
         self.latest = self.destination / "latest.json"
         self.latest.write_text(json.dumps({"version": "0.1.0"}), encoding="utf-8")
         self.original_latest = self.latest.read_bytes()
-        self.installer_name = (
-            "CppChat-Setup-0.1.1-x64.exe"
-            if self.platform == "windows"
-            else "CppChat-0.1.1-android-arm64.apk"
-        )
+        self.installer_name = "CppChat-Setup-0.1.1-x64.exe"
         self.installer = b"owned installer bytes"
         (self.incoming / self.installer_name).write_bytes(self.installer)
         self.manifest = {
@@ -65,7 +59,6 @@ class PublishTests(unittest.TestCase):
             site=self.site,
             snippet=self.snippet,
             backups=self.directory / "backups",
-            platform=self.platform,
         )
 
     def test_installer_precedes_latest_and_staging_is_cleaned(self):
@@ -137,20 +130,6 @@ class PublishTests(unittest.TestCase):
         self.assertEqual(self.site.read_bytes(), self.original_site)
         self.assertEqual(self.latest.read_bytes(), self.original_latest)
         self.assertTrue(self.incoming.exists())
-
-
-class AndroidPublishTests(PublishTests):
-    platform = "android"
-
-    def test_android_publication_preserves_windows_feed(self):
-        windows = self.root / "windows"
-        windows.mkdir()
-        current = b'{"version":"0.1.18"}'
-        (windows / "latest.json").write_bytes(current)
-        with patch.object(deploy.subprocess, "run"):
-            self.publish()
-        self.assertEqual((windows / "latest.json").read_bytes(), current)
-        self.assertIn(b"/updates/android/latest.json", self.snippet.read_bytes())
 
 
 if __name__ == "__main__":

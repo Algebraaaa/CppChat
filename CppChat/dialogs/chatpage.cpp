@@ -12,7 +12,6 @@
 #include "voicecalldialog.h"
 #include "voicemessagedialog.h"
 #include "widgets/audiobubble.h"
-#include "widgets/filebubble.h"
 #include "widgets/chatitembase.h"
 #include "widgets/emojipicker.h"
 #include "widgets/picturebubble.h"
@@ -218,7 +217,6 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
   connect(ui->send_btn, &QPushButton::clicked, this, &ChatPage::on_send_btn_clicked);
   connect(ui->chatEdit, &MessageTextEdit::send, this, &ChatPage::on_send_btn_clicked);
   connect(ui->chatEdit, &MessageTextEdit::attachmentError, this, &ChatPage::ShowStatus);
-  connect(ui->document_btn, &QPushButton::clicked, this, &ChatPage::SendDocument);
   connect(ui->file_btn, &QPushButton::clicked, this, [this] {
     if (!ui->chatEdit->isEnabled())
       return;
@@ -400,7 +398,6 @@ void ChatPage::CallContact(int uid, bool video)
 
 void ChatPage::UpdateMediaControls()
 {
-  ui->document_btn->setEnabled(bool(_chat_data) && TcpMgr::GetInstance()->SupportsFileMessages());
   const bool canCall = _chat_data && !_chat_data->IsGroup();
   if (!canCall)
     ui->call_btn->menu()->close();
@@ -457,47 +454,6 @@ void ChatPage::StartScreenCapture()
     capture->deleteLater();
   });
   capture->start();
-}
-
-void ChatPage::SendDocument()
-{
-  const auto conversation = _chat_data;
-  if (!conversation || _sender->SavingMessages() ||
-      !TcpMgr::GetInstance()->SupportsFileMessages()) {
-    ShowStatus(tr("当前会话或服务器尚不支持文件传输"));
-    return;
-  }
-  auto *picker = new QFileDialog(this, tr("发送文件（最多 20 MiB）"));
-  picker->setAttribute(Qt::WA_DeleteOnClose);
-  picker->setFileMode(QFileDialog::ExistingFile);
-  connect(picker, &QFileDialog::fileSelected, this, [this, conversation](const QString &path) {
-    if (_chat_data != conversation || _sender->SavingMessages())
-      return;
-    const auto preparation = AttachmentPreparer::instance()->FromDocument(path);
-    if (preparation->ready) {
-      ShowStatus(preparation->error);
-      return;
-    }
-    ShowStatus(tr("正在读取文件…"));
-    auto connection = std::make_shared<QMetaObject::Connection>();
-    *connection = connect(AttachmentPreparer::instance(), &AttachmentPreparer::prepared, this,
-        [this, preparation, conversation, connection](const QString &id) {
-          if (id != preparation->id)
-            return;
-          disconnect(*connection);
-          if (!preparation->error.isEmpty()) {
-            ShowStatus(preparation->error);
-            return;
-          }
-          if (_chat_data != conversation || !ChatStore::instance()->IsReady())
-            return;
-          MsgInfo file;
-          file.msgFlag = "file";
-          file.imageData = preparation->bytes;
-          _sender->Send({file}, conversation, false);
-        });
-  });
-  picker->open();
 }
 
 void ChatPage::OpenHistory()
@@ -591,7 +547,6 @@ void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
     VoiceMessageAudio::instance()->Cancel();
   }
   const bool images = !data->IsGroup() || TcpMgr::GetInstance()->SupportsGroupImages();
-  ui->document_btn->setEnabled(TcpMgr::GetInstance()->SupportsFileMessages());
   ui->file_btn->setEnabled(images);
   ui->file_btn->setToolTip(images ? tr("发送图片") : tr("请升级服务器以使用群图片"));
   if (changed) {
@@ -845,10 +800,6 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
     pictureBubble = bubble;
     item->setWidget(bubble);
     bubble->loadImage(fileId);
-  } else if (message->GetMsgType() == ChatMsgType::FILE) {
-    auto *bubble = new FileBubble(role);
-    item->setWidget(bubble);
-    bubble->Load(message->GetContent());
   } else if (message->GetMsgType() == ChatMsgType::AUDIO) {
     auto *bubble = new AudioBubble(role);
     item->setWidget(bubble);
@@ -884,7 +835,6 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
         _messageActions->Bind(menu, message);
         const bool imageMessage = message->GetMsgType() == ChatMsgType::PIC;
         const bool audioMessage = message->GetMsgType() == ChatMsgType::AUDIO;
-        const bool fileMessage = message->GetMsgType() == ChatMsgType::FILE;
         connect(menu, &MessageMenu::copyRequested, this, [message, imageMessage, pictureBubble] {
           if (imageMessage && pictureBubble)
             pictureBubble->copyOriginal();
@@ -901,13 +851,13 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
         const bool canRetry = _sender->CanRetry() && (!data || !data->IsGroup() || !imageMessage ||
                                                       TcpMgr::GetInstance()->SupportsGroupImages());
         const MessageMenu::Options options{
-            (!imageMessage && !audioMessage && !fileMessage) || (pictureBubble && pictureBubble->hasImage()),
+            (!imageMessage && !audioMessage) || (pictureBubble && pictureBubble->hasImage()),
             showRetry,
             canRetry,
-            !imageMessage && !audioMessage && !fileMessage,
-            !fileMessage && ui->chatEdit->isEnabled(),
+            !imageMessage && !audioMessage,
+            ui->chatEdit->isEnabled(),
             message->GetMsgId() > 0 && ChatStore::instance()->IsReady(),
-            !fileMessage && message->GetMsgId() > 0 && ChatStore::instance()->IsReady()};
+            message->GetMsgId() > 0 && ChatStore::instance()->IsReady()};
         menu->Popup(position, options);
       });
   return item;

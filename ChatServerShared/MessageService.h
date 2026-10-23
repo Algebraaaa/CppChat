@@ -6,7 +6,7 @@
 
 class MessageService {
 public:
-  static void PresentMessage(Json::Value &message, bool voiceMessages, bool fileMessages = true);
+  static void PresentMessage(Json::Value &message, bool voiceMessages);
   static int Store(int actor, std::vector<std::shared_ptr<ChatMessage>> &messages);
   static void Deliver(int from, int to, int thread,
                       const std::vector<std::shared_ptr<ChatMessage>> &messages,

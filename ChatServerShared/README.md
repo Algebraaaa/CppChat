@@ -184,15 +184,3 @@ StatusServer 删除了只在自身旧拷贝之间互相引用、没有服务调�
 及其 [GPLv3 许可](https://github.com/tinode/chat/blob/master/LICENSE)。只借鉴领域划分，未复制其源码，
 不引入 Go 服务及另一套账号/存储协议；沿用已锁定的 Qt、MySQL、gRPC 依赖，减少 Windows/Linux 适配成本。
 验证覆盖真实双节点、独立 MySQL/Redis、权限撤销、离线、重试，以及 Qt UI/加密本地恢复。
-
-## 桌面与 Android 同账号在线
-
-聊天登录可携带 `device=desktop|android`，旧客户端默认 desktop；同账号最多两个平台槽，
-同平台重新登录仍替换旧连接。待登录令牌按 UID/token 隔离，活动令牌、路由和 session ID
-按槽隔离；账号锁内再次核对凭据后才踢旧连接，清理/续期仍比较 session ID，避免跨端退出和迟到清理互相撤销。
-消息及好友通知对两个路由节点去重投递，已提交消息同时投给发送者的另一端；每端独立历史游标/UUID 合并。
-资源访问及群媒体授权接受两个有效租约。这里没有增加数据库表或执行迁移。
-
-先复用现有 Redis Lua、UserMgr、gRPC 和历史服务；参考上文 Tinode 多会话的职责划分，未复制其源码。
-`tests/integration/test_multi_device.py` 覆盖同节点/跨节点、并发 HTTP 令牌、接收/自己发送同步、
-同平台替换、跨平台活动令牌重放和手机退出后的桌面租约保留；结果写入被忽略的 build/regression。

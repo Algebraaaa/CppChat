@@ -4,7 +4,6 @@
 #include "Logger.h"
 #include "MessageService.h"
 #include "MysqlMgr.h"
-#include "ServicePolicy.h"
 #include "UserMgr.h"
 #include "const.h"
 #include <json/json.h>
@@ -22,14 +21,13 @@ Status ChatServiceImpl::RelayVoice(ServerContext *context, const message::VoiceR
   if ((request->audio() && request->video()) ||
       request->payload().size() > (request->video() ? 9000 : 2048))
     return Status(grpc::StatusCode::INVALID_ARGUMENT, "Voice payload too large");
-  for (const auto &target : UserMgr::GetInstance()->GetSessions(request->uid()))
-    if (!target->IsClosed() && target->GetSessionId() == request->session_id()) {
-      target->Send(request->payload(), request->video()   ? ID_VIDEO_IMAGE
-                                       : request->audio() ? ID_VOICE_AUDIO
-                                                          : ID_VOICE_EVENT);
-      reply->set_error(ErrorCodes::Success);
-      break;
-    }
+  if (auto target = UserMgr::GetInstance()->GetSession(request->uid());
+      target && !target->IsClosed() && target->GetSessionId() == request->session_id()) {
+    target->Send(request->payload(), request->video()   ? ID_VIDEO_IMAGE
+                                     : request->audio() ? ID_VOICE_AUDIO
+                                                        : ID_VOICE_EVENT);
+    reply->set_error(ErrorCodes::Success);
+  }
   return Status::OK;
 }
 
@@ -38,7 +36,7 @@ Status ChatServiceImpl::NotifyAddFriend(ServerContext *context, const AddFriendR
 {
   // 查找用户是否在本服务器
   auto touid = request->touid();
-  auto sessions = UserMgr::GetInstance()->GetSessions(touid);
+  auto session = UserMgr::GetInstance()->GetSession(touid);
 
   Defer defer([request, reply]() {
     reply->set_error(ErrorCodes::Success);
@@ -47,7 +45,7 @@ Status ChatServiceImpl::NotifyAddFriend(ServerContext *context, const AddFriendR
   });
 
   // 用户不在内存中则直接返回
-  if (sessions.empty()) {
+  if (session == nullptr) {
     return Status::OK;
   }
 
@@ -60,8 +58,7 @@ Status ChatServiceImpl::NotifyAddFriend(ServerContext *context, const AddFriendR
 
   std::string return_str = rtvalue.toStyledString();
 
-  for (const auto &session : sessions)
-    session->Send(return_str, ID_NOTIFY_ADD_FRIEND_REQ);
+  session->Send(return_str, ID_NOTIFY_ADD_FRIEND_REQ);
   return Status::OK;
 }
 
@@ -86,10 +83,10 @@ Status ChatServiceImpl::NotifyTextChatMsg(::grpc::ServerContext *context,
                                           const TextChatMsgReq *request, TextChatMsgRsp *reply)
 {
   auto touid = request->touid();
-  auto sessions = UserMgr::GetInstance()->GetSessions(touid);
+  auto session = UserMgr::GetInstance()->GetSession(touid);
   reply->set_error(ErrorCodes::Success);
 
-  if (sessions.empty()) {
+  if (session == nullptr) {
     return Status::OK;
   }
 
@@ -113,6 +110,7 @@ Status ChatServiceImpl::NotifyTextChatMsg(::grpc::ServerContext *context,
     element["status"] = msg.status();
     element["msg_type"] = msg.msg_type();
     element["media_size"] = Json::UInt64(msg.media_size());
+    MessageService::PresentMessage(element, session->SupportsVoiceMessages());
     chat_datas.append(element);
   }
   rtvalue["chat_datas"] = chat_datas;
@@ -130,16 +128,12 @@ Status ChatServiceImpl::NotifyTextChatMsg(::grpc::ServerContext *context,
       return Status::OK;
   }
 
-  for (const auto &session : sessions) {
-    auto notification = rtvalue;
-    for (auto &item : notification["chat_datas"])
-      MessageService::PresentMessage(item, session->SupportsVoiceMessages(), session->SupportsFileMessages());
-    session->Send(notification.toStyledString(), ID_NOTIFY_TEXT_CHAT_MSG_REQ);
-  }
+  std::string return_str = rtvalue.toStyledString();
+  session->Send(return_str, ID_NOTIFY_TEXT_CHAT_MSG_REQ);
   return Status::OK;
 }
 
-Status ChatServiceImpl::NotifyKickUser(::grpc::ServerContext *context, const KickUserReq *request,
+Status ChatServiceImpl::NotifyKickUser(::grpc::ServerContext *, const KickUserReq *request,
                                        KickUserRsp *response)
 {
   response->set_error(ErrorCodes::Success);
@@ -148,15 +142,7 @@ Status ChatServiceImpl::NotifyKickUser(::grpc::ServerContext *context, const Kic
     response->set_error(ErrorCodes::UidInvalid);
     return Status::OK;
   }
-  const auto metadata = context->client_metadata().find("x-cppchat-device");
-  const std::string device = metadata == context->client_metadata().end()
-                                 ? "desktop"
-                                 : std::string(metadata->second.data(), metadata->second.size());
-  if (!ServicePolicy::ValidDevice(device)) {
-    response->set_error(ErrorCodes::Error_Json);
-    return Status::OK;
-  }
-  const auto session = UserMgr::GetInstance()->GetSession(uid, device);
+  const auto session = UserMgr::GetInstance()->GetSession(uid);
   if (!session) {
     return Status::OK;
   }

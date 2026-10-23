@@ -442,15 +442,6 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QPushButton" name="document_btn">
-                  <property name="minimumSize"><size><width>48</width><height>34</height></size></property>
-                  <property name="text"><string>文件</string></property>
-                  <property name="toolTip"><string>发送文件（最多 20 MiB）</string></property>
-                  <property name="accessibleName"><string>发送文件</string></property>
-                  <property name="autoDefault"><bool>false</bool></property>
-                 </widget>
-                </item>
-                <item>
                  <widget class="QPushButton" name="screenshot_btn">
                   <property name="minimumSize">
                    <size>
