@@ -5,6 +5,7 @@ import socket
 import socketserver
 import ssl
 import threading
+import time
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -81,26 +82,47 @@ def certificates(directory, expired=False, untrusted=False, hostname_mismatch=Fa
 
 
 class TLSProxy:
-    def __init__(self, certificate, key, upstream):
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        context.load_cert_chain(certificate, key)
+    def __init__(
+        self, certificate, key, upstream, *, stall_after=None, stall_seconds=0, idle_timeout=5
+    ):
+        context = None
+        if certificate is not None:
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(certificate, key)
+        self.stall_until = 0
+        proxy = self
 
         class Handler(socketserver.BaseRequestHandler):
             def handle(self):
                 try:
                     self.request.settimeout(5)
                     with (
-                        context.wrap_socket(self.request, server_side=True) as downstream,
+                        (
+                            context.wrap_socket(self.request, server_side=True)
+                            if context
+                            else self.request
+                        ) as downstream,
                         socket.create_connection(upstream, timeout=5) as remote,
                     ):
+                        started = last_data = time.monotonic()
                         while True:
-                            readable, _, _ = select.select([downstream, remote], [], [], 5)
+                            elapsed = time.monotonic() - started
+                            if time.monotonic() < proxy.stall_until or (
+                                stall_after is not None
+                                and stall_after <= elapsed < stall_after + stall_seconds
+                            ):
+                                time.sleep(0.05)
+                                continue
+                            readable, _, _ = select.select([downstream, remote], [], [], 0.1)
                             if not readable:
-                                return
+                                if time.monotonic() - last_data > idle_timeout:
+                                    return
+                                continue
                             for source in readable:
                                 data = source.recv(65536)
                                 if not data:
                                     return
+                                last_data = time.monotonic()
                                 (remote if source is downstream else downstream).sendall(data)
                 except (OSError, ssl.SSLError):
                     pass
@@ -115,6 +137,9 @@ class TLSProxy:
     def __enter__(self):
         self.thread.start()
         return self
+
+    def stall_for(self, seconds):
+        self.stall_until = time.monotonic() + seconds
 
     def __exit__(self, *_):
         self.server.shutdown()

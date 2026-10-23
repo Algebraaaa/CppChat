@@ -229,6 +229,14 @@ private slots:
     QTRY_COMPARE_WITH_TIMEOUT(bridge.messagesForThread(77).size(), 1, 10000);
     QCOMPARE(fixture.device, QString("android"));
     QCOMPARE(switched.count(), 1);
+    const int beforeNetworkHint = fixture.chatLogins;
+    const auto originalSocket = fixture.connection;
+    QVERIFY(QMetaObject::invokeMethod(&bridge, "networkTransportChanged", Qt::DirectConnection));
+    QTest::qWait(300);
+    QCOMPARE(fixture.connection, originalSocket);
+    QCOMPARE(fixture.chatLogins, beforeNetworkHint);
+    QVERIFY(bridge.isLoggedIn());
+    QVERIFY(!bridge.reconnecting());
     bridge.account()->setAutomatic(true);
     MobileAccount remembered;
     remembered.initialize(settings.value("GateServer/url").toString());

@@ -48,6 +48,10 @@ VoiceCallDialog::VoiceCallDialog(QWidget *parent) : QDialog(parent)
   connect(audio_, &VoiceAudio::failed, service_, &VoiceCallService::finish);
   connect(service_, &VoiceCallService::changed, this, &VoiceCallDialog::refresh);
   connect(service_, &VoiceCallService::ended, this, &VoiceCallDialog::status);
+  connect(service_, &VoiceCallService::networkChanged, this, [this](bool recovering) {
+    if (service_->state() == VoiceCallService::State::Active)
+      state_->setText(recovering ? tr("网络波动，正在恢复…") : tr("通话中"));
+  });
   connect(accept_, &QPushButton::clicked, service_, &VoiceCallService::accept);
   connect(end_, &QPushButton::clicked, this, &VoiceCallDialog::finish);
   connect(mute_, &QPushButton::toggled, this, [this](bool muted) {
@@ -56,6 +60,10 @@ VoiceCallDialog::VoiceCallDialog(QWidget *parent) : QDialog(parent)
   });
   timer_.setInterval(1000);
   connect(&timer_, &QTimer::timeout, this, [this] {
+    if (service_->recovering()) {
+      state_->setText(tr("网络波动，正在恢复…"));
+      return;
+    }
     const auto seconds = duration_.elapsed() / 1000;
     state_->setText(tr("通话中 %1:%2")
                         .arg(seconds / 60, 2, 10, QLatin1Char('0'))

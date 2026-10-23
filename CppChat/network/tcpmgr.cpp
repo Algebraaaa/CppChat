@@ -110,6 +110,7 @@ TcpMgr::TcpMgr()
     emit sig_con_success(false);
   });
   connect(&_socket, &QTcpSocket::connected, this, [this] {
+    _socket.setSocketOption(QAbstractSocket::LowDelayOption, 1);
     if (!_tlsEnabled) {
       _connectTimer.stop();
       emit sig_con_success(true);
@@ -380,19 +381,26 @@ void TcpMgr::sendCall(const QJsonObject &body, quint16 id)
   const bool audio = id == ID_VOICE_FRAME;
   const auto bytes = QJsonDocument(body).toJson(QJsonDocument::Compact);
   if (!_loggedIn || !IsConnected() || bytes.size() > (video ? 9000 : 2000)) {
-    emit sig_voice_event(
-        QJsonObject{{"error", 1024}, {"call_id", body["call_id"]}, {"peer", body["peer"]}});
+    emit sig_voice_event(QJsonObject{{"error", 1024},
+                                     {"call_id", body["call_id"]},
+                                     {"peer", body["peer"]},
+                                     {"action", audio   ? QJsonValue("frame")
+                                                : video ? QJsonValue("video")
+                                                        : body["action"]},
+                                     {"video", body["video"]}});
     return;
   }
-  if ((audio || video) && _socket.bytesToWrite() > 8192)
+  if ((audio || video) && _socket.bytesToWrite() > (video ? 2048 : 8192))
     return;
   QByteArray packet;
   QDataStream stream(&packet, QIODevice::WriteOnly);
   stream.setByteOrder(QDataStream::BigEndian);
   stream << id << quint16(bytes.size());
   packet.append(bytes);
-  if (_socket.write(packet) != packet.size())
+  if (_socket.write(packet) != packet.size()) {
     CloseConnection();
+    emit sig_connection_closed();
+  }
 }
 
 void TcpMgr::handleMsg(ReqId id, const QByteArray &data)

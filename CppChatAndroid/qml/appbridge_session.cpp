@@ -43,7 +43,7 @@ void AppBridge::initializeRecovery()
     available(network->reachability());
     connect(network, &QNetworkInformation::reachabilityChanged, this, available);
     connect(network, &QNetworkInformation::transportMediumChanged, this,
-            [this](QNetworkInformation::TransportMedium) { reconnectNow(); });
+            &AppBridge::networkTransportChanged);
   }
   if (auto app = qobject_cast<QGuiApplication *>(QCoreApplication::instance())) {
     auto background = std::make_shared<QElapsedTimer>();
@@ -63,6 +63,13 @@ void AppBridge::initializeRecovery()
               background->invalidate();
             });
   }
+}
+void AppBridge::networkTransportChanged()
+{
+  // OS network hints do not prove that an established TLS stream is lost.
+  // Preserve it (and the bound call); socket errors/heartbeats detect failure.
+  if (!TcpMgr::GetInstance()->IsConnected())
+    reconnectNow();
 }
 QString AppBridge::connectionText() const
 {

@@ -1,6 +1,9 @@
 #include "voicecallservice.h"
+#include "media/callpolicy.h"
+#include <QDebug>
 #include <QRegularExpression>
 #include <QUuid>
+#include <utility>
 
 namespace {
 QString failure(int code)
@@ -19,17 +22,36 @@ QString failure(int code)
   }
 }
 } // namespace
-VoiceCallService::VoiceCallService(QObject *parent) : QObject(parent)
+VoiceCallService::VoiceCallService(QObject *parent, Clock clock) : QObject(parent)
 {
+  monotonic_.start();
+  now_ = clock ? std::move(clock) : Clock([this] { return monotonic_.elapsed(); });
   deadline_.setSingleShot(true);
   connect(&deadline_, &QTimer::timeout, this, [this] { finish(tr("对方未接听或网络超时")); });
-  keepalive_.setInterval(4000);
+  keepalive_.setInterval(cppchat::media::CallPolicy::HeartbeatMs);
   connect(&keepalive_, &QTimer::timeout, this, [this] {
-    if (!lastAck_.isValid() || lastAck_.elapsed() > 12000)
+    const auto elapsed = now_() - lastProgress_;
+    if (elapsed >= cppchat::media::CallPolicy::TimeoutMs) {
       finish(tr("网络中断，通话已结束"));
-    else
-      command("ping");
+      return;
+    }
+    if (elapsed >= cppchat::media::CallPolicy::RecoveringMs)
+      setRecovering(true);
+    command("ping"); // Keep probing during a bounded interruption.
   });
+}
+void VoiceCallService::setRecovering(bool recovering)
+{
+  if (recovering_ == recovering)
+    return;
+  recovering_ = recovering;
+  qInfo() << "Call network recovery:" << recovering;
+  emit networkChanged(recovering);
+}
+void VoiceCallService::progress(bool recovering)
+{
+  lastProgress_ = now_();
+  setRecovering(recovering);
 }
 bool VoiceCallService::start(int peer, bool video)
 {
@@ -82,6 +104,8 @@ void VoiceCallService::reset(const QString &reason)
   videoSequence_ = receivedVideo_ = 0;
   video_ = false;
   cameraEnabled_ = peerCameraEnabled_ = true;
+  setRecovering(false);
+  qInfo() << "Call ended:" << reason;
   emit changed();
   emit ended(reason);
 }
@@ -111,7 +135,16 @@ void VoiceCallService::receive(const QJsonObject &event)
   if (call != call_ || peer != peer_ || state_ == State::Idle)
     return;
   if (event["error"].toInt() != 0) {
+    const auto code = event["error"].toInt();
+    const bool media = action == "frame" || action == "video";
+    const bool temporary =
+        code == 1002 || code == 1014 || code == 1015 || code == 1024 || code == 1025;
+    if (state_ == State::Active && !event["incoming"].toBool() &&
+        ((media && (code == 1023 || temporary)) ||
+         ((action == "ping" || action == "camera") && temporary)))
+      return; // Drop/retry transient work, without renewing the liveness budget.
     // Best effort teardown; the server lease also expires on failure.
+    qWarning() << "Call control rejected:" << action << code;
     finish(failure(event["error"].toInt()));
     return;
   }
@@ -122,15 +155,21 @@ void VoiceCallService::receive(const QJsonObject &event)
   if (action == "camera" && state_ == State::Active && video_ && event["incoming"].toBool() &&
       event["enabled"].isBool()) {
     peerCameraEnabled_ = event["enabled"].toBool();
+    progress();
     emit peerCameraChanged(peerCameraEnabled_);
   } else if (action == "accept" && (state_ == State::Outgoing || state_ == State::Connecting)) {
     deadline_.stop();
     state_ = State::Active;
-    lastAck_.start();
+    progress();
     keepalive_.start();
     emit changed();
   } else if (action == "ping" && state_ == State::Active) {
-    lastAck_.restart();
+    progress(event["peer_idle_ms"].toDouble() >= cppchat::media::CallPolicy::RecoveringMs);
+    if (video_ && event["peer_camera_enabled"].isBool() &&
+        peerCameraEnabled_ != event["peer_camera_enabled"].toBool()) {
+      peerCameraEnabled_ = event["peer_camera_enabled"].toBool();
+      emit peerCameraChanged(peerCameraEnabled_);
+    }
   } else if (action == "reject" || action == "cancel" || action == "end") {
     reset(action == "reject"   ? tr("对方已拒接")
           : action == "cancel" ? tr("对方已取消呼叫")
@@ -162,6 +201,7 @@ void VoiceCallService::receiveAudio(const QJsonObject &event)
   if (!decoded || decoded.decoded.isEmpty() || decoded.decoded.size() > 512)
     return;
   received_ = sequence;
+  progress();
   emit audio(decoded.decoded, sequence);
 }
 void VoiceCallService::setCameraEnabled(bool enabled)
@@ -178,7 +218,7 @@ void VoiceCallService::setCameraEnabled(bool enabled)
 }
 void VoiceCallService::sendVideo(const QByteArray &jpeg)
 {
-  if (state_ != State::Active || !video_ || !cameraEnabled_ || jpeg.isEmpty() ||
+  if (state_ != State::Active || !video_ || !cameraEnabled_ || recovering_ || jpeg.isEmpty() ||
       jpeg.size() > 6000 || videoSequence_ >= 100000000)
     return;
   emit sendVideoFrame(QJsonObject{{"call_id", call_},
@@ -201,5 +241,6 @@ void VoiceCallService::receiveVideo(const QJsonObject &event)
   if (!decoded || decoded.decoded.isEmpty() || decoded.decoded.size() > 6000)
     return;
   receivedVideo_ = sequence;
+  progress();
   emit videoFrame(decoded.decoded);
 }

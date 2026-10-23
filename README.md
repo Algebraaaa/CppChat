@@ -4,7 +4,12 @@ B站恋恋风辰大佬的C++全栈即时通讯项目，我在辰哥的基础上�
 
 版本更新与历史开发、验证记录已移至 [Releases](https://github.com/Algebraaaa/CppChat/releases)；安装包见 [最新发布](https://github.com/Algebraaaa/CppChat/releases/latest)。
 
-最近更新：**2026-10-23**。新增 [Android QML 客户端](CppChatAndroid/README.md)（0.1.20，ARM64 / Android 9+），
+最近更新：**2026-10-24**。通话稳定性修复已进入源码：短时媒体转发失败和迟到帧不再直接挂断，
+增加有上限的网络恢复提示、心跳宽限和摄像头状态同步；Android 网络类型提示不再主动断开健康连接。
+协议边界、上游参考和真实设备未验证项见 [通话恢复说明](CppChat/docs/protocol-contract.md#通话短时网络抖动恢复2026-10-24)。
+实际 TCP 断开及手机离开前台仍结束通话，本次不宣称支持跨登录无缝续接。
+
+新增 [Android QML 客户端](CppChatAndroid/README.md)（ARM64 / Android 9+），
 复用桌面公共业务模块；支持桌面与手机同时在线、账号记忆/自动登录、断线恢复、本地记录与独立安卓更新检测，
 以及文件、语音消息和语音/视频通话。包含配套设备会话、资源权限及通知同步的服务端修改；普通页面不展示服务地址。
 真实 TLS 协议联调与合成媒体验证已完成，Android 真机安装、Keystore、权限与音视频体验仍需设备验收；厂商推送未接通。

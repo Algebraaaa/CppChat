@@ -1,6 +1,7 @@
 #include "RedisMgr.h"
 #include "ServicePolicy.h"
 #include "const.h"
+#include "media/callpolicy.h"
 #include <json/json.h>
 
 #include "ConfigMgr.h"
@@ -543,7 +544,7 @@ if op=='accept' then
   if first or c.state~='ringing' then return 1023 end
   c.state='active'; c.ta=now; c.tb=now
 elseif c.state~='active' then return 1023
-elseif now-(first and c.tb or c.ta)>15000 then
+elseif now-(first and c.tb or c.ta)>tonumber(ARGV[12]) then
   redis.call('del',KEYS[1],KEYS[2]); return 1023
 elseif op=='frame' or op=='video' then
   local picture=op=='video'
@@ -556,6 +557,7 @@ elseif op=='frame' or op=='video' then
   local available=math.min(burst,(c[credit] or burst)+(now-(c[l] or now))*rate)
   if available<1 then return 1025 end
   c[credit]=available-1; c[l]=now; c[q]=n
+  if first then c.ta=now else c.tb=now end
 elseif op=='ping' then
   if first then c.ta=now else c.tb=now end
 elseif op=='camera' then
@@ -563,7 +565,7 @@ elseif op=='camera' then
   c[first and 'ea' or 'eb']=ARGV[8]=='1'
 else return 1023 end
 local v=cjson.encode(c)
-redis.call('set',KEYS[1],v,'PX',20000); redis.call('set',KEYS[2],v,'PX',20000)
+redis.call('set',KEYS[1],v,'PX',ARGV[13]); redis.call('set',KEYS[2],v,'PX',ARGV[13])
 return 0
 )lua";
   const auto self = std::to_string(uid), target = std::to_string(peer);
@@ -574,7 +576,9 @@ return 0
                  std::string(USER_SESSION_PREFIX) + ServicePolicy::DeviceKey(peer, peer_device),
                  "voice-rate:" + self},
                 {self, target, session, call, action, std::to_string(sequence), video ? "1" : "0",
-                 camera_enabled ? "1" : "0", device, peer_device, peer_session},
+                 camera_enabled ? "1" : "0", device, peer_device, peer_session,
+                 std::to_string(cppchat::media::CallPolicy::TimeoutMs),
+                 std::to_string(cppchat::media::CallPolicy::LeaseMs)},
                 result))
     return ErrorCodes::RedisError;
   return static_cast<int>(result);

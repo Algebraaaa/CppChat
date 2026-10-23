@@ -28,6 +28,7 @@ MobileMedia::MobileMedia(QObject *parent) : QObject(parent), m_call(new VoiceCal
   connect(m_audio, &VoiceAudio::failed, m_call, &VoiceCallService::finish);
   connect(m_video, &VideoMedia::failed, m_call, &VoiceCallService::finish);
   connect(m_call, &VoiceCallService::changed, this, &MobileMedia::refreshCall);
+  connect(m_call, &VoiceCallService::networkChanged, this, &MobileMedia::changed);
   connect(m_call, &VoiceCallService::ended, this, &MobileMedia::status);
   connect(m_video, &VideoMedia::preview, this, [this](const QImage &image) {
     if (m_local)
@@ -83,7 +84,8 @@ QVariantMap MobileMedia::call() const
   const auto user = UserMgr::GetInstance()->GetFriendById(m_call->peer());
   return {{"state", int(m_call->state())}, {"peer", m_call->peer()},
           {"name", user ? (user->_back.isEmpty() ? (user->_nick.isEmpty() ? user->_name : user->_nick) : user->_back) : tr("联系人")},
-          {"video", m_call->isVideo()}, {"muted", m_muted}, {"camera", m_camera},
+          {"video", m_call->isVideo()}, {"recovering", m_call->recovering()},
+          {"muted", m_muted}, {"camera", m_camera},
           {"peerCamera", m_peerCamera}, {"front", m_front},
           {"seconds", m_started && m_duration.isValid() ? m_duration.elapsed() / 1000 : 0}};
 }

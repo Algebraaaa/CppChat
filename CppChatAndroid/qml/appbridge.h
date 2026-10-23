@@ -144,6 +144,7 @@ signals:
   void groupResult(QVariantMap response);
 
 private:
+  Q_SLOT void networkTransportChanged();
   void loadConfig();
   void connectBackends();
   void connectChatBackends();
