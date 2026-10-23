@@ -147,7 +147,7 @@ PR 不获得上述配置或签名身份，使用保留域名示例配置及一�
 普通 push 缺少 Secrets 时同样生成明确标记的测试构建；发行标签缺少固定身份或部署配置时直接失败。
 签名文件和私有配置在 runner 收尾删除，不进入 Artifacts；已编入 APK 的客户端端点本来就能被客户端用户读取，不能用于保存服务端秘密。
 
-正式生成 GitHub 下载包时，先提升 `CMakeLists.txt` 的三段版本及 versionCode，
+正式生成 GitHub 下载包时，先提升根 `CMakeLists.txt` 的三段版本及 `app/CMakeLists.txt` 的 versionCode，
 再推送指向该提交的 `android-v<版本>` 标签。标签必须与项目版本一致；
 APK 和更新清单使用标准发行文件名，成功后创建独立 Android GitHub Release，
 不会把安卓包标成 Windows 的 latest。已有发行不覆盖不同内容。
@@ -168,7 +168,10 @@ APK 和更新清单使用标准发行文件名，成功后创建独立 Android G
 Actions 全部固定提交，最小 `contents: read`，仅标签发布 job 可写 Release；
 没有引入新的客户端运行库，也不授予 PR 云端部署权限。
 Android 部署明确使用 [QT_QML_ROOT_PATH](https://doc.qt.io/qt-6.12/cmake-target-property-qt-qml-root-path.html)
-将依赖扫描限定在应用 `qml/`，避免同项目测试 QML 的 `QtTest` 导入被部署到 APK。
+声明应用 `qml/` 路径；Qt 6.12 [上游实现](https://github.com/qt/qtdeclarative/blob/v6.12.0/src/qml/Qt6AndroidQmlMacros.cmake)
+仍会追加 target 的 `SOURCE_DIR`，所以应用 target 定义放在 `app/CMakeLists.txt`，
+共享核心留在父目录，默认扫描也无法走进同级 `tests/`。这避免测试 QML 的 `QtTest` 导入被部署到 APK，
+没有修改 Qt 私有属性或事后删除部署依赖。原生目标产物位于 `build/android-arm64/app/`。
 包审计拒绝 Qt Test/QuickTest 运行库及 JKS/PKCS12 私钥文件，定向归档夹具验证这些门槛；
 Qt Quick Test 仅在主机验证，不作为手机应用运行依赖。
 OpenSSL Linux 适配依据固定版本的 [NOTES-ANDROID](https://github.com/openssl/openssl/blob/openssl-3.5.9/NOTES-ANDROID.md)，

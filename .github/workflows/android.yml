@@ -127,6 +127,7 @@ jobs:
           path: |
             CppChatAndroid/build/regression/android-*/
             CppChatAndroid/build/dependencies/openssl-build.log
+            CppChatAndroid/build/android-arm64/app/android-CppChat-deployment-settings.json
             build/android-ui/
           retention-days: 14
       - name: Remove runner signing material and private configuration

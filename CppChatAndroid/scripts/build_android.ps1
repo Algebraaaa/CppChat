@@ -56,7 +56,7 @@ Invoke-Checked $CMake @('-S',$projectRoot,'-B',$buildRoot,'-G','Ninja',
     "-DCPPCHAT_BACKEND_ROOT=$BackendRoot", "-DCPPCHAT_ANDROID_CONFIG_FILE=$ConfigFile",
     "-DANDROID_OPENSSL_ROOT=$OpenSslRoot",'-DCMAKE_BUILD_TYPE=Release') (Join-Path $report 'configure.log')
 Invoke-Checked $CMake @('--build',$buildRoot,'--target','apk','--parallel',"$Jobs") (Join-Path $report 'build.log')
-$unsigned = Join-Path $buildRoot 'android-build/build/outputs/apk/release/android-build-release-unsigned.apk'
+$unsigned = Join-Path $buildRoot 'app/android-build/build/outputs/apk/release/android-build-release-unsigned.apk'
 if (-not (Test-Path -LiteralPath $unsigned)) { throw 'Unsigned Release APK was not produced' }
 $signing = Join-Path $projectRoot 'build/signing'
 New-Item -ItemType Directory -Force $signing | Out-Null
@@ -84,7 +84,7 @@ Invoke-Checked "$tools/apksigner$scriptSuffix" @('verify','--verbose','--print-c
 Invoke-Checked "$tools/zipalign$executableSuffix" @('-c','-P','16','-v','4',$apk) (Join-Path $report 'alignment.txt')
 Invoke-Checked "$tools/aapt2$executableSuffix" @('dump','badging',$apk) (Join-Path $report 'manifest.txt')
 $badging = Get-Content -LiteralPath (Join-Path $report 'manifest.txt') -Raw
-$versionCode = [regex]::Match((Get-Content -LiteralPath (Join-Path $projectRoot 'CMakeLists.txt') -Raw), 'QT_ANDROID_VERSION_CODE\s+([0-9]+)').Groups[1].Value
+$versionCode = [regex]::Match((Get-Content -LiteralPath (Join-Path $projectRoot 'app/CMakeLists.txt') -Raw), 'QT_ANDROID_VERSION_CODE\s+([0-9]+)').Groups[1].Value
 if ($badging -notmatch "package: name='org\.algebra\.cppchat' versionCode='$versionCode' versionName='$([regex]::Escape($projectVersion))'") {
     throw 'Packaged application ID or version does not match the Android project'
 }

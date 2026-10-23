@@ -33,7 +33,6 @@ add_library(CppChatMobileCore OBJECT qml/appbridge.h qml/appbridge.cpp
   qml/appbridge_chat.cpp qml/appbridge_features.cpp qml/appbridge_session.cpp qml/appbridge_media.cpp
   qml/mobilemedia.cpp
   qml/mobileaccount.cpp qml/mobilesession.cpp ${backend_sources})
-qt_add_executable(CppChat app/main_android.cpp qml.qrc "${CPPCHAT_BACKEND_ROOT}/rc.qrc")
 
 # Keep deployment endpoints outside version control. A fresh public checkout
 # builds with the documented example until a local deployment config is supplied.
@@ -52,7 +51,7 @@ target_link_libraries(CppChatMobileCore PUBLIC Qt6::Core Qt6::Gui Qt6::Widgets Q
 if(WIN32)
   target_link_libraries(CppChatMobileCore PUBLIC crypt32 advapi32 bcrypt)
 endif()
-target_link_libraries(CppChat PRIVATE CppChatMobileCore)
+add_subdirectory(app)
 option(CPPCHAT_MOBILE_TESTS "Build mobile facade and QML smoke probes" OFF)
 if(CPPCHAT_MOBILE_TESTS AND NOT ANDROID)
   find_package(Qt6 REQUIRED COMPONENTS Test)
@@ -78,21 +77,4 @@ if(CPPCHAT_MOBILE_TESTS AND NOT ANDROID)
   target_link_libraries(mobile_interop PRIVATE CppChatMobileCore)
   qt_add_executable(mobile_ui_smoke tests/mobile_ui_smoke.cpp qml.qrc "${CPPCHAT_BACKEND_ROOT}/rc.qrc")
   target_link_libraries(mobile_ui_smoke PRIVATE CppChatMobileCore)
-endif()
-if(ANDROID)
-  set_target_properties(CppChat PROPERTIES
-    QT_QML_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/qml"
-    QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android"
-    QT_ANDROID_PACKAGE_NAME "org.algebra.cppchat"
-    QT_ANDROID_MIN_SDK_VERSION 28
-    QT_ANDROID_TARGET_SDK_VERSION 36
-    QT_ANDROID_VERSION_CODE 123
-    QT_ANDROID_VERSION_NAME "${PROJECT_VERSION}")
-  set(ANDROID_OPENSSL_ROOT "" CACHE PATH "Pinned android_openssl checkout with ssl_3 libraries")
-  if(NOT ANDROID_OPENSSL_ROOT)
-    message(FATAL_ERROR "Set ANDROID_OPENSSL_ROOT to the supported OpenSSL 3 Android build directory")
-  endif()
-  file(TO_CMAKE_PATH "${ANDROID_OPENSSL_ROOT}" ANDROID_OPENSSL_ROOT)
-  set_property(TARGET CppChat APPEND PROPERTY QT_ANDROID_EXTRA_LIBS
-    "${ANDROID_OPENSSL_ROOT}/libssl_3.so" "${ANDROID_OPENSSL_ROOT}/libcrypto_3.so")
 endif()
