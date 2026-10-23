@@ -167,6 +167,10 @@ APK 和更新清单使用标准发行文件名，成功后创建独立 Android G
 [upload-artifact v4](https://github.com/actions/upload-artifact) 使用 GitHub 官方 MIT 实现及不可变运行产物。
 Actions 全部固定提交，最小 `contents: read`，仅标签发布 job 可写 Release；
 没有引入新的客户端运行库，也不授予 PR 云端部署权限。
+Android 部署明确使用 [QT_QML_ROOT_PATH](https://doc.qt.io/qt-6.12/cmake-target-property-qt-qml-root-path.html)
+将依赖扫描限定在应用 `qml/`，避免同项目测试 QML 的 `QtTest` 导入被部署到 APK。
+包审计拒绝 Qt Test/QuickTest 运行库及 JKS/PKCS12 私钥文件，定向归档夹具验证这些门槛；
+Qt Quick Test 仅在主机验证，不作为手机应用运行依赖。
 OpenSSL Linux 适配依据固定版本的 [NOTES-ANDROID](https://github.com/openssl/openssl/blob/openssl-3.5.9/NOTES-ANDROID.md)，
 避免 Windows/MSYS2 专用路径进入 Linux。现有库许可不变；这些检查不是全量安全审计。
 

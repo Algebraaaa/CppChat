@@ -1,6 +1,6 @@
 # CppChat Android
 
-Qt Quick / QML 安卓客户端，当前版本 0.1.22，ARM64 / Android 9+。
+Qt Quick / QML 安卓客户端，当前版本 0.1.23，ARM64 / Android 9+。
 与桌面及服务端同仓库维护，复用 `../CppChat` 中的协议、业务、持久化、资源与媒体模块；界面与平台生命周期在本目录实现。
 
 ## 目录
