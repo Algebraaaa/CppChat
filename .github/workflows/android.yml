@@ -26,7 +26,7 @@ jobs:
           java-version: '21'
       - name: Install pinned Android toolchain
         run: |
-          sdkmanager 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.2.12479018'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.2.12479018'
           sudo apt-get update
           sudo apt-get install -y ninja-build make perl
       - name: Install Qt host tools
