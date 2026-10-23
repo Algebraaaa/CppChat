@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import "ChatStyle.js" as Style
 
 ToolBar {
     id: root
@@ -8,13 +9,22 @@ ToolBar {
     signal back()
     property string actionText: ""
     signal action()
-    Material.background: "#07a956"
-    Material.foreground: "white"
-    background: Rectangle { color: "#07a956" }
+    implicitHeight: 56
+    Material.background: Style.toolbar
+    Material.foreground: Style.text
+    background: Rectangle {
+        color: Style.toolbar
+        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Style.separator }
+    }
     RowLayout {
         anchors.fill: parent
-        ToolButton { text: "‹"; font.pixelSize: 28; implicitWidth: 56; implicitHeight: 56; onClicked: root.back(); Accessible.name: qsTr("返回") }
-        Label { text: root.title; Layout.fillWidth: true; elide: Text.ElideRight; font.bold: true; font.pixelSize: 18 }
-        ToolButton { visible: root.actionText.length > 0; text: root.actionText; implicitHeight: 56; onClicked: root.action() }
+        ToolButton {
+            implicitWidth: 52; implicitHeight: 56
+            contentItem: Item { ChatIcon { anchors.centerIn: parent; name: "back"; width: 22; height: 22 } }
+            onClicked: root.back()
+            Accessible.name: qsTr("返回")
+        }
+        Label { text: root.title; color: Style.text; Layout.fillWidth: true; elide: Text.ElideRight; font.weight: Font.DemiBold; font.pixelSize: 18; textFormat: Text.PlainText }
+        ToolButton { visible: root.actionText.length > 0; text: root.actionText; implicitWidth: 52; implicitHeight: 56; onClicked: root.action(); Accessible.name: root.actionText === "⋯" ? qsTr("更多操作") : root.actionText }
     }
 }

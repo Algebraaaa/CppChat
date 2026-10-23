@@ -17,5 +17,8 @@
         <file>qml/components/PrimaryButton.qml</file>
         <file>qml/components/CallPanel.qml</file>
         <file>qml/components/AttachmentMessage.qml</file>
+        <file>qml/components/ChatStyle.js</file>
+        <file>qml/components/ChatIcon.qml</file>
+        <file>qml/components/MessageBubble.qml</file>
     </qresource>
 </RCC>

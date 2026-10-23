@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Material
+import "ChatStyle.js" as Style
 
 Rectangle {
     id: root
@@ -9,9 +10,10 @@ Rectangle {
     property string name: "?"
     implicitWidth: 48
     implicitHeight: 48
-    radius: 8
-    color: "#07a956"
-    Label { anchors.centerIn: parent; text: root.name.charAt(0); color: "white"; font.pixelSize: 20 }
+    radius: 7
+    color: Style.accent
+    clip: true
+    Label { anchors.centerIn: parent; text: root.name.charAt(0) || "?"; color: "white"; font.pixelSize: Math.min(root.width * 0.43, 24) }
     Image {
         id: picture
         anchors.fill: parent

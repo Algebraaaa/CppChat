@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import "ChatStyle.js" as Style
 
 ColumnLayout {
     id: content
@@ -10,26 +11,49 @@ ColumnLayout {
     property string progress: ""
     property bool loading: false
     signal saveRequested(string fileId, string name)
-    spacing: 4
-    Label {
+    Component.onCompleted: {
+        if (message.type === 2 && message.msgId > 0) info = backend.fileInfo(message.content)
+    }
+    spacing: 6
+    RowLayout {
         Layout.fillWidth: true
-        text: content.message.type === 3 ? qsTr("语音消息") : (content.info.ready ? content.info.name : qsTr("文件"))
-        textFormat: Text.PlainText
-        wrapMode: Text.WrapAnywhere
+        spacing: 10
+        Rectangle {
+            Layout.preferredWidth: 36; Layout.preferredHeight: 40
+            color: content.message.type === 3 ? "transparent" : "#f4a340"
+            radius: 5
+            ChatIcon { anchors.centerIn: parent; name: content.message.type === 3 ? "voice" : "file"; color: content.message.type === 3 ? Style.text : "white" }
+        }
+        Label {
+            Layout.fillWidth: true
+            color: Style.text
+            font.pixelSize: 15
+            text: content.message.type === 3 ? qsTr("语音消息") : (content.info.ready ? content.info.name : qsTr("文件附件"))
+            textFormat: Text.PlainText
+            wrapMode: Text.WrapAnywhere
+            maximumLineCount: 3
+            elide: Text.ElideRight
+        }
     }
     Label {
         Layout.fillWidth: true
         visible: text.length > 0
         text: content.progress || (content.info.ready ? qsTr("%1 KiB").arg((content.info.size / 1024).toFixed(1)) : "")
-        font.pixelSize: 12
+        font.pixelSize: 11
+        color: Style.secondary
         wrapMode: Text.Wrap
     }
     Button {
+        id: attachmentAction
+        objectName: "attachmentAction"
         Layout.fillWidth: true
-        implicitHeight: 48
+        implicitHeight: 40
         text: content.message.type === 3 ? (content.backend.media.playing === content.message.content ? qsTr("停止播放") : qsTr("播放语音"))
             : content.loading ? qsTr("正在下载…") : content.info.ready ? qsTr("另存为…") : qsTr("下载文件")
-        enabled: !content.loading && !content.backend.media.recording && content.backend.media.call.state === 0
+        enabled: content.message.msgId > 0 && !content.loading && !content.backend.media.recording && content.backend.media.call.state === 0
+        topInset: 0; bottomInset: 0
+        background: Rectangle { radius: 5; color: attachmentAction.down ? "#18000000" : "#08000000" }
+        contentItem: Label { text: attachmentAction.text; color: attachmentAction.enabled ? Style.text : Style.secondary; font.pixelSize: 13; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
         onClicked: {
             if (content.message.type === 3) {
                 content.backend.media.playVoice(content.message.content)

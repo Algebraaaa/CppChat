@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 import "../components"
+import "../components/ChatStyle.js" as Style
 
 Page {
     id: page
@@ -16,23 +17,44 @@ Page {
         return (t.displayName + " " + t.name).toLowerCase().indexOf(search.text.toLowerCase()) >= 0
     })
     function refresh() { threads = backend.chatThreads(); contacts = backend.friendList() }
-    background: Rectangle { color: "#ffffff" }
+    background: Rectangle { color: Style.background }
     header: ToolBar {
-        Material.background: "#07a956"
-        Material.foreground: "white"
-        background: Rectangle { color: "#07a956" }
+        implicitHeight: 56
+        Material.background: Style.toolbar
+        Material.foreground: Style.text
+        background: Rectangle {
+            color: Style.toolbar
+            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Style.separator }
+        }
         RowLayout {
             anchors.fill: parent
-            Label { text: "CppChat"; font.pixelSize: 21; font.bold: true; Layout.leftMargin: 20; Layout.fillWidth: true }
-            ToolButton { text: qsTr("添加好友"); implicitHeight: 56; onClicked: page.navigation.push("search") }
-            ToolButton { text: qsTr("建群"); implicitHeight: 56; onClicked: page.navigation.push("group", {threadId: 0}) }
+            Label { text: tabs.currentIndex === 0 ? "CppChat" : tabs.currentIndex === 1 ? qsTr("通讯录") : qsTr("我"); color: Style.text; font.pixelSize: 21; font.weight: Font.DemiBold; Layout.leftMargin: 18; Layout.fillWidth: true }
+            ToolButton { implicitWidth: 48; implicitHeight: 56; contentItem: Item { ChatIcon { anchors.centerIn: parent; name: "search" } } visible: tabs.currentIndex < 2; onClicked: search.forceActiveFocus(); Accessible.name: qsTr("搜索") }
+            ToolButton { implicitWidth: 48; implicitHeight: 56; contentItem: Item { ChatIcon { anchors.centerIn: parent; name: "plus" } } onClicked: addMenu.open(); Accessible.name: qsTr("添加好友或发起群聊") }
         }
     }
     footer: TabBar {
         id: tabs
-        TabButton { text: qsTr("聊天"); implicitHeight: 56 }
-        TabButton { text: qsTr("通讯录"); implicitHeight: 56 }
-        TabButton { text: qsTr("我"); implicitHeight: 56 }
+        objectName: "mainTabs"
+        implicitHeight: 64
+        Material.accent: "transparent"
+        background: Rectangle { color: Style.toolbar; Rectangle { width: parent.width; height: 1; color: Style.separator } }
+        Repeater {
+            model: [{label: qsTr("聊天"), icon: "chat"}, {label: qsTr("通讯录"), icon: "contacts"}, {label: qsTr("我"), icon: "user"}]
+            TabButton {
+                id: tab
+                required property var modelData
+                implicitHeight: 64
+                topPadding: 9; bottomPadding: 7
+                Accessible.name: modelData.label
+                background: Rectangle { color: tab.down ? "#e8e8e8" : "transparent" }
+                contentItem: Column {
+                    spacing: 3
+                    ChatIcon { anchors.horizontalCenter: parent.horizontalCenter; name: tab.modelData.icon; color: tab.checked ? Style.accent : Style.text }
+                    Label { width: parent.width; text: tab.modelData.label; font.pixelSize: 11; color: tab.checked ? Style.accent : Style.text; horizontalAlignment: Text.AlignHCenter }
+                }
+            }
+        }
         onCurrentIndexChanged: { search.text = ""; Qt.inputMethod.hide() }
     }
     ColumnLayout {
@@ -40,10 +62,16 @@ Page {
         spacing: 0
         TextField {
             id: search
+            objectName: "searchField"
             visible: tabs.currentIndex < 2
             Layout.fillWidth: true
-            Layout.margins: 12
-            implicitHeight: 52
+            Layout.margins: 8
+            implicitHeight: 38
+            leftPadding: 38
+            font.pixelSize: 15
+            color: Style.text
+            background: Rectangle { color: Style.surface; radius: 7 }
+            ChatIcon { name: "search"; color: "#a5a5a5"; x: 12; anchors.verticalCenter: parent.verticalCenter; width: 18; height: 18 }
             placeholderText: tabs.currentIndex === 0 ? qsTr("搜索会话") : qsTr("搜索联系人")
             inputMethodHints: Qt.ImhNoAutoUppercase
         }
@@ -53,54 +81,76 @@ Page {
             Layout.fillHeight: true
             ListView {
                 id: conversations
+                objectName: "conversationList"
                 clip: true
                 model: page.filteredThreads
                 ScrollBar.vertical: ScrollBar {}
-                header: Button {
-                    text: qsTr("刷新聊天记录")
-                    flat: true
-                    width: conversations.width
-                    onClicked: page.backend.loadChatThreads()
-                }
                 Label {
                     anchors.centerIn: parent
                     visible: conversations.count === 0
-                    text: search.text ? qsTr("没有匹配的会话") : qsTr("暂无聊天，可从通讯录发起")
-                    color: "#667085"
+                    text: search.text ? qsTr("没有匹配的会话") : qsTr("还没有聊天\n去通讯录找朋友聊聊吧")
+                    horizontalAlignment: Text.AlignHCenter
+                    lineHeight: 1.7
+                    color: Style.secondary
                 }
                 delegate: ItemDelegate {
                     id: conversation
                     required property var modelData
                     width: conversations.width
-                    implicitHeight: 84
+                    implicitHeight: 76
+                    leftPadding: 16; rightPadding: 16
+                    background: Rectangle {
+                        color: conversation.down ? "#dedede" : conversation.modelData.pinned ? "#f4f4f4" : Style.surface
+                        Rectangle { anchors.right: parent.right; anchors.bottom: parent.bottom; width: Math.max(0, parent.width - 76); height: 1; color: "#eeeeee" }
+                    }
                     contentItem: RowLayout {
                         spacing: 12
                         Avatar { backend: page.backend; uid: conversation.modelData.otherId; fallback: conversation.modelData.icon; name: conversation.modelData.name }
                         ColumnLayout {
                             Layout.fillWidth: true
-                            Label { text: (conversation.modelData.pinned ? "↑ " : "") + conversation.modelData.name; Layout.fillWidth: true; elide: Text.ElideRight; font.pixelSize: 17; textFormat: Text.PlainText }
-                            Label { text: conversation.modelData.lastMsg; Layout.fillWidth: true; elide: Text.ElideRight; color: "#667085"; textFormat: Text.PlainText }
+                            spacing: 5
+                            Label { text: conversation.modelData.name; color: Style.text; Layout.fillWidth: true; elide: Text.ElideRight; font.pixelSize: 17; textFormat: Text.PlainText }
+                            Label { text: conversation.modelData.lastMsg; Layout.fillWidth: true; elide: Text.ElideRight; color: "#999999"; font.pixelSize: 13; textFormat: Text.PlainText }
                         }
-                        Label { text: conversation.modelData.lastTime.slice(5, 16); color: "#98a2b3"; font.pixelSize: 11; Layout.alignment: Qt.AlignTop }
+                        Label { text: Style.listTime(conversation.modelData.lastTime); color: "#aaaaaa"; font.pixelSize: 11; Layout.alignment: Qt.AlignTop; Layout.topMargin: 8 }
                     }
                     onClicked: page.navigation.push("detail", {threadId: modelData.threadId, title: modelData.name})
+                    onPressAndHold: { conversationMenu.thread = modelData; conversationMenu.popup() }
                 }
             }
             ListView {
                 id: contactList
+                objectName: "contactList"
                 clip: true
                 model: page.filteredContacts
                 ScrollBar.vertical: ScrollBar {}
-                header: Button { text: qsTr("新的朋友 / 好友申请"); width: contactList.width; implicitHeight: 56; onClicked: page.navigation.push("applications") }
+                header: ItemDelegate {
+                    width: contactList.width
+                    implicitHeight: 68
+                    leftPadding: 16; rightPadding: 16
+                    background: Rectangle { color: Style.surface }
+                    contentItem: RowLayout {
+                        spacing: 12
+                        Rectangle { Layout.preferredWidth: 42; Layout.preferredHeight: 42; radius: 6; color: "#fa9d3b"; ChatIcon { anchors.centerIn: parent; name: "contacts"; color: "white" } }
+                        Label { text: qsTr("新的朋友"); Layout.fillWidth: true; color: Style.text; font.pixelSize: 16 }
+                        ChatIcon { name: "chevron"; color: "#b5b5b5"; Layout.preferredWidth: 16; Layout.preferredHeight: 16 }
+                    }
+                    onClicked: page.navigation.push("applications")
+                }
                 delegate: ItemDelegate {
                     id: contact
                     required property var modelData
                     width: contactList.width
-                    implicitHeight: 76
+                    implicitHeight: 68
+                    leftPadding: 16; rightPadding: 16
+                    background: Rectangle {
+                        color: contact.down ? "#dedede" : Style.surface
+                        Rectangle { anchors.right: parent.right; anchors.bottom: parent.bottom; width: Math.max(0, parent.width - 76); height: 1; color: "#eeeeee" }
+                    }
                     contentItem: RowLayout {
                         spacing: 12
-                        Avatar { backend: page.backend; uid: contact.modelData.uid; fallback: contact.modelData.icon; name: contact.modelData.displayName }
-                        Label { text: contact.modelData.displayName; Layout.fillWidth: true; elide: Text.ElideRight; font.pixelSize: 17; textFormat: Text.PlainText }
+                        Avatar { backend: page.backend; uid: contact.modelData.uid; fallback: contact.modelData.icon; name: contact.modelData.displayName; Layout.preferredWidth: 42; Layout.preferredHeight: 42 }
+                        Label { text: contact.modelData.displayName; color: Style.text; Layout.fillWidth: true; elide: Text.ElideRight; font.pixelSize: 17; textFormat: Text.PlainText }
                     }
                     onClicked: page.backend.openChat(modelData.uid)
                 }
@@ -119,6 +169,19 @@ Page {
                 }
             }
         }
+    }
+    Menu {
+        id: addMenu
+        x: Math.max(0, page.width - width - 8)
+        MenuItem { text: qsTr("添加好友"); onTriggered: page.navigation.push("search") }
+        MenuItem { text: qsTr("发起群聊"); onTriggered: page.navigation.push("group", {threadId: 0}) }
+        MenuItem { text: qsTr("刷新聊天记录"); onTriggered: page.backend.loadChatThreads() }
+    }
+    Menu {
+        id: conversationMenu
+        property var thread: ({})
+        MenuItem { text: conversationMenu.thread.pinned ? qsTr("取消置顶") : qsTr("置顶聊天"); onTriggered: page.backend.setPinned(conversationMenu.thread.threadId, !conversationMenu.thread.pinned) }
+        MenuItem { text: qsTr("搜索聊天记录"); onTriggered: page.navigation.push("history", {threadId: conversationMenu.thread.threadId}) }
     }
     Dialog {
         id: logout

@@ -24,6 +24,7 @@ Popup {
         Label { text: panel.call.video ? qsTr("视频通话") : qsTr("语音通话"); color: "#c8d6dd"; Layout.alignment: Qt.AlignHCenter }
         Label { text: panel.call.name; color: "white"; font.pixelSize: 24; textFormat: Text.PlainText; elide: Text.ElideRight; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
         Label {
+            objectName: "callStatus"
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
@@ -32,6 +33,7 @@ Popup {
                 : panel.call.state === 1 ? qsTr("等待对方接听…")
                 : panel.call.state === 2 ? qsTr("邀请你通话")
                 : panel.call.state === 3 ? qsTr("正在连接…")
+                : panel.call.recovering ? qsTr("网络波动，正在恢复…")
                 : qsTr("通话中 %1:%2").arg(Math.floor(panel.call.seconds / 60)).arg((panel.call.seconds % 60).toString().padStart(2, "0"))
         }
         Rectangle {

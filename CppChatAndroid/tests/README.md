@@ -12,6 +12,24 @@
 - `audit_android_apk.py`：检查交付 APK 的 ARM64 ELF、16 KiB LOAD 对齐、TLS 版本/依赖、证书外的私有文件排除；可通过 `--forbid-env` 扫描测试凭据，报告不输出敏感值。
 
 探测程序通过 `CPPCHAT_MOBILE_TESTS=ON` 进行本机构建，不进入 Android APK。
+
+聊天界面另有 `qml/tst_chatui.qml`，直接运行真实 QML，使用隔离的内存门面，不读取账号、密钥或业务数据库。
+覆盖自适应气泡与纯文本、跨日/五分钟时间分段、群发送者、长按复制菜单、未发送附件禁用、
+草稿成功保存后清空、离线/窄屏/横屏输入栏、阅读历史不跳动和返回最新、列表筛选，以及通话恢复文案的旧字段兼容。
+390×780、320×480、800×480 的六张聊天/列表截图写入 `build/android-ui/screenshots/`。
+截图是合成数据的主机布局检查，不替代 Android 真机的软键盘、安全区、触控选区和文件选择器验收。
+
+```powershell
+python CppChatAndroid/tests/run_chat_ui.py --qmltestrunner "$env:QT_HOST_PATH/bin/qmltestrunner.exe"
+```
+
+界面沿用已有 Qt Quick Controls（Qt 6.9+），参考 [Qt 6.9 官方聊天示例](https://doc.qt.io/archives/qt-6.9/qtquickcontrols-chattutorial-example.html)
+的列表/委托与输入区分工，通过 `MessageBubble` 封装消息内容、`ChatStyle.js` 统一颜色及时间格式。
+未复制示例源码或引入额外 UI 依赖，保留项目既有 Qt 许可；图标使用 Qt Canvas 绘制，不使用微信的商标或图形资源。
+消息 `TextArea` 明确覆盖四边内边距，避免 Material 默认边距导致短气泡提前换行；长按菜单复用其 `selectAll/copy`，
+测试采用 [Qt Quick Test](https://doc.qt.io/qt-6/qml-qttest-testcase.html)，任何运行期 QML 警告均计失败。
+入口将截图与交互检查放入独立进程，避免主机菜单/视频窗口状态影响离屏回读；每组限时 30 秒，超时计失败并结束测试进程，日志和 JUnit 均保留。
+
 `CPPCHAT_TEST_DATA` 必须指向 `build/` 内的隔离目录；不要让探测程序使用正式客户端数据目录。
 两端用不同测试账号并设置 `CPPCHAT_TEST_PEER_UID`、同一个 `CPPCHAT_TEST_MARKER`，第二端设置 `CPPCHAT_TEST_ROLE=peer`。
 `CPPCHAT_TEST_IMAGES=1` 增加双向图片验证。测试会发送带标记的消息，不执行数据库删除或服务变更。
