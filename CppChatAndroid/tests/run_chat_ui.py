@@ -20,7 +20,15 @@ def main():
     env = dict(os.environ, QT_QUICK_CONTROLS_STYLE="Material")
     runner = Path(args.qmltestrunner)
     if runner.is_file():
-        env["PATH"] = str(runner.resolve().parent) + os.pathsep + env.get("PATH", "")
+        host = runner.resolve().parent.parent
+        env["PATH"] = str(host / "bin") + os.pathsep + env.get("PATH", "")
+        # Cross-compilation CI exports Android plugin paths. Host probes must
+        # load the matching host Kit, not try ARM64 plugins in a desktop process.
+        env["QT_PLUGIN_PATH"] = str(host / "plugins")
+        env["QML_IMPORT_PATH"] = str(host / "qml")
+        env["QML2_IMPORT_PATH"] = str(host / "qml")
+        if sys.platform.startswith("linux"):
+            env["LD_LIBRARY_PATH"] = str(host / "lib") + os.pathsep + env.get("LD_LIBRARY_PATH", "")
     common = [args.qmltestrunner, "-input", str(root / "CppChatAndroid/tests/qml"),
               "-platform", "offscreen"]
     source = (root / "CppChatAndroid/tests/qml/tst_chatui.qml").read_text(encoding="utf-8")

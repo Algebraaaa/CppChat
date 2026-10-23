@@ -28,7 +28,7 @@ jobs:
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.2.12479018'
           sudo apt-get update
-          sudo apt-get install -y ninja-build make perl
+          sudo apt-get install -y ninja-build make perl libva2 libva-x11-2 libva-drm2 libpipewire-0.3-0t64 libpulse0 libvdpau1
       - name: Install Qt host tools
         uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
         with:
