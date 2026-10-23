@@ -61,15 +61,19 @@ bool Authenticated(const Settings &settings, int uid, const std::string &token)
   auto &connection = WorkerRedis(settings);
   if (!connection)
     return false;
-  const std::string key = "resource_token_" + std::to_string(uid);
-  const char *script =
-      "if redis.call('ttl',KEYS[1])>0 then return redis.call('get',KEYS[1]) end; return nil";
-  RedisReply reply(static_cast<redisReply *>(redisCommand(connection.get(), "EVAL %s 1 %b", script,
-                                                          key.data(), key.size())),
-                   &freeReplyObject);
-  return reply && reply->type == REDIS_REPLY_STRING &&
-         reply->len == static_cast<int>(token.size()) &&
-         CRYPTO_memcmp(reply->str, token.data(), token.size()) == 0;
+  for (const std::string suffix : {"", ":android"}) {
+    const std::string key = "resource_token_" + std::to_string(uid) + suffix;
+    const char *script =
+        "if redis.call('ttl',KEYS[1])>0 then return redis.call('get',KEYS[1]) end; return nil";
+    RedisReply reply(static_cast<redisReply *>(redisCommand(connection.get(), "EVAL %s 1 %b",
+                                                            script, key.data(), key.size())),
+                     &freeReplyObject);
+    if (reply && reply->type == REDIS_REPLY_STRING &&
+        reply->len == static_cast<int>(token.size()) &&
+        CRYPTO_memcmp(reply->str, token.data(), token.size()) == 0)
+      return true;
+  }
+  return false;
 }
 
 bool MarkReady(const Settings &settings, const std::string &id, int sender, int recipient,
@@ -83,7 +87,7 @@ bool MarkReady(const Settings &settings, const std::string &id, int sender, int 
                                              std::to_string(thread) + ":" + std::to_string(size)
                                        : std::to_string(sender) + ":" + std::to_string(recipient) +
                                              ":" + std::to_string(size);
-  const std::string value = (type == 3 ? "audio:" : "") + scope;
+  const std::string value = (type == 3 ? "audio:" : type == 2 ? "file:" : "") + scope;
   RedisReply reply(static_cast<redisReply *>(redisCommand(connection.get(), "SET %s %b",
                                                           key.c_str(), value.data(), value.size())),
                    &freeReplyObject);
@@ -172,6 +176,7 @@ ResourceStore::ResourceStore(Settings settings)
   fs::create_directories(settings_.directory);
   fs::create_directories(settings_.directory / "groups");
   fs::create_directories(settings_.directory / "audio");
+  fs::create_directories(settings_.directory / "files");
 }
 
 Json::Value ResourceStore::Handle(std::uint16_t id, const Json::Value &request)
@@ -217,6 +222,9 @@ Json::Value ResourceStore::Handle(std::uint16_t id, const Json::Value &request)
 
 fs::path ResourceStore::MetaPath(const std::string &id) const
 {
+  const auto document = settings_.directory / "files" / (id + ".json");
+  if (fs::exists(document))
+    return document;
   const auto audio = settings_.directory / "audio" / (id + ".json");
   if (fs::exists(audio))
     return audio;
@@ -247,7 +255,8 @@ Json::Value ResourceStore::ReadMeta(const std::string &id) const
 
 void ResourceStore::WriteMeta(const std::string &id, const Json::Value &meta)
 {
-  const auto directory = meta.get("media_type", 1).asInt() == 3 ? settings_.directory / "audio"
+  const auto directory = meta.get("media_type", 1).asInt() == 2 ? settings_.directory / "files"
+                         : meta.get("media_type", 1).asInt() == 3 ? settings_.directory / "audio"
                          : meta.get("thread_id", 0).asInt() > 0 ? settings_.directory / "groups"
                                                                 : settings_.directory;
   std::ofstream file(directory / (id + ".json"), std::ios::binary | std::ios::trunc);
@@ -266,7 +275,7 @@ Json::Value ResourceStore::UploadInit(int uid, const std::string &id, const Json
   const auto size = request.get("size", Json::UInt64(0)).asUInt64();
   const std::string sha = request.get("sha256", "").asString();
   if (thread < 0 || (thread > 0 ? recipient != 0 : (recipient <= 0 || recipient == uid)) ||
-      (type != 1 && type != 3) || size == 0 || size > kMaximumImageSize ||
+      (type != 1 && type != 2 && type != 3) || size == 0 || size > kMaximumImageSize ||
       (type == 3 && (size < cppchat::media::WaveHeaderBytes + cppchat::media::MinPcmBytes ||
                      size > cppchat::media::WaveHeaderBytes + cppchat::media::MaxPcmBytes)) ||
       sha.size() != 64 ||

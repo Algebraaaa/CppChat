@@ -4,7 +4,13 @@ B站恋恋风辰大佬的C++全栈即时通讯项目，我在辰哥的基础上�
 
 版本更新与历史开发、验证记录已移至 [Releases](https://github.com/Algebraaaa/CppChat/releases)；安装包见 [最新发布](https://github.com/Algebraaaa/CppChat/releases/latest)。
 
-最近更新：**2026-10-19**。v0.1.13 完善联系人、放大阅读、引用和本机删除；
+最近更新：**2026-10-23**。新增 [Android QML 客户端](CppChatAndroid/README.md)（0.1.20，ARM64 / Android 9+），
+复用桌面公共业务模块；支持桌面与手机同时在线、账号记忆/自动登录、断线恢复、本地记录与独立安卓更新检测，
+以及文件、语音消息和语音/视频通话。包含配套设备会话、资源权限及通知同步的服务端修改；普通页面不展示服务地址。
+真实 TLS 协议联调与合成媒体验证已完成，Android 真机安装、Keystore、权限与音视频体验仍需设备验收；厂商推送未接通。
+Windows 已发布版本与 Android 版本分别维护，不因新增 Android 源码改变 Windows 发布清单。
+
+v0.1.13 完善联系人、放大阅读、引用和本机删除；
 v0.1.14 新增加密本机收藏、搜索分类、独立图片保存、转发及多选操作。
 v0.1.15 增加群图片，按实际群会话绑定资源，逐请求核验当前成员资格；
 支持跨节点、离线历史、续传及去重，移除和退群后拒绝后续资源访问。
@@ -20,6 +26,7 @@ v0.1.16 增加私聊和群聊语音消息，支持录制、停止、试听、发
 | 目录 | 内容 |
 | --- | --- |
 | `CppChat/` | Qt 客户端、Designer 界面、聊天气泡、HTTP/TCP 管理及图片样式资源 |
+| `CppChatAndroid/` | Android QML 前端、平台桥接、账号与连接恢复；复用 `CppChat/` 公共业务源码 |
 | `GateServer/` | HTTP 接入、注册登录、MySQL/Redis 访问、gRPC 客户端 |
 | `GatewayGuard/` | 云端回环 HTTP 安全网关、Redis 限流与可信代理头校验 |
 | `VerifyServer/` | Node.js 验证码和邮件服务 |

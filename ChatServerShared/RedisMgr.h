@@ -30,11 +30,14 @@ public:
   bool SetEx(const std::string &key, const std::string &value, int seconds);
   int VoiceTransition(int uid, int peer, const std::string &session, const std::string &call,
                       const std::string &action, int sequence = 0, bool video = false,
-                      bool camera_enabled = true);
+                      bool camera_enabled = true, const std::string &device = "desktop",
+                      const std::string &peer_device = "desktop",
+                      const std::string &peer_session = {});
   // 析构时关闭连接池。
   ~RedisMgr();
   int RegisterSession(int uid, const std::string &session_id, const std::string &server_name,
-                      const std::string &token);
+                      const std::string &token, const std::string &device = "desktop");
+  std::vector<std::string> Destinations(int uid);
   int RefreshSession(int uid, const std::string &session_id);
   bool ReleaseSession(int uid, const std::string &session_id);
   bool PublishNode(const std::string &name, const std::string &instance_id,

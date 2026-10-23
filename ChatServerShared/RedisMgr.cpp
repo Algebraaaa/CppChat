@@ -392,27 +392,31 @@ bool RedisMgr::Evaluate(const std::string &script, const std::vector<std::string
 }
 
 int RedisMgr::RegisterSession(int uid, const std::string &session_id,
-                              const std::string &server_name, const std::string &token)
+                              const std::string &server_name, const std::string &token,
+                              const std::string &device)
 {
-  const std::string id = std::to_string(uid);
+  if (!ServicePolicy::ValidDevice(device))
+    return ErrorCodes::TokenInvalid;
+  const std::string id = ServicePolicy::DeviceKey(uid, device);
+  const std::string pending = std::string(ServicePolicy::PendingTokenPrefix) + std::to_string(uid);
   long long result = 0;
   // Validate and consume the pending credential, then atomically publish the
   // new session.
   const std::string script =
       "if not ((redis.call('get',KEYS[1])==ARGV[1] and "
       "redis.call('ttl',KEYS[1])>0) or "
+      "(redis.call('get',KEYS[5])==ARGV[1] and redis.call('ttl',KEYS[5])>0) or "
       "(redis.call('get',KEYS[2])==ARGV[1] and redis.call('ttl',KEYS[2])>0)) "
       "then return 0 end "
       "redis.call('set',KEYS[2],ARGV[1],'EX',ARGV[4]); "
       "redis.call('set',KEYS[3],ARGV[2],'EX',ARGV[4]); "
       "redis.call('set',KEYS[4],ARGV[3],'EX',ARGV[4]); "
       "if redis.call('get',KEYS[1])==ARGV[1] then redis.call('del',KEYS[1]) "
-      "end; return 1";
+      "end; redis.call('del',KEYS[5]); return 1";
   if (!Evaluate(
           script,
-          {std::string(ServicePolicy::PendingTokenPrefix) + id,
-           std::string(RESOURCE_TOKEN_PREFIX) + id, std::string(USER_SESSION_PREFIX) + id,
-           std::string(USER_IP_PREFIX) + id},
+          {pending, std::string(RESOURCE_TOKEN_PREFIX) + id, std::string(USER_SESSION_PREFIX) + id,
+           std::string(USER_IP_PREFIX) + id, pending + ":" + token},
           {token, session_id, server_name, std::to_string(ServicePolicy::ActiveSessionSeconds)},
           result))
     return ErrorCodes::RedisError;
@@ -421,28 +425,50 @@ int RedisMgr::RegisterSession(int uid, const std::string &session_id,
 
 int RedisMgr::RefreshSession(int uid, const std::string &session_id)
 {
-  const std::string id = std::to_string(uid);
-  long long result = 0;
-  const std::string script = "if redis.call('get',KEYS[1])~=ARGV[1] or "
-                             "redis.call('exists',KEYS[2])==0 then return 0 end "
-                             "for i=1,3 do redis.call('expire',KEYS[i],ARGV[2]) end; return 1";
-  if (!Evaluate(script,
-                {std::string(USER_SESSION_PREFIX) + id, std::string(RESOURCE_TOKEN_PREFIX) + id,
-                 std::string(USER_IP_PREFIX) + id},
-                {session_id, std::to_string(ServicePolicy::ActiveSessionSeconds)}, result))
-    return -1;
-  return static_cast<int>(result);
+  // A session ID can own only one device slot. Refresh that slot alone.
+  for (const std::string device : {"desktop", "android"}) {
+    const std::string id = ServicePolicy::DeviceKey(uid, device);
+    long long result = 0;
+    const std::string script = "if redis.call('get',KEYS[1])~=ARGV[1] or "
+                               "redis.call('exists',KEYS[2])==0 then return 0 end "
+                               "for i=1,3 do redis.call('expire',KEYS[i],ARGV[2]) end; return 1";
+    if (!Evaluate(script,
+                  {std::string(USER_SESSION_PREFIX) + id, std::string(RESOURCE_TOKEN_PREFIX) + id,
+                   std::string(USER_IP_PREFIX) + id},
+                  {session_id, std::to_string(ServicePolicy::ActiveSessionSeconds)}, result))
+      return -1;
+    if (result == 1)
+      return 1;
+  }
+  return 0;
 }
 
 bool RedisMgr::ReleaseSession(int uid, const std::string &session_id)
 {
-  const std::string id = std::to_string(uid);
-  long long result = 0;
-  return Evaluate("if redis.call('get',KEYS[1])~=ARGV[1] then return 0 end; "
+  // Compare-and-delete protects a replacement login and the other device.
+  for (const std::string device : {"desktop", "android"}) {
+    const std::string id = ServicePolicy::DeviceKey(uid, device);
+    long long result = 0;
+    if (!Evaluate("if redis.call('get',KEYS[1])~=ARGV[1] then return 0 end; "
                   "redis.call('del',KEYS[1],KEYS[2],KEYS[3]); return 1",
                   {std::string(USER_SESSION_PREFIX) + id, std::string(RESOURCE_TOKEN_PREFIX) + id,
                    std::string(USER_IP_PREFIX) + id},
-                  {session_id}, result);
+                  {session_id}, result))
+      return false;
+  }
+  return true;
+}
+
+std::vector<std::string> RedisMgr::Destinations(int uid)
+{
+  std::vector<std::string> result;
+  for (const std::string device : {"desktop", "android"}) {
+    std::string node;
+    if (Get(std::string(USER_IP_PREFIX) + ServicePolicy::DeviceKey(uid, device), node) &&
+        !node.empty() && std::find(result.begin(), result.end(), node) == result.end())
+      result.push_back(node);
+  }
+  return result;
 }
 
 bool RedisMgr::PublishNode(const std::string &name, const std::string &instance_id,
@@ -473,8 +499,11 @@ void RedisMgr::RemoveNode(const std::string &name, const std::string &instance_i
 
 int RedisMgr::VoiceTransition(int uid, int peer, const std::string &session,
                               const std::string &call, const std::string &action, int sequence,
-                              bool video, bool camera_enabled)
+                              bool video, bool camera_enabled, const std::string &device,
+                              const std::string &peer_device, const std::string &peer_session)
 {
+  if (!ServicePolicy::ValidDevice(device) || !ServicePolicy::ValidDevice(peer_device))
+    return ErrorCodes::TokenInvalid;
   // One atomic state shared by both nodes. Bind both ends to the current login;
   // an old socket, duplicate answer, or replay cannot revive a finished call.
   static const std::string script = R"lua(
@@ -485,11 +514,12 @@ local t=redis.call('TIME'); local now=tonumber(t[1])*1000+tonumber(t[2])/1000
 local us,ps=redis.call('get',KEYS[3]),redis.call('get',KEYS[4])
 if us~=sid then return 1010 end
 if not ps then return 1022 end
+if ARGV[11]~='' and ps~=ARGV[11] then return 1010 end
 local raw=redis.call('get',KEYS[1]); local other=redis.call('get',KEYS[2])
 if op=='invite' then
   if raw or other then return 1021 end
   if redis.call('exists',KEYS[5])==1 then return 1025 end
-  local c={id=id,a=u,b=p,sa=sid,sb=ps,state='ringing',video=video,ea=true,eb=true,ta=now,tb=now,qa=0,qb=0,qva=0,qvb=0}
+  local c={id=id,a=u,b=p,sa=sid,sb=ps,da=ARGV[9],db=ARGV[10],state='ringing',video=video,ea=true,eb=true,ta=now,tb=now,qa=0,qb=0,qva=0,qvb=0}
   local v=cjson.encode(c)
   redis.call('set',KEYS[1],v,'PX',40000); redis.call('set',KEYS[2],v,'PX',40000)
   redis.call('set',KEYS[5],'1','EX',3); return 0
@@ -499,6 +529,8 @@ local c=cjson.decode(raw); local d=cjson.decode(other)
 if c.id~=id or d.id~=id then return 1023 end
 local first=c.a==u and c.b==p
 if not first and not (c.b==u and c.a==p) then return 1023 end
+if (first and ((c.da or 'desktop')~=ARGV[9] or (c.db or 'desktop')~=ARGV[10])) or
+   (not first and ((c.db or 'desktop')~=ARGV[9] or (c.da or 'desktop')~=ARGV[10])) then return 1010 end
 if (first and (c.sa~=sid or c.sb~=ps)) or
    (not first and (c.sb~=sid or c.sa~=ps)) then return 1010 end
 if op=='end' or op=='reject' or op=='cancel' then
@@ -537,10 +569,12 @@ return 0
   const auto self = std::to_string(uid), target = std::to_string(peer);
   long long result = ErrorCodes::RedisError;
   if (!Evaluate(script,
-                {"voice:" + self, "voice:" + target, std::string(USER_SESSION_PREFIX) + self,
-                 std::string(USER_SESSION_PREFIX) + target, "voice-rate:" + self},
+                {"voice:" + self, "voice:" + target,
+                 std::string(USER_SESSION_PREFIX) + ServicePolicy::DeviceKey(uid, device),
+                 std::string(USER_SESSION_PREFIX) + ServicePolicy::DeviceKey(peer, peer_device),
+                 "voice-rate:" + self},
                 {self, target, session, call, action, std::to_string(sequence), video ? "1" : "0",
-                 camera_enabled ? "1" : "0"},
+                 camera_enabled ? "1" : "0", device, peer_device, peer_session},
                 result))
     return ErrorCodes::RedisError;
   return static_cast<int>(result);

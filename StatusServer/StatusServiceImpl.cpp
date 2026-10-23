@@ -85,7 +85,7 @@ Status StatusServiceImpl::GetChatServer(ServerContext *, const GetChatServerReq 
     return Status::OK;
   const std::string token = boost::uuids::to_string(boost::uuids::random_generator()());
   if (!RedisMgr::GetInstance()->SetEx(std::string(ServicePolicy::PendingTokenPrefix) +
-                                          std::to_string(request->uid()),
+                                          std::to_string(request->uid()) + ":" + token,
                                       token, ServicePolicy::PendingTokenSeconds)) {
     reply->set_error(ErrorCodes::RedisError);
     return Status::OK;
@@ -110,11 +110,19 @@ Status StatusServiceImpl::Login(ServerContext *, const LoginReq *request, LoginR
     return Status::OK;
   const std::string uid = std::to_string(request->uid());
   std::string token;
-  auto read = RedisMgr::GetInstance()->Read(std::string(ServicePolicy::PendingTokenPrefix) + uid,
-                                            token, true);
+  auto read = RedisMgr::GetInstance()->Read(
+      std::string(ServicePolicy::PendingTokenPrefix) + uid + ":" + request->token(), token, true);
   if (read == RedisReadStatus::Error) {
     reply->set_error(ErrorCodes::RedisError);
     return Status::OK;
+  }
+  if (read != RedisReadStatus::Found || token != request->token()) {
+    read = RedisMgr::GetInstance()->Read(std::string(ServicePolicy::PendingTokenPrefix) + uid,
+                                         token, true);
+    if (read == RedisReadStatus::Error) {
+      reply->set_error(ErrorCodes::RedisError);
+      return Status::OK;
+    }
   }
   if (read != RedisReadStatus::Found || token != request->token()) {
     read = RedisMgr::GetInstance()->Read(std::string(ServicePolicy::ActiveTokenPrefix) + uid, token,
@@ -123,8 +131,16 @@ Status StatusServiceImpl::Login(ServerContext *, const LoginReq *request, LoginR
       reply->set_error(ErrorCodes::RedisError);
       return Status::OK;
     }
-    if (read != RedisReadStatus::Found || token != request->token())
-      return Status::OK;
+    if (read != RedisReadStatus::Found || token != request->token()) {
+      read = RedisMgr::GetInstance()->Read(
+          std::string(ServicePolicy::ActiveTokenPrefix) + uid + ":android", token, true);
+      if (read == RedisReadStatus::Error) {
+        reply->set_error(ErrorCodes::RedisError);
+        return Status::OK;
+      }
+      if (read != RedisReadStatus::Found || token != request->token())
+        return Status::OK;
+    }
   }
   reply->set_error(ErrorCodes::Success);
   reply->set_uid(request->uid());

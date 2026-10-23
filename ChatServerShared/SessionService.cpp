@@ -12,11 +12,11 @@
 #include "const.h"
 
 Json::Value SessionService::Login(const std::shared_ptr<CSession> &session, int uid,
-                                  const std::string &token)
+                                  const std::string &token, const std::string &device)
 {
   Json::Value response;
   // One TCP session has one authenticated identity; reconnect to log in again.
-  if (session->IsClosed() || session->GetUserId() > 0) {
+  if (!ServicePolicy::ValidDevice(device) || session->IsClosed() || session->GetUserId() > 0) {
     response["error"] = ErrorCodes::TokenInvalid;
     return response;
   }
@@ -37,11 +37,13 @@ Json::Value SessionService::Login(const std::shared_ptr<CSession> &session, int 
   response["group_chat"] = true;
   response["group_images"] = true;
   response["voice_messages"] = true;
+  response["file_messages"] = true;
   response["common_groups"] = true;
   response["voice_call"] = true;
   response["video_call"] = true;
   response["message_dedup"] = true;
   response["request_correlation"] = true;
+  response["multi_device"] = true;
 
   std::vector<std::shared_ptr<ApplyInfo>> applications;
   int contacts_error = ErrorCodes::Success;
@@ -66,8 +68,8 @@ Json::Value SessionService::Login(const std::shared_ptr<CSession> &session, int 
     response["friend_list"].append(item);
   }
 
-  const std::string uid_text = std::to_string(uid);
-  const std::string lock_key = std::string(LOCK_PREFIX) + uid_text;
+  const std::string uid_text = ServicePolicy::DeviceKey(uid, device);
+  const std::string lock_key = std::string(LOCK_PREFIX) + std::to_string(uid);
   const std::string identifier =
       RedisMgr::GetInstance()->AcquireLock(lock_key, LOCK_TIME_OUT, ACQUIRE_TIME_OUT);
   if (identifier.empty()) {
@@ -76,6 +78,28 @@ Json::Value SessionService::Login(const std::shared_ptr<CSession> &session, int 
   }
   Defer release_lock(
       [&identifier, &lock_key]() { RedisMgr::GetInstance()->ReleaseLock(lock_key, identifier); });
+
+  // An active credential may replace its own device only. Revalidate under the
+  // account lock before retiring anything, including concurrent token replays.
+  bool credential_matches = false;
+  const auto pending_key = std::string(ServicePolicy::PendingTokenPrefix) + std::to_string(uid);
+  for (const auto &key : {pending_key + ":" + token, pending_key,
+                          std::string(ServicePolicy::ActiveTokenPrefix) + uid_text}) {
+    std::string credential;
+    const auto read = RedisMgr::GetInstance()->Read(key, credential, true);
+    if (read == RedisReadStatus::Error) {
+      response["error"] = ErrorCodes::RedisError;
+      return response;
+    }
+    if (read == RedisReadStatus::Found && credential == token) {
+      credential_matches = true;
+      break;
+    }
+  }
+  if (!credential_matches) {
+    response["error"] = ErrorCodes::TokenInvalid;
+    return response;
+  }
 
   const std::string self_name = ConfigMgr::GetInstance()["SelfServer"]["Name"];
   std::string previous_server;
@@ -86,7 +110,7 @@ Json::Value SessionService::Login(const std::shared_ptr<CSession> &session, int 
     return response;
   }
   if (previous_server == self_name) {
-    auto old_session = UserMgr::GetInstance()->GetSession(uid);
+    auto old_session = UserMgr::GetInstance()->GetSession(uid, device);
     if (old_session && old_session->GetSessionId() != session->GetSessionId()) {
       old_session->NotifyOffline(uid);
       // Keep the retiring socket owned by CServer until physically closed.
@@ -106,7 +130,7 @@ Json::Value SessionService::Login(const std::shared_ptr<CSession> &session, int 
       message::KickUserReq kick_request;
       kick_request.set_uid(uid);
       const auto kick_response =
-          ChatGrpcClient::GetInstance()->NotifyKickUser(previous_server, kick_request);
+          ChatGrpcClient::GetInstance()->NotifyKickUser(previous_server, kick_request, device);
       if (kick_response.error() != ErrorCodes::Success) {
         response["error"] = ErrorCodes::RPCFailed;
         return response;
@@ -117,13 +141,13 @@ Json::Value SessionService::Login(const std::shared_ptr<CSession> &session, int 
     }
   }
 
-  const int registered = RedisMgr::GetInstance()->RegisterSession(uid, session->GetSessionId(),
-                                                                  self_name, status_reply.token());
+  const int registered = RedisMgr::GetInstance()->RegisterSession(
+      uid, session->GetSessionId(), self_name, status_reply.token(), device);
   if (registered != ErrorCodes::Success) {
     response["error"] = registered;
     return response;
   }
-  if (!session->BindAuthenticatedUser(uid)) {
+  if (!session->BindAuthenticatedUser(uid, device)) {
     // Cleanup may have finished while the database/RPC work was in flight.
     // Do not leave a closed connection registered as an active session.
     if (!RedisMgr::GetInstance()->ReleaseSession(uid, session->GetSessionId()))

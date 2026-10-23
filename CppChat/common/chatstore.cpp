@@ -291,7 +291,7 @@ SaveResult saveMessage(QSqlDatabase &database, const StoredMessage &message)
     query.addBindValue(message.senderUid);
   }
   run(query);
-  if (message.serverId > 0 && (message.type == 1 || message.type == 3)) {
+  if (message.serverId > 0 && (message.type == 1 || message.type == 2 || message.type == 3)) {
     QSqlQuery release(database);
     release.prepare("UPDATE messages SET local_image=NULL WHERE thread_id=? AND server_id=? "
                     "AND EXISTS(SELECT 1 FROM attachments WHERE file_id=messages.content)");
@@ -306,6 +306,7 @@ SaveResult saveMessage(QSqlDatabase &database, const StoredMessage &message)
     summary.addBindValue(message.serverId);
     summary.addBindValue(message.time);
     summary.addBindValue(message.type == 1   ? QStringLiteral("[图片]")
+                         : message.type == 2 ? QStringLiteral("[文件]")
                          : message.type == 3 ? QStringLiteral("[语音]")
                                              : message.content);
     summary.addBindValue(message.threadId);
@@ -750,7 +751,7 @@ void ChatStore::QueryHistory(const HistoryFilter &filter, HistoryCursor cursor, 
         const int thread = filter.threadId, type = filter.category;
         const auto text = filter.text, date = filter.date;
         checked(thread >= 0, "Invalid conversation");
-        checked(type == -1 || type == 0 || type == 1 || type == 3 || type == 4,
+        checked(type == -1 || type == 0 || type == 1 || type == 2 || type == 3 || type == 4,
                 "Invalid search category");
         if (thread == 0 && scope.isEmpty())
           return result; // An empty access scope must never mean all stored conversations.

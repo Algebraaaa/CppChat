@@ -28,7 +28,8 @@ public:
   enum class State { Idle, Checking, Available, Downloading, Ready };
   Q_ENUM(State)
   explicit ClientUpdateService(const QUrl &manifestUrl, const QString &currentVersion,
-                               QObject *parent = nullptr, QNetworkAccessManager *network = nullptr);
+                               QObject *parent = nullptr, QNetworkAccessManager *network = nullptr,
+                               bool android = false);
   ~ClientUpdateService() override;
   State state() const { return _state; }
   bool busy() const { return _state == State::Checking || _state == State::Downloading; }
@@ -41,8 +42,8 @@ public:
   // Call only after the main window has destroyed its sessions and SQLite connections.
   bool launchInstaller(const QString &installationDirectory, QString &error);
   static bool parseManifest(const QByteArray &json, const QUrl &manifestUrl, ClientUpdateInfo &info,
-                            QString &error);
-  static QUrl manifestUrlForServer(const QUrl &serverUrl);
+                            QString &error, bool android = false);
+  static QUrl manifestUrlForServer(const QUrl &serverUrl, bool android = false);
   static QStringList installerArguments(const QString &installationDirectory);
 
 signals:
@@ -71,4 +72,5 @@ private:
   QCryptographicHash _hash{QCryptographicHash::Sha256};
   qint64 _received = 0;
   QString _readyPath;
+  bool _android = false;
 };

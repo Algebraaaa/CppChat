@@ -90,3 +90,11 @@ __pycache__/
 .pytest_cache/
 .hypothesis/
 .ruff_cache/
+
+# Android artifacts and private signing material.
+*.apk
+*.aab
+*.jks
+*.keystore
+*.so
+.workbuddy-ai/

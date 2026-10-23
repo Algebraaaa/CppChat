@@ -14,10 +14,18 @@ grpc::Status MediaAuthorizationService::AuthorizeGroup(grpc::ServerContext *cont
       request->token().empty() || request->token().size() > 512)
     return grpc::Status::OK;
   std::string active;
-  if (!RedisMgr::GetInstance()->Get(
-          std::string(ServicePolicy::ActiveTokenPrefix) + std::to_string(request->uid()), active) ||
-      active.size() != request->token().size() ||
-      CRYPTO_memcmp(active.data(), request->token().data(), active.size()) != 0)
+  bool authenticated = false;
+  for (const std::string device : {"desktop", "android"}) {
+    if (RedisMgr::GetInstance()->Read(std::string(ServicePolicy::ActiveTokenPrefix) +
+                                          ServicePolicy::DeviceKey(request->uid(), device),
+                                      active, true) == RedisReadStatus::Found &&
+        active.size() == request->token().size() &&
+        CRYPTO_memcmp(active.data(), request->token().data(), active.size()) == 0) {
+      authenticated = true;
+      break;
+    }
+  }
+  if (!authenticated)
     return grpc::Status::OK;
   Json::Value group;
   reply->set_error(MysqlMgr::GetInstance()->GetGroup(request->uid(), request->thread_id(), group));

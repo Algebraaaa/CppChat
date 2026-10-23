@@ -121,7 +121,8 @@ public:
   AuthFriendRsp NotifyAuthFriend(std::string server_name, const AuthFriendReq &req);
   TextChatMsgRsp NotifyTextChatMsg(std::string server_name, const TextChatMsgReq &req,
                                    const Json::Value &rtvalue);
-  KickUserRsp NotifyKickUser(const std::string &server_name, const KickUserReq &request);
+  KickUserRsp NotifyKickUser(const std::string &server_name, const KickUserReq &request,
+                             const std::string &device = "desktop");
   message::DeleteFriendRsp NotifyDeleteFriend(const std::string &server_name,
                                               const message::DeleteFriendReq &request);
 

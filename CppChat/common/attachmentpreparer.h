@@ -25,6 +25,7 @@ public:
   static AttachmentPreparer *instance();
   ~AttachmentPreparer() override;
   std::shared_ptr<PreparedAttachment> FromFile(const QString &path);
+  std::shared_ptr<PreparedAttachment> FromDocument(const QString &path);
   std::shared_ptr<PreparedAttachment> FromImage(const QImage &image);
   std::shared_ptr<PreparedAttachment> FromBytes(const QByteArray &bytes);
   // 只用于关闭账号/程序：完成已接受的任务，再保存原账号草稿。

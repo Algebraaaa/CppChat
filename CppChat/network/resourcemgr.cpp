@@ -294,7 +294,7 @@ void ResourceMgr::startUpload(const QString &path, const QByteArray &bytes, int 
     }
     if (error.isEmpty() && (image.isEmpty() || image.size() > kMaxImageSize))
       error = tr("图片为空或超过 20 MB");
-    if (mediaType != 1 && mediaType != 3)
+    if (mediaType != 1 && mediaType != 2 && mediaType != 3)
       error = tr("不支持的媒体类型");
     if (mediaType == 3 && cppchat::media::WaveDurationMs(
                               std::string_view(image.constData(), image.size()), image.size()) == 0)
@@ -303,7 +303,7 @@ void ResourceMgr::startUpload(const QString &path, const QByteArray &bytes, int 
       const QByteArray scope = groupThread > 0 ? "group:" + QByteArray::number(groupThread)
                                                : QByteArray::number(recipient);
       const QByteArray identity =
-          (mediaType == 3 ? QByteArray("audio:") : QByteArray()) + QByteArray::number(info.uid) +
+          (mediaType == 3 ? QByteArray("audio:") : mediaType == 2 ? QByteArray("file:") : QByteArray()) + QByteArray::number(info.uid) +
           ':' + scope + ':' + QCryptographicHash::hash(image, QCryptographicHash::Sha256).toHex();
       fileId = QString::fromLatin1(
           QCryptographicHash::hash(identity, QCryptographicHash::Sha256).toHex().left(32));

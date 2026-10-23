@@ -25,32 +25,29 @@ int FriendService::Apply(int uid, int other, const std::string &description,
     return ErrorCodes::DatabaseError;
   if (!notify_application)
     return ErrorCodes::Success;
-  std::string destination;
-  if (!RedisMgr::GetInstance()->Get(std::string(USER_IP_PREFIX) + std::to_string(other),
-                                    destination))
-    return ErrorCodes::Success; // Persisted applications are fetched on next
-                                // login.
   std::shared_ptr<UserInfo> applicant;
   UserService::GetById(uid, applicant);
-  if (destination == ConfigMgr::GetInstance()["SelfServer"]["Name"]) {
-    if (auto target = UserMgr::GetInstance()->GetSession(other)) {
-      Json::Value notification;
-      if (applicant)
-        UserService::WriteProfile(*applicant, notification);
-      notification["error"] = ErrorCodes::Success;
-      notification["applyuid"] = uid;
-      notification["desc"] = description;
-      target->Send(notification.toStyledString(), ID_NOTIFY_ADD_FRIEND_REQ);
+  for (const auto &destination : RedisMgr::GetInstance()->Destinations(other)) {
+    if (destination == ConfigMgr::GetInstance()["SelfServer"]["Name"]) {
+      for (const auto &target : UserMgr::GetInstance()->GetSessions(other)) {
+        Json::Value notification;
+        if (applicant)
+          UserService::WriteProfile(*applicant, notification);
+        notification["error"] = ErrorCodes::Success;
+        notification["applyuid"] = uid;
+        notification["desc"] = description;
+        target->Send(notification.toStyledString(), ID_NOTIFY_ADD_FRIEND_REQ);
+      }
+    } else {
+      message::AddFriendReq request;
+      request.set_applyuid(uid);
+      request.set_touid(other);
+      request.set_name(applicant ? applicant->name : std::string());
+      request.set_desc(description);
+      const auto reply = ChatGrpcClient::GetInstance()->NotifyAddFriend(destination, request);
+      if (reply.error() != ErrorCodes::Success)
+        LOG_WARNING("Friend application persisted; notification failed: uid=", other);
     }
-  } else {
-    message::AddFriendReq request;
-    request.set_applyuid(uid);
-    request.set_touid(other);
-    request.set_name(applicant ? applicant->name : std::string());
-    request.set_desc(description);
-    const auto reply = ChatGrpcClient::GetInstance()->NotifyAddFriend(destination, request);
-    if (reply.error() != ErrorCodes::Success)
-      LOG_WARNING("Friend application persisted; notification failed: uid=", other);
   }
   return ErrorCodes::Success;
 }
@@ -68,8 +65,8 @@ void FriendService::NotifyAccepted(int from, int to, Json::Value notification)
 {
   if (from <= 0 || to <= 0 || from == to)
     return;
-  const auto target = UserMgr::GetInstance()->GetSession(to);
-  if (!target || MysqlMgr::GetInstance()->CheckFriendship(to, from) != ErrorCodes::Success)
+  const auto targets = UserMgr::GetInstance()->GetSessions(to);
+  if (targets.empty() || MysqlMgr::GetInstance()->CheckFriendship(to, from) != ErrorCodes::Success)
     return;
   notification["error"] = ErrorCodes::Success;
   std::shared_ptr<UserInfo> user;
@@ -87,36 +84,38 @@ void FriendService::NotifyAccepted(int from, int to, Json::Value notification)
   }
   notification["fromuid"] = from;
   notification["touid"] = to;
-  target->Send(notification.toStyledString(), ID_NOTIFY_AUTH_FRIEND_REQ);
+  for (const auto &target : targets)
+    target->Send(notification.toStyledString(), ID_NOTIFY_AUTH_FRIEND_REQ);
 }
 
 void FriendService::NotifyAcceptance(int from, int to, const Json::Value &payload)
 {
-  std::string destination;
-  if (!RedisMgr::GetInstance()->Get(std::string(USER_IP_PREFIX) + std::to_string(to), destination))
-    return;
-  if (destination == ConfigMgr::GetInstance()["SelfServer"]["Name"])
-    NotifyAccepted(from, to, payload);
-  else {
-    message::AuthFriendReq request;
-    request.set_fromuid(from);
-    request.set_touid(to);
-    const auto reply = ChatGrpcClient::GetInstance()->NotifyAuthFriend(destination, request);
-    if (reply.error() != ErrorCodes::Success)
-      LOG_WARNING("Friend acceptance persisted; notification failed: uid=", to);
+  for (const auto &destination : RedisMgr::GetInstance()->Destinations(to)) {
+    if (destination == ConfigMgr::GetInstance()["SelfServer"]["Name"])
+      NotifyAccepted(from, to, payload);
+    else {
+      message::AuthFriendReq request;
+      request.set_fromuid(from);
+      request.set_touid(to);
+      const auto reply = ChatGrpcClient::GetInstance()->NotifyAuthFriend(destination, request);
+      if (reply.error() != ErrorCodes::Success)
+        LOG_WARNING("Friend acceptance persisted; notification failed: uid=", to);
+    }
   }
 }
 
 void FriendService::NotifyDeleted(int uid, int other)
 {
-  const auto target = UserMgr::GetInstance()->GetSession(uid);
-  if (!target || MysqlMgr::GetInstance()->CheckFriendship(uid, other) != ErrorCodes::FriendNotFound)
+  const auto targets = UserMgr::GetInstance()->GetSessions(uid);
+  if (targets.empty() ||
+      MysqlMgr::GetInstance()->CheckFriendship(uid, other) != ErrorCodes::FriendNotFound)
     return; // Suppress an old deletion after the friendship has been re-added.
   Json::Value notification;
   notification["error"] = ErrorCodes::Success;
   notification["uid"] = uid;
   notification["friend_uid"] = other;
-  target->Send(notification.toStyledString(), ID_NOTIFY_DELETE_FRIEND);
+  for (const auto &target : targets)
+    target->Send(notification.toStyledString(), ID_NOTIFY_DELETE_FRIEND);
 }
 
 int FriendService::Delete(int uid, int other)
@@ -126,12 +125,10 @@ int FriendService::Delete(int uid, int other)
   if (!MysqlMgr::GetInstance()->DeleteFriend(uid, other))
     return ErrorCodes::DatabaseError;
   LOG_INFO("Friend relationship deleted: uid=", uid, ", friend_uid=", other);
-  if (UserMgr::GetInstance()->GetSession(other))
-    NotifyDeleted(other, uid);
-  else {
-    std::string destination;
-    if (RedisMgr::GetInstance()->Get(std::string(USER_IP_PREFIX) + std::to_string(other),
-                                     destination)) {
+  for (const auto &destination : RedisMgr::GetInstance()->Destinations(other)) {
+    if (destination == ConfigMgr::GetInstance()["SelfServer"]["Name"])
+      NotifyDeleted(other, uid);
+    else {
       message::DeleteFriendReq request;
       request.set_fromuid(uid);
       request.set_touid(other);
