@@ -60,7 +60,8 @@ git push -u origin HEAD
 
 | 操作 | 自动行为 |
 | --- | --- |
-| push 到 `main`、`develop`、`codex/**` | Linux 回归、Windows 构建/测试、Android APK 构建与审计；结果和测试 APK 在 Actions 查看 |
+| push 到 `codex/**` | 每次构建并审计 Android APK，产物在 Actions 查看；提交 PR 后运行完整的三端候选检查 |
+| push 到 `main`、`develop` | Linux 全量回归、Windows 构建/测试、Android APK 构建与审计 |
 | PR → `main` / `develop` | 验证候选合并源码；通过后才合并。PR 不接收正式安卓签名或生产配置 |
 | `main` 上的 `vX.Y.Z` 标签 | 现有 Windows 安装包与后端发布/部署流程 |
 | `main` 上的 `android-vX.Y.Z` 标签 | Android 签名 APK 与 GitHub Release；安卓公网更新入口仍按现有发布事务独立激活 |
@@ -95,7 +96,7 @@ Windows 和 Android 公网更新发布共用 Nginx 配置，平台发布必须�
 
 - `main`、`develop` 要求 PR 和 CI，通过后才能合并；禁止强推和删除长期分支。
 - 单人维护时保留 PR 检查，但不强制“另一人批准”，避免自己无法批准自己的 PR。
-- 必需检查应使用实际运行产生的唯一检查名称，不能把定时任务或只在发布标签运行的任务设为每个 PR 的门槛。
+- PR 的必需检查为 `regression`、`windows`、`apk`。集成分支的全量 Linux 检查命名为 `integration-regression`，避免和 PR 候选检查重名互相阻塞；发布前还需确认候选提交的集成回归通过。定时或仅发布标签触发的任务不作为普通 PR 门槛。
 - 这些仓库设置需在 GitHub Rulesets / Branch protection 中配置；本文件本身不会自动开启保护。
 
 ## 当前平台分支的迁移
