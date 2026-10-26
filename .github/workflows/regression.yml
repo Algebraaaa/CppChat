@@ -2,7 +2,7 @@ name: CppChat regression
 on:
   pull_request:
   push:
-    branches: [main, master]
+    branches: [main, develop, 'codex/**']
   schedule:
     - cron: '15 18 * * *'
     - cron: '15 17 * * 0'

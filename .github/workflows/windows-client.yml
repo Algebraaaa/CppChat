@@ -15,7 +15,7 @@ on:
       CPPCHAT_CLIENT_CONFIG:
         required: false
   push:
-    branches: [main]
+    branches: [main, develop, 'codex/**']
   pull_request:
 permissions:
   contents: read
