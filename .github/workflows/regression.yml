@@ -1,8 +1,9 @@
 name: CppChat regression
 on:
   pull_request:
+    branches: [main, develop]
   push:
-    branches: [main, master]
+    branches: [main, develop]
   schedule:
     - cron: '15 18 * * *'
     - cron: '15 17 * * 0'
@@ -19,6 +20,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   regression:
+    name: ${{ github.event_name == 'pull_request' && 'regression' || 'integration-regression' }}
     if: github.event.schedule != '15 17 * * 0'
     runs-on: ubuntu-24.04
     timeout-minutes: 65

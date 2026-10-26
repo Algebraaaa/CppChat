@@ -1,0 +1,162 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main, develop, 'codex/**']
+    tags: ['android-v[0-9]*']
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Every push builds; do not cancel older commits or filter shared backend paths.
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify Android release tags belong to main
+        if: startsWith(github.ref, 'refs/tags/android-v')
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install pinned Android toolchain
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' 'ndk;27.2.12479018'
+          sudo apt-get update
+          sudo apt-get install -y ninja-build make perl libva2 libva-x11-2 libva-drm2 libpipewire-0.3-0t64 libpulse0 libvdpau1
+      - name: Install Qt host tools
+        uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
+        with:
+          version: '6.12.0'
+          host: linux
+          arch: linux_gcc_64
+          # QtSvg is part of the base archive, not a separately selectable module.
+          modules: qtmultimedia qtimageformats qtshadertools
+          dir: ${{ github.workspace }}/build/qt
+          aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@076e1659807d0b362a3ed684d54c2e9c775eb9c7'
+          cache: true
+      - name: Install Qt Android ARM64
+        uses: jurplel/install-qt-action@a9c63c7c123f3069cff414e7e482d95dfa9d8125 # v4.4.1
+        with:
+          version: '6.12.0'
+          # Qt 6.7+ distributes Android kits from the host-independent repository.
+          host: all_os
+          target: android
+          arch: android_arm64_v8a
+          modules: qtmultimedia qtimageformats qtshadertools
+          dir: ${{ github.workspace }}/build/qt
+          aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@076e1659807d0b362a3ed684d54c2e9c775eb9c7'
+          cache: true
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Verify APK audit regression cases
+        run: python -B -m unittest discover -s CppChatAndroid/tests -p test_apk_audit.py
+      - name: Restore pinned OpenSSL ARM64 libraries
+        id: openssl
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: CppChatAndroid/build/openssl-arm64
+          key: android-openssl-ubuntu24-ndk27.2.12479018-${{ hashFiles('CppChatAndroid/scripts/build_android_openssl.py') }}
+      - name: Verify the real QML chat layout and interactions
+        env:
+          QT_QUICK_BACKEND: software
+        run: python -B CppChatAndroid/tests/run_chat_ui.py --qmltestrunner "$GITHUB_WORKSPACE/build/qt/Qt/6.12.0/gcc_64/bin/qmltestrunner"
+      - name: Build OpenSSL from verified upstream source
+        if: steps.openssl.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p CppChatAndroid/build/dependencies
+          curl --fail --location --retry 3 'https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz' -o CppChatAndroid/build/dependencies/openssl-3.5.9.tar.gz
+          python -B CppChatAndroid/scripts/build_android_openssl.py --archive CppChatAndroid/build/dependencies/openssl-3.5.9.tar.gz --workdir CppChatAndroid/build/dependencies --ndk "$ANDROID_HOME/ndk/27.2.12479018" --output CppChatAndroid/build/openssl-arm64
+      - name: Build, sign and audit APK
+        shell: pwsh
+        env:
+          # PR code never receives the deployment configuration or signing identity.
+          ANDROID_CONFIG: ${{ github.event_name != 'pull_request' && secrets.CPPCHAT_ANDROID_CONFIG || '' }}
+          ANDROID_KEYSTORE: ${{ github.event_name != 'pull_request' && secrets.CPPCHAT_ANDROID_KEYSTORE_BASE64 || '' }}
+          ANDROID_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.CPPCHAT_ANDROID_KEY_ALIAS || '' }}
+          CPPCHAT_ANDROID_STORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.CPPCHAT_ANDROID_STORE_PASSWORD || '' }}
+          CPPCHAT_ANDROID_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.CPPCHAT_ANDROID_KEY_PASSWORD || '' }}
+        run: |
+          $private = Join-Path $env:GITHUB_WORKSPACE 'CppChatAndroid/build/ci-private'
+          New-Item -ItemType Directory -Force $private | Out-Null
+          $config = Join-Path $private 'config.ini'
+          $signing = @{}
+          if ($env:ANDROID_CONFIG) {
+            [IO.File]::WriteAllText($config,$env:ANDROID_CONFIG,[Text.UTF8Encoding]::new($false))
+          } else {
+            Copy-Item -LiteralPath CppChatAndroid/android/config.example.ini -Destination $config
+          }
+          if ($env:ANDROID_KEYSTORE) {
+            if (-not $env:ANDROID_KEY_ALIAS) { throw 'Android signing alias is missing' }
+            $key = Join-Path $private 'identity.p12'
+            [IO.File]::WriteAllBytes($key,[Convert]::FromBase64String($env:ANDROID_KEYSTORE))
+            $signing = @{ SigningKey = $key; SigningAlias = $env:ANDROID_KEY_ALIAS }
+          } elseif ($env:GITHUB_REF -like 'refs/tags/android-v*') {
+            throw 'Android release tags require the persistent signing identity'
+          }
+          if ($env:GITHUB_REF -like 'refs/tags/android-v*') {
+            $version = [regex]::Match((Get-Content CppChatAndroid/CMakeLists.txt -Raw),'project\(CppChatAndroid VERSION ([0-9.]+)').Groups[1].Value
+            if ($env:GITHUB_REF_NAME -ne "android-v$version" -or -not $env:ANDROID_CONFIG) { throw 'Release tag/version or deployment configuration mismatch' }
+            $suffix = ''
+          } else {
+            $suffix = 'ci-' + $env:GITHUB_SHA.Substring(0,12)
+          }
+          ./CppChatAndroid/scripts/build_android.ps1 -BackendRoot "$env:GITHUB_WORKSPACE/CppChat" -QtAndroidRoot "$env:GITHUB_WORKSPACE/build/qt/Qt/6.12.0/android_arm64_v8a" -QtHostRoot "$env:GITHUB_WORKSPACE/build/qt/Qt/6.12.0/gcc_64" -SdkRoot $env:ANDROID_HOME -NdkRoot "$env:ANDROID_HOME/ndk/27.2.12479018" -OpenSslRoot "$env:GITHUB_WORKSPACE/CppChatAndroid/build/openssl-arm64" -JavaRoot $env:JAVA_HOME -Ninja (Get-Command ninja).Source -ConfigFile $config -ArtifactSuffix $suffix -Jobs 2 @signing
+          if ($LASTEXITCODE -ne 0) { throw 'Android build failed' }
+      - name: Upload APK and checksums
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-arm64-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            CppChatAndroid/build/release/*.apk
+            CppChatAndroid/build/release/*.sha256
+            CppChatAndroid/build/release/*.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload build and APK verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            CppChatAndroid/build/regression/android-*/
+            CppChatAndroid/build/dependencies/openssl-build.log
+            CppChatAndroid/build/android-arm64/app/android-CppChat-deployment-settings.json
+            build/android-ui/
+          retention-days: 14
+      - name: Remove runner signing material and private configuration
+        if: always()
+        shell: pwsh
+        run: |
+          $private = [IO.Path]::GetFullPath((Join-Path $env:GITHUB_WORKSPACE 'CppChatAndroid/build/ci-private'))
+          $allowed = [IO.Path]::GetFullPath((Join-Path $env:GITHUB_WORKSPACE 'CppChatAndroid/build'))
+          if (-not $private.StartsWith($allowed + [IO.Path]::DirectorySeparatorChar)) { throw 'Invalid cleanup path' }
+          if (Test-Path -LiteralPath $private) { Remove-Item -LiteralPath $private -Recurse -Force }
+
+  publish:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/android-v')
+    needs: apk
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: android-arm64-${{ github.sha }}-${{ github.run_attempt }}
+          path: build/android-release
+      - name: Publish Android release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "CppChat Android ${RELEASE_TAG#android-v}" --notes 'ARM64 / Android 9+. APK signature, alignment and dependency checks passed. The signing identity changed after 0.1.20: users of that old build must preserve needed local data and reinstall once. Versions from 0.1.21 share the persistent signing identity. Real-device media validation remains separate.' --latest=false build/android-release/*
