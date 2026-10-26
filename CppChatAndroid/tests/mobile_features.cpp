@@ -1,5 +1,9 @@
 #include "mobileaccount.h"
+#include "appbridge.h"
+#include "common/logger.h"
 #include "common/runtimepaths.h"
+#include "network/tcpmgr.h"
+#include "network/usermgr.h"
 #include "services/clientupdateservice.h"
 #include <qtkeychain/keychain.h>
 #include <QDirIterator>
@@ -15,6 +19,49 @@ class MobileFeatures : public QObject
 {
   Q_OBJECT
 private slots:
+  void profileResponseUpdatesCacheBeforeNotification()
+  {
+    QVERIFY(QDir().mkpath("build"));
+    QTemporaryDir directory(QDir::currentPath() + "/build/mobile-profile-XXXXXX");
+    QVERIFY(directory.isValid());
+    QFile config(directory.filePath("config.ini"));
+    QVERIFY(config.open(QIODevice::WriteOnly));
+    config.write("[GateServer]\nurl=https://profile-test.example.invalid\n");
+    config.close();
+    auto shutdownLogger = qScopeGuard([] { Logger::shutdown(); });
+    QString observedNick, observedDescription;
+    AppBridge bridge;
+    QVERIFY(bridge.init(directory.path()));
+    auto manager = UserMgr::GetInstance();
+    manager->SetUserInfo(std::make_shared<UserInfo>(71001, "old-name", "", "", 0));
+    QSignalSpy changed(&bridge, &AppBridge::loginStatusChanged);
+    connect(&bridge, &AppBridge::loginStatusChanged, this, [&] {
+      observedNick = bridge.currentNick();
+      observedDescription = bridge.currentDescription();
+    });
+    QJsonObject profile{{"uid", 71001}, {"name", "saved-name"},
+                        {"nick", "saved-nick"}, {"desc", "saved-description"}, {"error", 0}};
+    emit TcpMgr::GetInstance()->sig_profile_updated(profile);
+    QCOMPARE(changed.count(), 1);
+    QCOMPARE(bridge.currentUser(), QString("saved-name"));
+    QCOMPARE(observedNick, QString("saved-nick"));
+    QCOMPARE(observedDescription, QString("saved-description"));
+    profile["uid"] = 71002;
+    profile["nick"] = "another-account";
+    emit TcpMgr::GetInstance()->sig_profile_updated(profile);
+    QCOMPARE(changed.count(), 1);
+    QCOMPARE(bridge.currentNick(), QString("saved-nick"));
+    profile["uid"] = 71001;
+    profile["error"] = RedisError;
+    profile["committed"] = true;
+    profile["nick"] = "committed-nick";
+    emit TcpMgr::GetInstance()->sig_profile_updated(profile);
+    QCOMPARE(changed.count(), 2);
+    QCOMPARE(observedNick, QString("committed-nick"));
+    manager->Reset();
+    emit TcpMgr::GetInstance()->sig_profile_updated(profile);
+    QCOMPARE(changed.count(), 2);
+  }
   void secureRememberRestartLogoutAndForget()
   {
     QTemporaryDir directory;

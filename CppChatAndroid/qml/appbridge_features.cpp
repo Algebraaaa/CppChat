@@ -77,7 +77,13 @@ void AppBridge::initializeFeatures()
             });
   timer->start();
   const auto tcp = TcpMgr::GetInstance();
-  connect(tcp.get(), &TcpMgr::sig_profile_updated, this, [this] {
+  connect(tcp.get(), &TcpMgr::sig_profile_updated, this, [this](const QJsonObject &profile) {
+    const auto user = UserMgr::GetInstance()->GetUserInfo();
+    if (!user || profile["uid"].toInt() != user->_uid)
+      return;
+    user->_name = profile["name"].toString();
+    user->_nick = profile["nick"].toString();
+    user->_desc = profile["desc"].toString();
     emit loginStatusChanged();
     emit statusMessage(tr("资料已保存"));
   });
