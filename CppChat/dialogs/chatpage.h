@@ -18,6 +18,7 @@ class VoiceMessageDialog;
 class MessageActions;
 class QLabel;
 class QPushButton;
+class QAction;
 namespace Ui {
 class ChatPage;
 }
@@ -82,6 +83,8 @@ private:
   QMap<int, std::shared_ptr<ChatDataBase>> _selected;
   bool _selecting = false;
   MessageSender *_sender = nullptr;
+  QAction *_sendImageAction = nullptr;
+  QAction *_sendFileAction = nullptr;
   MessageActions *_messageActions = nullptr;
   VoiceCallDialog *_voice = nullptr;
   QPointer<VoiceMessageDialog> _voiceMessage;

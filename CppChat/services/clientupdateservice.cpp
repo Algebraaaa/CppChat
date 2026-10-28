@@ -56,10 +56,18 @@ ClientUpdateService::ClientUpdateService(const QUrl &manifestUrl, const QString 
       _network(network ? network : new QNetworkAccessManager(this)), _android(android)
 {
   _deadline.setSingleShot(true);
-  connect(&_deadline, &QTimer::timeout, this, [this]() { fail(tr("检查或下载更新超时，请重试")); });
+  connect(&_deadline, &QTimer::timeout, this,
+          [this]() { fail(tr("检查或下载更新超时，请重试"), _state == State::Downloading); });
 }
 
 ClientUpdateService::~ClientUpdateService() { stopReply(); }
+
+qint64 ClientUpdateService::bytesPerSecond() const
+{
+  return _state == State::Downloading && _downloadTimer.isValid()
+             ? (_received - _attemptStartBytes) * 1000 / qMax(qint64(1), _downloadTimer.elapsed())
+             : 0;
+}
 
 QString ClientUpdateService::releaseNotes() const
 {
@@ -167,28 +175,45 @@ void ClientUpdateService::stopReply()
   }
 }
 
-void ClientUpdateService::fail(const QString &message)
+void ClientUpdateService::fail(const QString &message, bool retainPartial)
 {
   const bool downloading = _state == State::Downloading;
   stopReply();
-  _file.reset(); // QSaveFile removes its incomplete file.
-  _directory.reset();
-  _readyPath.clear();
+  const bool resumable =
+      downloading && retainPartial && _file && _received > 0 && _received < _info.size;
+  if (!resumable) {
+    _file.reset(); // QSaveFile removes unverified data on discard or shutdown.
+    _directory.reset();
+    _readyPath.clear();
+    _received = _resumeOffset = 0;
+    _hash.reset();
+  }
   setState(downloading ? State::Available : State::Idle);
-  emit failed(message);
+  emit failed(resumable ? message + tr("；已保留进度，可继续下载") : message);
 }
 
 bool ClientUpdateService::responseAccepted() const
 {
-  return _reply && _reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200 &&
-         sameOrigin(_manifestUrl, _reply->url());
+  if (!_reply || !sameOrigin(_manifestUrl, _reply->url()))
+    return false;
+  const auto status = _reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+  if (_state == State::Downloading && _resumeOffset > 0)
+    return status == 206 && _reply->rawHeader("Content-Range") == QStringLiteral("bytes %1-%2/%3")
+                                                                      .arg(_resumeOffset)
+                                                                      .arg(_info.size - 1)
+                                                                      .arg(_info.size)
+                                                                      .toLatin1();
+  return status == 200;
 }
 
 void ClientUpdateService::check()
 {
   if (busy())
     return;
+  _file.reset();
   _directory.reset();
+  _received = _resumeOffset = 0;
+  _hash.reset();
   _readyPath.clear();
   _info = {};
   _manifest.clear();
@@ -234,27 +259,36 @@ void ClientUpdateService::download()
     fail(tr("无法创建更新下载目录"));
     return;
   }
-  _directory = std::make_unique<QTemporaryDir>(cache + "/download-XXXXXX");
-  _readyPath = _directory->filePath(_android ? "CppChat-" + _info.version + "-android-arm64.apk"
-                                             : "CppChat-Setup-" + _info.version + "-x64.exe");
-  _file = std::make_unique<QSaveFile>(_readyPath);
-  if (!_directory->isValid() || !_file->open(QIODevice::WriteOnly)) {
-    fail(tr("无法保存更新安装包"));
-    return;
+  if (!_file) {
+    _directory = std::make_unique<QTemporaryDir>(cache + "/download-XXXXXX");
+    _readyPath = _directory->filePath(_android ? "CppChat-" + _info.version + "-android-arm64.apk"
+                                               : "CppChat-Setup-" + _info.version + "-x64.exe");
+    _file = std::make_unique<QSaveFile>(_readyPath);
+    if (!_directory->isValid() || !_file->open(QIODevice::WriteOnly)) {
+      fail(tr("无法保存更新安装包"));
+      return;
+    }
+    _received = 0;
+    _hash.reset();
   }
-  _received = 0;
-  _hash.reset();
+  _resumeOffset = _received;
+  _attemptStartBytes = _received;
+  _downloadTimer.start();
+  _progressTimer.start();
   setState(State::Downloading);
-  _reply = _network->get(updateRequest(_info.downloadUrl));
-  _reply->setReadBufferSize(256 * 1024);
-  _deadline.start(10 * 60 * 1000);
+  auto request = updateRequest(_info.downloadUrl);
+  if (_resumeOffset > 0)
+    request.setRawHeader("Range", "bytes=" + QByteArray::number(_resumeOffset) + '-');
+  _reply = _network->get(request);
+  _reply->setReadBufferSize(1024 * 1024);
+  _deadline.start(30 * 60 * 1000);
   connect(_reply, &QNetworkReply::readyRead, this, &ClientUpdateService::readDownload);
   connect(_reply, &QNetworkReply::finished, this, [this]() {
     readDownload();
     if (!_reply)
       return;
     if (_reply->error() != QNetworkReply::NoError || !responseAccepted()) {
-      fail(tr("下载更新失败，请重试"));
+      fail(tr("下载更新失败，请重试"), _reply->error() != QNetworkReply::NoError);
       return;
     }
     if (_received != _info.size || _hash.result().toHex() != _info.sha256) {
@@ -274,14 +308,25 @@ void ClientUpdateService::download()
 
 void ClientUpdateService::readDownload()
 {
-  if (!_reply || !_file)
+  if (!_reply || !_file || _reply->bytesAvailable() <= 0)
     return;
+  // Servers without Range support may send the full file; never append it to a prefix.
+  if (_resumeOffset > 0 && sameOrigin(_manifestUrl, _reply->url()) &&
+      _reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200) {
+    if (!_file->resize(0) || !_file->seek(0)) {
+      fail(tr("无法重新保存更新安装包"));
+      return;
+    }
+    _received = _resumeOffset = _attemptStartBytes = 0;
+    _hash.reset();
+    _downloadTimer.restart();
+  }
   if (!responseAccepted()) {
     fail(tr("更新下载响应无效"));
     return;
   }
   while (_reply && _file && _reply->bytesAvailable() > 0) {
-    const QByteArray chunk = _reply->read(64 * 1024);
+    const QByteArray chunk = _reply->read(256 * 1024);
     if (chunk.isEmpty())
       break;
     _received += chunk.size();
@@ -290,7 +335,11 @@ void ClientUpdateService::readDownload()
       return;
     }
     _hash.addData(chunk);
-    emit downloadProgress(_received, _info.size);
+    // Progress must not rebuild mobile bindings once per network/disk chunk.
+    if (_received == _info.size || _progressTimer.elapsed() >= 100) {
+      _progressTimer.restart();
+      emit downloadProgress(_received, _info.size);
+    }
   }
 }
 
@@ -298,9 +347,15 @@ void ClientUpdateService::cancel()
 {
   const bool downloading = _state == State::Downloading;
   stopReply();
+  if (downloading && _file && _received > 0 && _received < _info.size) {
+    setState(State::Available);
+    return;
+  }
   _file.reset();
   _directory.reset();
   _readyPath.clear();
+  _received = _resumeOffset = 0;
+  _hash.reset();
   setState(downloading || _state == State::Ready ? State::Available : State::Idle);
 }
 

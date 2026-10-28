@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QCryptographicHash>
+#include <QElapsedTimer>
 #include <QMap>
 #include <QNetworkAccessManager>
 #include <QPointer>
@@ -36,6 +37,8 @@ public:
   const ClientUpdateInfo &info() const { return _info; }
   QString currentVersion() const { return _currentVersion; }
   QString releaseNotes() const;
+  qint64 downloadedBytes() const { return _received; }
+  qint64 bytesPerSecond() const;
   void check();
   void download();
   void cancel();
@@ -56,7 +59,7 @@ signals:
 private:
   void setState(State state);
   void stopReply();
-  void fail(const QString &message);
+  void fail(const QString &message, bool retainPartial = false);
   bool responseAccepted() const;
   void readDownload();
   QUrl _manifestUrl;
@@ -71,6 +74,9 @@ private:
   std::unique_ptr<QSaveFile> _file;
   QCryptographicHash _hash{QCryptographicHash::Sha256};
   qint64 _received = 0;
+  qint64 _resumeOffset = 0;
+  qint64 _attemptStartBytes = 0;
+  QElapsedTimer _progressTimer, _downloadTimer;
   QString _readyPath;
   bool _android = false;
 };

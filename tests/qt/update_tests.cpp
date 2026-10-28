@@ -40,6 +40,7 @@ struct Response {
   int status = 200;
   QNetworkReply::NetworkError error = QNetworkReply::NoError;
   bool stall = false;
+  QByteArray contentRange;
 };
 // Exercise the public HTTPS transport contract without trusting a test CA globally.
 class Reply : public QNetworkReply {
@@ -50,6 +51,8 @@ public:
     setRequest(request);
     setUrl(request.url());
     setAttribute(QNetworkRequest::HttpStatusCodeAttribute, response.status);
+    if (!response.contentRange.isEmpty())
+      setRawHeader("Content-Range", response.contentRange);
     open(QIODevice::ReadOnly | QIODevice::Unbuffered);
     QTimer::singleShot(0, this, [this]() {
       if (_aborted)
@@ -321,6 +324,92 @@ private slots:
       service.download();
       QTRY_COMPARE(ready.count(), 1); // Failure is retryable.
     }
+  }
+  void interruptedDownloadResumesAndVerifiesTheWholeFile_data()
+  {
+    QTest::addColumn<int>("status");
+    QTest::addColumn<bool>("validRange");
+    QTest::newRow("range-resume") << 206 << true;
+    QTest::newRow("range-not-supported") << 200 << true;
+    QTest::newRow("wrong-offset-rejected") << 206 << false;
+  }
+  void interruptedDownloadResumesAndVerifiesTheWholeFile()
+  {
+    QFETCH(int, status);
+    QFETCH(bool, validRange);
+    Network network;
+    network.responses = {{QJsonDocument(manifest()).toJson()},
+                         {kInstaller.left(7), 200, QNetworkReply::RemoteHostClosedError}};
+    ClientUpdateService service(kManifestUrl, "0.1.0", nullptr, &network);
+    QSignalSpy failed(&service, &ClientUpdateService::failed);
+    QSignalSpy ready(&service, &ClientUpdateService::downloadReady);
+    service.check();
+    QTRY_COMPARE(service.state(), ClientUpdateService::State::Available);
+    service.download();
+    QTRY_COMPARE(failed.count(), 1);
+    QCOMPARE(service.downloadedBytes(), 7);
+    const auto range = QByteArray("bytes ") + (validRange ? "7-" : "8-") +
+                       QByteArray::number(kInstaller.size() - 1) + '/' +
+                       QByteArray::number(kInstaller.size());
+    network.responses.append({status == 200 ? kInstaller : kInstaller.mid(7), status,
+                              QNetworkReply::NoError, false, range});
+    service.download();
+    QCOMPARE(network.requests.last().rawHeader("Range"), QByteArray("bytes=7-"));
+    if (validRange) {
+      QTRY_COMPARE(ready.count(), 1);
+      QFile file(ready.first().first().toString());
+      QVERIFY(file.open(QIODevice::ReadOnly));
+      QCOMPARE(file.readAll(), kInstaller);
+    } else {
+      QTRY_COMPARE(failed.count(), 2);
+      QCOMPARE(ready.count(), 0);
+      QCOMPARE(service.downloadedBytes(), 0);
+    }
+  }
+  void pausedDialogKeepsItsPrefixWhenReopened()
+  {
+    Network network;
+    network.responses = {{QJsonDocument(manifest()).toJson()},
+                         {kInstaller.left(7), 200, QNetworkReply::NoError, true}};
+    ClientUpdateService service(kManifestUrl, "0.1.0", nullptr, &network);
+    UpdateDialog dialog(&service);
+    dialog.checkManually();
+    QTRY_COMPARE(service.state(), ClientUpdateService::State::Available);
+    service.download();
+    QTRY_COMPARE(service.downloadedBytes(), 7);
+    QVERIFY(QMetaObject::invokeMethod(&dialog, "reject"));
+    QCOMPARE(service.state(), ClientUpdateService::State::Available);
+    dialog.checkManually();
+    QCOMPARE(service.downloadedBytes(), 7);
+    QCOMPARE(network.requests.size(), 2);
+    QCOMPARE(dialog.findChild<QPushButton *>("update_action")->text(), QString("继续下载"));
+    // A deliberate new manifest check discards the old version's prefix.
+    network.responses.append({QJsonDocument(manifest("0.1.2")).toJson()});
+    service.check();
+    QTRY_COMPARE(service.state(), ClientUpdateService::State::Available);
+    QCOMPARE(service.downloadedBytes(), 0);
+  }
+  void largeDownloadProgressDoesNotFloodTheUi()
+  {
+    const QByteArray bytes(4 * 1024 * 1024, 'x');
+    auto value = manifest();
+    value["size"] = bytes.size();
+    value["sha256"] =
+        QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex());
+    Network network;
+    network.responses = {{QJsonDocument(value).toJson()}, {bytes}};
+    ClientUpdateService service(kManifestUrl, "0.1.0", nullptr, &network);
+    QSignalSpy progress(&service, &ClientUpdateService::downloadProgress);
+    QSignalSpy ready(&service, &ClientUpdateService::downloadReady);
+    service.check();
+    QTRY_COMPARE(service.state(), ClientUpdateService::State::Available);
+    QElapsedTimer elapsed;
+    elapsed.start();
+    service.download();
+    QTRY_COMPARE(ready.count(), 1);
+    QVERIFY(progress.count() > 0);
+    QVERIFY(progress.count() <= elapsed.elapsed() / 100 + 2);
+    QCOMPARE(progress.last().first().toLongLong(), qint64(bytes.size()));
   }
   void malformedAndLargeManifest()
   {

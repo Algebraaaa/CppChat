@@ -20,5 +20,6 @@
         <file>qml/components/ChatStyle.js</file>
         <file>qml/components/ChatIcon.qml</file>
         <file>qml/components/MessageBubble.qml</file>
+        <file>qml/components/MessageListModel.qml</file>
     </qresource>
 </RCC>

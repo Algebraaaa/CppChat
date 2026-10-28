@@ -5,15 +5,22 @@ import "ChatStyle.js" as Style
 
 ColumnLayout {
     id: content
+    objectName: "attachmentContent"
     required property var backend
     required property var message
     property var info: ({ready: false, name: "", size: 0})
     property string progress: ""
     property bool loading: false
     signal saveRequested(string fileId, string name)
-    Component.onCompleted: {
-        if (message.type === 2 && message.msgId > 0) info = backend.fileInfo(message.content)
+    function resetAttachment() {
+        if (!backend || !message) return
+        loading = false
+        progress = ""
+        info = message.type === 2 && message.msgId > 0 ? backend.fileInfo(message.content)
+                                                    : ({ready: false, name: "", size: 0})
     }
+    onMessageChanged: resetAttachment()
+    Component.onCompleted: resetAttachment()
     spacing: 6
     RowLayout {
         Layout.fillWidth: true

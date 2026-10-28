@@ -12,9 +12,9 @@
 #include "voicecalldialog.h"
 #include "voicemessagedialog.h"
 #include "widgets/audiobubble.h"
-#include "widgets/filebubble.h"
 #include "widgets/chatitembase.h"
 #include "widgets/emojipicker.h"
+#include "widgets/filebubble.h"
 #include "widgets/picturebubble.h"
 #include "widgets/screencapture.h"
 #include "widgets/textbubble.h"
@@ -123,7 +123,8 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
   ui->chat_splitter->setStretchFactor(1, 0);
   ui->chat_splitter->setSizes({430, 208});
   ui->emo_btn->setToolTip(tr("表情"));
-  ui->file_btn->setToolTip(tr("发送图片"));
+  ui->file_btn->setToolTip(tr("发送图片或文件"));
+  ui->file_btn->setAccessibleName(tr("发送附件"));
   ui->favorites_btn->setCursor(Qt::PointingHandCursor);
   ui->favorites_btn->setAccessibleName(tr("收藏"));
   connect(ui->favorites_btn, &QPushButton::clicked, this, &ChatPage::sig_open_favorites);
@@ -218,8 +219,15 @@ ChatPage::ChatPage(QWidget *parent) : QWidget(parent), ui(new Ui::ChatPage)
   connect(ui->send_btn, &QPushButton::clicked, this, &ChatPage::on_send_btn_clicked);
   connect(ui->chatEdit, &MessageTextEdit::send, this, &ChatPage::on_send_btn_clicked);
   connect(ui->chatEdit, &MessageTextEdit::attachmentError, this, &ChatPage::ShowStatus);
-  connect(ui->document_btn, &QPushButton::clicked, this, &ChatPage::SendDocument);
-  connect(ui->file_btn, &QPushButton::clicked, this, [this] {
+  auto *attachmentMenu = new QMenu(ui->file_btn);
+  attachmentMenu->setObjectName("attachmentMenu");
+  _sendImageAction = attachmentMenu->addAction(tr("图片…"));
+  _sendImageAction->setObjectName("sendImageAction");
+  _sendFileAction = attachmentMenu->addAction(tr("文件…"));
+  _sendFileAction->setObjectName("sendFileAction");
+  ui->file_btn->setMenu(attachmentMenu);
+  connect(_sendFileAction, &QAction::triggered, this, &ChatPage::SendDocument);
+  connect(_sendImageAction, &QAction::triggered, this, [this] {
     if (!ui->chatEdit->isEnabled())
       return;
     if (!_chat_data || !TcpMgr::GetInstance()->IsConnected()) {
@@ -400,7 +408,10 @@ void ChatPage::CallContact(int uid, bool video)
 
 void ChatPage::UpdateMediaControls()
 {
-  ui->document_btn->setEnabled(bool(_chat_data) && TcpMgr::GetInstance()->SupportsFileMessages());
+  _sendFileAction->setEnabled(bool(_chat_data) && TcpMgr::GetInstance()->SupportsFileMessages());
+  _sendImageAction->setEnabled(
+      _chat_data && (!_chat_data->IsGroup() || TcpMgr::GetInstance()->SupportsGroupImages()));
+  ui->file_btn->setEnabled(_sendFileAction->isEnabled() || _sendImageAction->isEnabled());
   const bool canCall = _chat_data && !_chat_data->IsGroup();
   if (!canCall)
     ui->call_btn->menu()->close();
@@ -481,21 +492,21 @@ void ChatPage::SendDocument()
     ShowStatus(tr("正在读取文件…"));
     auto connection = std::make_shared<QMetaObject::Connection>();
     *connection = connect(AttachmentPreparer::instance(), &AttachmentPreparer::prepared, this,
-        [this, preparation, conversation, connection](const QString &id) {
-          if (id != preparation->id)
-            return;
-          disconnect(*connection);
-          if (!preparation->error.isEmpty()) {
-            ShowStatus(preparation->error);
-            return;
-          }
-          if (_chat_data != conversation || !ChatStore::instance()->IsReady())
-            return;
-          MsgInfo file;
-          file.msgFlag = "file";
-          file.imageData = preparation->bytes;
-          _sender->Send({file}, conversation, false);
-        });
+                          [this, preparation, conversation, connection](const QString &id) {
+                            if (id != preparation->id)
+                              return;
+                            disconnect(*connection);
+                            if (!preparation->error.isEmpty()) {
+                              ShowStatus(preparation->error);
+                              return;
+                            }
+                            if (_chat_data != conversation || !ChatStore::instance()->IsReady())
+                              return;
+                            MsgInfo file;
+                            file.msgFlag = "file";
+                            file.imageData = preparation->bytes;
+                            _sender->Send({file}, conversation, false);
+                          });
   });
   picker->open();
 }
@@ -591,9 +602,10 @@ void ChatPage::SetChatData(std::shared_ptr<ChatThreadData> data)
     VoiceMessageAudio::instance()->Cancel();
   }
   const bool images = !data->IsGroup() || TcpMgr::GetInstance()->SupportsGroupImages();
-  ui->document_btn->setEnabled(TcpMgr::GetInstance()->SupportsFileMessages());
-  ui->file_btn->setEnabled(images);
-  ui->file_btn->setToolTip(images ? tr("发送图片") : tr("请升级服务器以使用群图片"));
+  _sendFileAction->setEnabled(TcpMgr::GetInstance()->SupportsFileMessages());
+  _sendImageAction->setEnabled(images);
+  ui->file_btn->setEnabled(images || _sendFileAction->isEnabled());
+  ui->file_btn->setToolTip(tr("发送图片或文件"));
   if (changed) {
     EndSelection();
     ui->call_btn->menu()->close();
@@ -686,7 +698,7 @@ void ChatPage::RenderMessages(bool changed)
   const auto append = [&](const std::shared_ptr<ChatDataBase> &message) {
     if (!message ||
         (message->GetMsgType() != ChatMsgType::TEXT && message->GetMsgType() != ChatMsgType::PIC &&
-         message->GetMsgType() != ChatMsgType::AUDIO))
+         message->GetMsgType() != ChatMsgType::AUDIO && message->GetMsgType() != ChatMsgType::FILE))
       return;
     const auto key = messageScrollKey(message);
     if (nextItems.contains(key))
@@ -901,7 +913,8 @@ ChatItemBase *ChatPage::CreateChatItem(const std::shared_ptr<ChatDataBase> &mess
         const bool canRetry = _sender->CanRetry() && (!data || !data->IsGroup() || !imageMessage ||
                                                       TcpMgr::GetInstance()->SupportsGroupImages());
         const MessageMenu::Options options{
-            (!imageMessage && !audioMessage && !fileMessage) || (pictureBubble && pictureBubble->hasImage()),
+            (!imageMessage && !audioMessage && !fileMessage) ||
+                (pictureBubble && pictureBubble->hasImage()),
             showRetry,
             canRetry,
             !imageMessage && !audioMessage && !fileMessage,

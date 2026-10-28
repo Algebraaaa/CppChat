@@ -16,6 +16,7 @@ QtObject {
     property var drafts: []
     property var lastRetry: []
     property var rows: []
+    property var files: ({})
     property var threads: []
     property bool group: false
     property QtObject media: QtObject {
@@ -97,6 +98,7 @@ QtObject {
                 ];
     }
     function fileInfo(id) {
+        if (files[id]) return files[id];
         return {
             ready: false,
             name: "",

@@ -8,13 +8,19 @@ class FileBubble : public BubbleFrame {
 public:
   explicit FileBubble(ChatRole role, QWidget *parent = nullptr);
   void Load(const QString &fileId);
+
 private:
-  void FetchOrSave();
+  enum class Action { None, Save, Open };
+  void Activate(Action action);
+  void Save(bool openAfterSave);
   void Ready(const QByteArray &bytes, const QString &error);
   QString _id;
   FileAttachment::Document _document;
   QPushButton *_save;
+  QPushButton *_open;
   QLabel *_status;
   quint64 _generation = 0;
   bool _loading = false;
+  Action _afterLoad = Action::None;
+  QString _savedPath;
 };

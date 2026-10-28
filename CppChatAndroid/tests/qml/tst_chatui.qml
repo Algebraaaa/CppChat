@@ -59,6 +59,7 @@ Item {
             backend.sent = [];
             backend.drafts = [];
             backend.rows = [];
+            backend.files = ({});
             backend.threads = [];
             backend.group = false;
             backend.media.call = {
@@ -277,6 +278,92 @@ Item {
             mouseClick(latest);
             wait(80);
             tryCompare(list, "atYEnd", true);
+        }
+        function test_receiptsDoNotRecreateVisibleMessages() {
+            let rows = [];
+            for (let i = 0; i < 1000; ++i)
+                rows.push(fixture("长聊天 " + i, i % 2 === 0, i + 1));
+            backend.rows = rows;
+            let detail = page(detailComponent, 390, 780);
+            let list = findChild(detail, "messageList");
+            tryCompare(list, "count", 1000);
+            list.stickToEnd = false;
+            list.positionViewAtIndex(500, ListView.Beginning);
+            list.forceLayout();
+            tryVerify(function() { return list.itemAtIndex(500) !== null; });
+            const existing = list.itemAtIndex(500);
+            const oldY = list.contentY;
+            let receipt = fixture("长聊天 999", true, 1000);
+            receipt.status = 3;
+            backend.rows = [receipt];
+            for (let i = 0; i < 10; ++i) detail.refresh();
+            list.forceLayout();
+            compare(list.itemAtIndex(500), existing);
+            fuzzyCompare(list.contentY, oldY, 1);
+            compare(list.count, 1000);
+            const bar = findChild(detail, "chatScrollBar");
+            compare(bar.interactive, false);
+            verify(bar.width <= 4);
+        }
+        function test_reusedAttachmentDoesNotKeepAnotherFilesState() {
+            backend.files = {"first": {ready: true, name: "第一份.txt", size: 64},
+                             "second": {ready: true, name: "第二份.txt", size: 128}};
+            let bubble = createTemporaryObject(bubbleComponent, host.contentItem, {
+                backend: backend, message: fixture("first", true, 1, undefined, 2)
+            });
+            const attachment = findChild(bubble, "attachmentContent");
+            compare(attachment.info.name, "第一份.txt");
+            attachment.loading = true;
+            attachment.progress = "旧文件下载中";
+            bubble.message = fixture("second", false, 2, undefined, 2);
+            compare(attachment.info.name, "第二份.txt");
+            compare(attachment.loading, false);
+            compare(attachment.progress, "");
+            backend.fileReady("first");
+            compare(attachment.info.name, "第二份.txt");
+        }
+        function test_prependHistoryKeepsTheReadingAnchor() {
+            let latest = [];
+            for (let id = 51; id <= 80; ++id)
+                latest.push(fixture("已加载消息 " + id, false, id));
+            backend.rows = latest;
+            let detail = page(detailComponent, 390, 780);
+            let list = findChild(detail, "messageList");
+            list.stickToEnd = false;
+            list.positionViewAtIndex(10, ListView.Beginning);
+            list.forceLayout();
+            const anchor = list.itemAtIndex(10);
+            verify(anchor !== null);
+            const offset = anchor.y - list.contentY;
+            let older = [];
+            for (let id = 1; id <= 50; ++id)
+                older.push(fixture("更早消息 " + id, false, id));
+            backend.rows = older;
+            detail.refresh();
+            list.forceLayout();
+            compare(list.count, 80);
+            compare(list.itemAtIndex(60), anchor);
+            fuzzyCompare(anchor.y - list.contentY, offset, 1);
+        }
+        function test_pendingReceiptKeepsIdentityAndReorders() {
+            let pending = fixture("正在发送", true, 0);
+            pending.uniqueId = "outgoing-stable-id";
+            backend.rows = [fixture("已收到", false, 1), pending];
+            let detail = page(detailComponent);
+            let list = findChild(detail, "messageList");
+            tryCompare(list, "count", 2);
+            list.forceLayout();
+            const outgoing = list.itemAtIndex(1);
+            verify(outgoing !== null);
+            let confirmed = fixture("正在发送", true, 3);
+            confirmed.uniqueId = pending.uniqueId;
+            backend.rows = [confirmed, fixture("先收到对方回复", false, 2)];
+            detail.refresh();
+            list.forceLayout();
+            compare(list.count, 3);
+            compare(list.itemAtIndex(2), outgoing);
+            compare(outgoing.modelData.msgId, 3);
+            compare(outgoing.modelData.uniqueId, "outgoing-stable-id");
         }
         function test_recoveryStatusCompatibility() {
             let call = createTemporaryObject(callComponent, host.contentItem, {
