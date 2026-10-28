@@ -21,5 +21,8 @@
         <file>qml/components/ChatIcon.qml</file>
         <file>qml/components/MessageBubble.qml</file>
         <file>qml/components/MessageListModel.qml</file>
+        <file>qml/components/TextMessage.qml</file>
+        <file>qml/components/ImageMessage.qml</file>
+        <file>qml/components/FileMessageCard.qml</file>
     </qresource>
 </RCC>

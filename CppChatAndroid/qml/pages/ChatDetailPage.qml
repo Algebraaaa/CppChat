@@ -74,6 +74,7 @@ Page {
             property bool stickToEnd: true
             function keepAtEnd() {
                 if (stickToEnd && !moving && !atYEnd) {
+                    forceLayout()
                     positionViewAtEnd()
                 }
             }
@@ -172,7 +173,7 @@ Page {
                     x: row.modelData.isSelf ? avatar.x - width - 10 : avatar.x + avatar.width + 10
                     y: row.messageTop + (row.showSender ? 23 : 0)
                     onHeightChanged: {
-                        if (row.modelData.type === 1 && messageList.stickToEnd)
+                        if (messageList.stickToEnd)
                             followTimer.restart()
                     }
                     onSaveRequested: function(fileId, name) {
@@ -343,6 +344,7 @@ Page {
             messageList.stickToEnd = true
             messageList.forceLayout()
             messageList.positionViewAtEnd()
+            followTimer.restart()
         }
     }
     FileDialog {

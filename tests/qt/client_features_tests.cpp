@@ -46,6 +46,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
+#include <QPainter>
 #include <QPushButton>
 #include <QScopeGuard>
 #include <QSettings>
@@ -201,7 +202,9 @@ private slots:
     ResourceMgr::instance()->rememberImage(id, bytes);
     FileBubble bubble(ChatRole::Self);
     bubble.Load(id);
-    QVERIFY(bubble.findChild<QLabel *>("fileMessageInfo")->text().contains("已发送.txt"));
+    QVERIFY(bubble.findChild<QLabel *>("fileMessageName")->text().contains("已发送.txt"));
+    QCOMPARE(bubble.property("messagePresentation").toString(), QString("file-card"));
+    QCOMPARE(bubble.layout()->contentsMargins(), QMargins());
     QVERIFY(bubble.findChild<QPushButton *>("fileMessageOpen")->isEnabled());
     bubble.findChild<QPushButton *>("fileMessageSave")->click();
     auto *picker = bubble.findChild<QFileDialog *>("fileMessageSaveDialog");
@@ -248,21 +251,43 @@ private slots:
                                          sender, UN_READ, "2026-10-28 12:00:00");
       group->AppendMsg(sender, message);
     }
+    group->AppendMsg(103, std::make_shared<TextChatData>(103, 301, ChatFormType::PRIVATE,
+                                                         ChatMsgType::TEXT, "文字仍使用聊天气泡",
+                                                         101, UN_READ, "2026-10-28 12:00:01"));
+    QImage image(180, 100, QImage::Format_RGB32);
+    image.fill(QColor("#dcebf4"));
+    QPainter painter(&image);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor("#f6ce72"));
+    painter.drawEllipse(QPoint(140, 24), 12, 12);
+    painter.setBrush(QColor("#4b8e78"));
+    painter.drawPolygon(QPolygon{QPoint(0, 100), QPoint(70, 25), QPoint(180, 100)});
+    painter.end();
+    QByteArray pictureBytes;
+    QBuffer pictureBuffer(&pictureBytes);
+    QVERIFY(pictureBuffer.open(QIODevice::WriteOnly));
+    QVERIFY(image.save(&pictureBuffer, "PNG"));
+    const QString pictureId(32, 'b');
+    ResourceMgr::instance()->rememberImage(pictureId, pictureBytes);
+    group->AppendMsg(104, std::make_shared<TextChatData>(104, 301, ChatFormType::PRIVATE,
+                                                         ChatMsgType::PIC, pictureId, 102, UN_READ,
+                                                         "2026-10-28 12:00:02"));
     ChatPage page;
     page.SetChatData(group);
     QTRY_COMPARE(page.findChildren<FileBubble *>().size(), 2);
+    QTRY_VERIFY(page.findChild<PictureBubble *>() && page.findChild<PictureBubble *>()->hasImage());
     const auto artifacts = qEnvironmentVariable("CPPCHAT_TEST_ARTIFACTS");
     if (!artifacts.isEmpty()) {
       QString error;
       QVERIFY2(ThemeManager::apply(*qApp, &error), qPrintable(error));
-      page.resize(900, 700);
+      page.resize(900, 920);
       page.show();
       QTest::qWait(40);
       QVERIFY(QDir().mkpath(artifacts));
       QVERIFY(page.grab().save(artifacts + "/file-message-chat.png"));
     }
     for (auto *bubble : page.findChildren<FileBubble *>())
-      QVERIFY(bubble->findChild<QLabel *>("fileMessageInfo")->text().contains("资料.txt"));
+      QVERIFY(bubble->findChild<QLabel *>("fileMessageName")->text().contains("资料.txt"));
     page.SetChatData(group);
     QTRY_COMPARE(page.findChildren<FileBubble *>().size(), 2);
   }

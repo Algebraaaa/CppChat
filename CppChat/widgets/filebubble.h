@@ -9,6 +9,9 @@ public:
   explicit FileBubble(ChatRole role, QWidget *parent = nullptr);
   void Load(const QString &fileId);
 
+protected:
+  void paintEvent(QPaintEvent *event) override;
+
 private:
   enum class Action { None, Save, Open };
   void Activate(Action action);
@@ -19,6 +22,7 @@ private:
   QPushButton *_save;
   QPushButton *_open;
   QLabel *_status;
+  QLabel *_name;
   quint64 _generation = 0;
   bool _loading = false;
   Action _afterLoad = Action::None;

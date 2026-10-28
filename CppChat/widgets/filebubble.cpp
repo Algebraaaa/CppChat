@@ -6,7 +6,10 @@
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QLabel>
+#include <QPainter>
 #include <QPushButton>
+#include <QStyle>
+#include <QStyleOption>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
@@ -14,12 +17,18 @@
 FileBubble::FileBubble(ChatRole role, QWidget *parent) : BubbleFrame(role, parent)
 {
   setObjectName("fileBubble");
+  setProperty("messagePresentation", "file-card");
+  layout()->setContentsMargins(0, 0, 0, 0);
   auto *body = new QWidget(this);
   body->setMinimumWidth(210);
   body->setMaximumWidth(280);
   auto *layout = new QVBoxLayout(body);
   layout->setContentsMargins(10, 8, 10, 8);
-  _status = new QLabel(tr("文件（最多 20 MiB）"), body);
+  _name = new QLabel(tr("文件附件"), body);
+  _name->setObjectName("fileMessageName");
+  _name->setTextFormat(Qt::PlainText);
+  _name->setWordWrap(true);
+  _status = new QLabel(tr("最多 20 MiB"), body);
   _status->setTextFormat(Qt::PlainText);
   _status->setWordWrap(true);
   _status->setObjectName("fileMessageInfo");
@@ -27,7 +36,17 @@ FileBubble::FileBubble(ChatRole role, QWidget *parent) : BubbleFrame(role, paren
   _open->setObjectName("fileMessageOpen");
   _save = new QPushButton(tr("下载文件"), body);
   _save->setObjectName("fileMessageSave");
-  layout->addWidget(_status);
+  auto *heading = new QHBoxLayout;
+  auto *icon = new QLabel(body);
+  icon->setObjectName("fileMessageIcon");
+  icon->setPixmap(style()->standardIcon(QStyle::SP_FileIcon).pixmap(32, 40));
+  icon->setFixedSize(32, 40);
+  auto *details = new QVBoxLayout;
+  details->addWidget(_name);
+  details->addWidget(_status);
+  heading->addWidget(icon);
+  heading->addLayout(details, 1);
+  layout->addLayout(heading);
   auto *actions = new QHBoxLayout;
   for (auto *button : {_open, _save}) {
     button->setFlat(true);
@@ -50,6 +69,8 @@ FileBubble::FileBubble(ChatRole role, QWidget *parent) : BubbleFrame(role, paren
           });
   connect(ChatStore::instance(), &ChatStore::accountChanged, this, [this] {
     _document = {};
+    _name->clear();
+    _status->clear();
     _savedPath.clear();
     _afterLoad = Action::None;
     _loading = false;
@@ -65,7 +86,8 @@ void FileBubble::Load(const QString &fileId)
   _loading = false;
   _afterLoad = Action::None;
   _savedPath.clear();
-  _status->setText(tr("文件附件 · 最多 20 MiB"));
+  _name->setText(tr("文件附件"));
+  _status->setText(tr("最多 20 MiB"));
   _save->setText(tr("另存为…"));
   _open->setText(tr("保存并打开"));
   _save->setEnabled(!fileId.isEmpty());
@@ -91,8 +113,9 @@ void FileBubble::Ready(const QByteArray &bytes, const QString &error)
   const auto size = _document.bytes.size() < 1024
                         ? tr("%1 B").arg(_document.bytes.size())
                         : tr("%1 KiB").arg(_document.bytes.size() / 1024.0, 0, 'f', 1);
-  _status->setText(_document.name + '\n' + size);
-  _status->setToolTip(_document.name);
+  _name->setText(_document.name);
+  _name->setToolTip(_document.name);
+  _status->setText(size);
   _save->setText(tr("另存为…"));
   if (action != Action::None)
     Activate(action);
@@ -154,4 +177,13 @@ void FileBubble::Save(bool openAfterSave)
             }));
           });
   picker->open();
+}
+
+void FileBubble::paintEvent(QPaintEvent *)
+{
+  // File cards use their own themed surface, without the text bubble or tail.
+  QStyleOption option;
+  option.initFrom(this);
+  QPainter painter(this);
+  style()->drawPrimitive(QStyle::PE_Widget, &option, &painter, this);
 }

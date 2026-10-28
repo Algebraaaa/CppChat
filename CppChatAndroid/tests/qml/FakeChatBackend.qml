@@ -17,6 +17,7 @@ QtObject {
     property var lastRetry: []
     property var rows: []
     property var files: ({})
+    property var images: ({})
     property var threads: []
     property bool group: false
     property QtObject media: QtObject {
@@ -50,7 +51,7 @@ QtObject {
         return "";
     }
     function imageSource(fileId) {
-        return "";
+        return images[fileId] || "";
     }
     function threadInfo(id) {
         return {

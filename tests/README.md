@@ -3,6 +3,7 @@
 `client.features` 增补文件消息在真实聊天页中的收发显示、缓存读取、另存、显式打开及账号切换后拒绝旧文件回调；不启动真实外部程序。
 `client.updates` 覆盖同次运行的暂停/断点续传、严格 `Content-Range`、服务器忽略 Range 时安全重下、重新检查版本时丢弃旧前缀，以及完整文件 SHA256 与有界进度通知。
 移动端 `run_chat_ui.py` 覆盖千条聊天中回执不重建可见控件/不跳动阅读位置、待确认消息排序及附件控件复用后的状态隔离；这些主机测试不等于荣耀设备上的帧率验收。
+消息分型回归另验证文字气泡、无文字背景的图片和独立文件卡片，保存三类消息同屏截图。移动端仅加载当前消息类型的组件；桌面文件卡片沿用现有图片组件跳过通用气泡绘制的方式。参考 [Telegram 文件渲染组织](https://github.com/telegramdesktop/tdesktop/blob/dev/Telegram/SourceFiles/history/view/media/history_view_document.cpp) 与 [图片渲染组织](https://github.com/telegramdesktop/tdesktop/blob/dev/Telegram/SourceFiles/history/view/media/history_view_photo.cpp)，仅参考职责划分，没有复制 GPL 源码或微信素材。
 
 可选诊断程序 `update_download_probe <HTTPS清单URL> windows|android [采样字节数]` 直接运行共享更新器；正数到量后停止采样，负数到量后暂停并继续直至完整校验，省略则完整下载。只在显式运行时联网，最多 240 秒，不启动安装器，退出会清理所属临时文件。输出中只有 `verified_complete_package: true` 才代表完整安装包通过校验。
 实现复用现有 Qt Network/QSaveFile/Qt Test，不增加第三方依赖；依据为 [Qt ListView 复用](https://doc.qt.io/qt-6/qml-qtquick-listview.html#reusing-items)、[Qt Quick 性能](https://doc.qt.io/qt-6/qtquick-performance.html)、[QNetworkRequest](https://doc.qt.io/qt-6/qnetworkrequest.html#setRawHeader) 与 [HTTP Range 规范](https://www.rfc-editor.org/rfc/rfc9110.html#name-range)。

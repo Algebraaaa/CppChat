@@ -60,6 +60,7 @@ Item {
             backend.drafts = [];
             backend.rows = [];
             backend.files = ({});
+            backend.images = ({});
             backend.threads = [];
             backend.group = false;
             backend.media.call = {
@@ -111,6 +112,7 @@ Item {
                                                  y: 100
                                              });
             verify(short.width < long.width);
+            compare(findChild(short, "messageText").lineCount, 1);
             verify(long.width <= 208);
             tryVerify(function () {
                 return long.height > short.height;
@@ -364,6 +366,32 @@ Item {
             compare(list.itemAtIndex(2), outgoing);
             compare(outgoing.modelData.msgId, 3);
             compare(outgoing.modelData.uniqueId, "outgoing-stable-id");
+        }
+        function test_messageTypesHaveSeparateSurfaces() {
+            backend.files = {"file": {ready: true, name: "项目资料.pdf", size: 2048}};
+            backend.images = {"photo": Qt.resolvedUrl("fixtures/landscape.svg")};
+            backend.rows = [fixture("文字使用独立聊天气泡", true, 1),
+                            fixture("photo", false, 2, undefined, 1),
+                            fixture("file", true, 3, undefined, 2)];
+            let detail = page(detailComponent, 390, 900);
+            let list = findChild(detail, "messageList");
+            list.forceLayout();
+            const picture = findChild(detail, "messageImage");
+            verify(picture !== null);
+            tryCompare(picture, "status", Image.Ready);
+            const card = findChild(detail, "fileMessageCard");
+            verify(card !== null);
+            compare(card.color, Style.surface);
+            const image = findChild(detail, "imageMessageSurface");
+            verify(image !== null);
+            verify(findChild(image, "textMessageSurface") === null);
+            verify(findChild(image, "textMessageTail") === null);
+            verify(findChild(card, "textMessageSurface") === null);
+            verify(findChild(card, "textMessageTail") === null);
+            verify(findChild(detail, "textMessageSurface") !== null);
+            fuzzyCompare(image.height / image.width, 140 / 240, 0.01);
+            wait(80);
+            saveSnapshot(detail, "message-types-phone");
         }
         function test_recoveryStatusCompatibility() {
             let call = createTemporaryObject(callComponent, host.contentItem, {
