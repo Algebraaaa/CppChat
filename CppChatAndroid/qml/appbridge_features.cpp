@@ -51,11 +51,7 @@ void AppBridge::initializeFeatures()
     m_manualUpdate = false;
   });
   connect(m_updates, &ClientUpdateService::downloadProgress, this,
-          [this](qint64 received, qint64 total) {
-            m_updateReceived = received;
-            m_updateTotal = total;
-            emit updateChanged();
-          });
+          [this](qint64, qint64) { emit updateChanged(); });
   connect(m_updates, &ClientUpdateService::downloadReady, this, [this] {
     m_updateMessage = tr("安装包校验完成，可以安装");
     emit updateChanged();
@@ -128,8 +124,16 @@ void AppBridge::checkUpdates()
 }
 void AppBridge::downloadUpdate()
 {
-  m_updateReceived = m_updateTotal = 0;
+  m_updateMessage.clear();
   m_updates->download();
+}
+void AppBridge::cancelUpdate()
+{
+  if (m_updates->state() != ClientUpdateService::State::Downloading)
+    return;
+  m_updates->cancel();
+  m_updateMessage = tr("下载已暂停，本次运行中可继续下载");
+  emit updateChanged();
 }
 void AppBridge::installUpdate()
 {
@@ -144,8 +148,9 @@ QVariantMap AppBridge::updateInfo() const
           {"version", m_updates ? m_updates->info().version : QString()},
           {"notes", m_updates ? m_updates->releaseNotes() : QString()},
           {"message", m_updateMessage},
-          {"received", m_updateReceived},
-          {"total", m_updateTotal}};
+          {"received", m_updates ? m_updates->downloadedBytes() : 0},
+          {"total", m_updates ? m_updates->info().size : 0},
+          {"bytesPerSecond", m_updates ? m_updates->bytesPerSecond() : 0}};
 }
 QVariantMap AppBridge::storageInfo() const
 {

@@ -1,4 +1,9 @@
 find_package(Qt6 REQUIRED COMPONENTS Test)
+qt_add_executable(update_download_probe update_download_probe.cpp
+  "${repository_root}/CppChat/services/clientupdateservice.cpp"
+  "${repository_root}/CppChat/services/clientupdateservice.h")
+target_include_directories(update_download_probe PRIVATE "${repository_root}/CppChat")
+target_link_libraries(update_download_probe PRIVATE Qt6::Core Qt6::Gui Qt6::Network)
 qt_add_executable(file_transport_probe file_transport_probe.cpp)
 target_link_libraries(file_transport_probe PRIVATE CppChatCore)
 target_sources(file_transport_probe PRIVATE "${repository_root}/CppChat/common/securitypolicy.cpp")

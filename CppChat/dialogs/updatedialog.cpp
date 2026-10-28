@@ -72,9 +72,10 @@ UpdateDialog::UpdateDialog(ClientUpdateService *service, QWidget *parent)
   connect(service, &ClientUpdateService::downloadProgress, this,
           [this](qint64 received, qint64 total) {
             _progress->setValue(static_cast<int>(received * 1000 / total));
-            _status->setText(tr("正在下载：%1 / %2 MB")
+            _status->setText(tr("正在下载：%1 / %2 MB · %3 KiB/s")
                                  .arg(received / 1048576.0, 0, 'f', 1)
-                                 .arg(total / 1048576.0, 0, 'f', 1));
+                                 .arg(total / 1048576.0, 0, 'f', 1)
+                                 .arg(_service->bytesPerSecond() / 1024.0, 0, 'f', 0));
           });
   refresh();
 }
@@ -82,6 +83,14 @@ UpdateDialog::UpdateDialog(ClientUpdateService *service, QWidget *parent)
 void UpdateDialog::checkManually()
 {
   _manual = true;
+  if (_service->state() == ClientUpdateService::State::Ready ||
+      (_service->state() == ClientUpdateService::State::Available &&
+       _service->downloadedBytes() > 0)) {
+    refresh();
+    show();
+    raise();
+    return;
+  }
   show();
   raise();
   if (!_service->busy() && _service->state() != ClientUpdateService::State::Ready)
@@ -105,15 +114,19 @@ void UpdateDialog::refresh()
   _notes->setVisible(!notes.isEmpty());
   _progress->setVisible(state == State::Downloading);
   _action->setEnabled(!_service->busy());
-  _later->setText(_service->busy() ? tr("取消") : tr("稍后"));
+  _later->setText(state == State::Downloading ? tr("暂停")
+                  : _service->busy()          ? tr("取消")
+                                              : tr("稍后"));
   if (state == State::Checking) {
     _status->setText(tr("正在检查更新…"));
     _action->setText(tr("检查更新"));
   } else if (state == State::Available) {
     _status->setText(tr("发现新版本 %1").arg(_service->info().version));
-    _action->setText(tr("下载更新"));
+    _action->setText(_service->downloadedBytes() > 0 ? tr("继续下载") : tr("下载更新"));
   } else if (state == State::Downloading) {
-    _progress->setValue(0);
+    _progress->setValue(_service->info().size > 0 ? static_cast<int>(_service->downloadedBytes() *
+                                                                     1000 / _service->info().size)
+                                                  : 0);
     _status->setText(tr("正在下载更新…"));
   } else if (state == State::Ready) {
     _status->setText(tr("下载校验完成，安装时将关闭客户端并保留聊天数据"));

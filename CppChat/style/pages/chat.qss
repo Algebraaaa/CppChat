@@ -1,5 +1,21 @@
 /* Conversation list, chat header, composer, messages and delivery status. */
 
+FileBubble#fileBubble {
+    background: ${color.surface};
+    border: 1px solid ${color.border.card};
+    border-radius: 8px;
+}
+FileBubble#fileBubble #fileMessageInfo { color: ${color.text.muted}; font-size: ${font.size.label}; }
+FileBubble#fileBubble QPushButton {
+    background: transparent;
+    border: none;
+    color: ${color.text.body};
+    padding: 4px 2px;
+    text-align: left;
+}
+FileBubble#fileBubble QPushButton:hover { color: ${color.brand}; }
+FileBubble#fileBubble QPushButton:disabled { color: ${color.text.muted}; }
+
 QDialog#ChatDialog {
     background: ${color.surface.page};
     color: ${color.text.primary};
