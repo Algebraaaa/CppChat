@@ -13,7 +13,7 @@ param(
     [string]$SigningKey = '',
     [string]$SigningAlias = 'cppchat-android-test',
     [ValidatePattern('^[A-Za-z0-9_-]*$')][string]$ArtifactSuffix = '',
-    [string]$ReleaseNotes = '优化聊天气泡、附件卡片和导航；通话短时媒体停顿支持有界恢复，真实连接关闭后仍需重新呼叫。0.1.21 起沿用固定签名；旧 0.1.20 用户需先保留本机数据，再卸载重装。',
+    [string]$ReleaseNotes = '文字气泡、独立图片与文件卡片分别展示；消息列表增量更新并复用控件，改善发送回执和历史滚动，滚动指示器改为细窄淡出。更新下载支持同次运行内暂停和续传、速度显示及完整校验；公网带宽仍影响速度。荣耀真机流畅度及媒体体验仍待验收。0.1.21 起沿用固定签名；旧 0.1.20 用户需先保留本机数据，再卸载重装。',
     [int]$Jobs = 6
 )
 $ErrorActionPreference = 'Stop'

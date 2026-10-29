@@ -16,6 +16,7 @@ Rectangle {
     Label { anchors.centerIn: parent; text: root.name.charAt(0) || "?"; color: "white"; font.pixelSize: Math.min(root.width * 0.43, 24) }
     Image {
         id: picture
+        asynchronous: true
         anchors.fill: parent
         sourceSize.width: 96
         sourceSize.height: 96

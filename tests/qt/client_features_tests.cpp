@@ -4,6 +4,7 @@
 #include "common/autologinstore.h"
 #include "common/contactnames.h"
 #include "common/contactpreferences.h"
+#include "common/fileattachment.h"
 #include "common/runtimepaths.h"
 #include "dialogs/applyfriend.h"
 #include "dialogs/chatdialog.h"
@@ -28,20 +29,26 @@
 #include "widgets/MessageTextEdit.h"
 #include "widgets/audiobubble.h"
 #include "widgets/contactuserlist.h"
+#include "widgets/filebubble.h"
 #include "widgets/picturebubble.h"
 #include <QAction>
 #include <QBuffer>
 #include <QCheckBox>
 #include <QCryptographicHash>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFile>
+#include <QFileDialog>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMenu>
+#include <QPainter>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QTcpServer>
@@ -152,6 +159,10 @@ class ClientFeatureTests : public QObject {
   Q_OBJECT
   QTemporaryDir root;
   int fixtureIndex = 0;
+  QUrl openedFile;
+
+public:
+  Q_INVOKABLE void recordFileOpen(const QUrl &url) { openedFile = url; }
 private slots:
   void init()
   {
@@ -175,6 +186,111 @@ private slots:
     QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
   }
   void cleanupTestCase() { ChatStore::instance()->Shutdown(); }
+  void attachmentEntryAndSentFileCanBeSavedWithoutRedownloading()
+  {
+    openedFile = QUrl();
+    QDesktopServices::setUrlHandler("file", this, "recordFileOpen");
+    const auto restoreHandler = qScopeGuard([] { QDesktopServices::unsetUrlHandler("file"); });
+    ChatPage page;
+    QVERIFY(!page.findChild<QPushButton *>("document_btn"));
+    auto *menu = page.findChild<QPushButton *>("file_btn")->menu();
+    QVERIFY(menu);
+    QVERIFY(menu->findChild<QAction *>("sendImageAction"));
+    QVERIFY(menu->findChild<QAction *>("sendFileAction"));
+    const auto bytes = FileAttachment::Pack("已发送.txt", QByteArray("sent document contents"));
+    const QString id(32, 'a');
+    ResourceMgr::instance()->rememberImage(id, bytes);
+    FileBubble bubble(ChatRole::Self);
+    bubble.Load(id);
+    QVERIFY(bubble.findChild<QLabel *>("fileMessageName")->text().contains("已发送.txt"));
+    QCOMPARE(bubble.property("messagePresentation").toString(), QString("file-card"));
+    QCOMPARE(bubble.layout()->contentsMargins(), QMargins());
+    QVERIFY(bubble.findChild<QPushButton *>("fileMessageOpen")->isEnabled());
+    bubble.findChild<QPushButton *>("fileMessageSave")->click();
+    auto *picker = bubble.findChild<QFileDialog *>("fileMessageSaveDialog");
+    QVERIFY(picker);
+    const auto path = root.filePath("sent-file-export.txt");
+    QVERIFY(QMetaObject::invokeMethod(picker, "fileSelected", Q_ARG(QString, path)));
+    QTRY_VERIFY(QFile::exists(path));
+    QFile saved(path);
+    QVERIFY(saved.open(QIODevice::ReadOnly));
+    QCOMPARE(saved.readAll(), QByteArray("sent document contents"));
+    QTRY_COMPARE(bubble.findChild<QPushButton *>("fileMessageOpen")->text(), QString("打开文件"));
+    bubble.findChild<QPushButton *>("fileMessageOpen")->click();
+    QCOMPARE(openedFile, QUrl::fromLocalFile(path));
+    ChatStore::instance()->CloseAccount();
+    QTRY_VERIFY(!bubble.findChild<QPushButton *>("fileMessageOpen")->isEnabled());
+    openedFile = QUrl();
+    const auto stalePath = root.filePath("must-not-export.txt");
+    QVERIFY(QMetaObject::invokeMethod(picker, "fileSelected", Q_ARG(QString, stalePath)));
+    QVERIFY(!QFile::exists(stalePath));
+    QVERIFY(openedFile.isEmpty());
+  }
+  void sentAndReceivedFilesRemainVisibleInTheRealChatPage()
+  {
+    LoginPeer peer;
+    peer.capabilities = {{"group_chat", true}, {"file_messages", true}};
+    gate_url_prefix = peer.url();
+    LoginDialog login;
+    login.findChild<QLineEdit *>("email_edit")->setText("user@example.invalid");
+    login.findChild<QLineEdit *>("pass_edit")->setText("Password123");
+    login.findChild<QPushButton *>("login_btn")->click();
+    QTRY_VERIFY(TcpMgr::GetInstance()->IsConnected());
+    auto *store = ChatStore::instance();
+    const auto result = QtFixtures::awaitStore(
+        [&](auto done) { store->OpenAccount(101, "https://file-ui.example.test", done); });
+    QVERIFY(result.error.isEmpty());
+    auto group = std::make_shared<ChatThreadData>(0, 301, 0);
+    group->SetGroup({{"thread_id", 301}, {"name", "文件显示验证"}, {"owner_uid", 101}});
+    UserMgr::GetInstance()->AddChatThreadData(group, 0);
+    const QString id(32, 'f');
+    ResourceMgr::instance()->rememberImage(id, FileAttachment::Pack("资料.txt", "contents"));
+    for (int sender : {101, 102}) {
+      auto message =
+          std::make_shared<TextChatData>(sender, 301, ChatFormType::PRIVATE, ChatMsgType::FILE, id,
+                                         sender, UN_READ, "2026-10-28 12:00:00");
+      group->AppendMsg(sender, message);
+    }
+    group->AppendMsg(103, std::make_shared<TextChatData>(103, 301, ChatFormType::PRIVATE,
+                                                         ChatMsgType::TEXT, "文字仍使用聊天气泡",
+                                                         101, UN_READ, "2026-10-28 12:00:01"));
+    QImage image(180, 100, QImage::Format_RGB32);
+    image.fill(QColor("#dcebf4"));
+    QPainter painter(&image);
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor("#f6ce72"));
+    painter.drawEllipse(QPoint(140, 24), 12, 12);
+    painter.setBrush(QColor("#4b8e78"));
+    painter.drawPolygon(QPolygon{QPoint(0, 100), QPoint(70, 25), QPoint(180, 100)});
+    painter.end();
+    QByteArray pictureBytes;
+    QBuffer pictureBuffer(&pictureBytes);
+    QVERIFY(pictureBuffer.open(QIODevice::WriteOnly));
+    QVERIFY(image.save(&pictureBuffer, "PNG"));
+    const QString pictureId(32, 'b');
+    ResourceMgr::instance()->rememberImage(pictureId, pictureBytes);
+    group->AppendMsg(104, std::make_shared<TextChatData>(104, 301, ChatFormType::PRIVATE,
+                                                         ChatMsgType::PIC, pictureId, 102, UN_READ,
+                                                         "2026-10-28 12:00:02"));
+    ChatPage page;
+    page.SetChatData(group);
+    QTRY_COMPARE(page.findChildren<FileBubble *>().size(), 2);
+    QTRY_VERIFY(page.findChild<PictureBubble *>() && page.findChild<PictureBubble *>()->hasImage());
+    const auto artifacts = qEnvironmentVariable("CPPCHAT_TEST_ARTIFACTS");
+    if (!artifacts.isEmpty()) {
+      QString error;
+      QVERIFY2(ThemeManager::apply(*qApp, &error), qPrintable(error));
+      page.resize(900, 920);
+      page.show();
+      QTest::qWait(40);
+      QVERIFY(QDir().mkpath(artifacts));
+      QVERIFY(page.grab().save(artifacts + "/file-message-chat.png"));
+    }
+    for (auto *bubble : page.findChildren<FileBubble *>())
+      QVERIFY(bubble->findChild<QLabel *>("fileMessageName")->text().contains("资料.txt"));
+    page.SetChatData(group);
+    QTRY_COMPARE(page.findChildren<FileBubble *>().size(), 2);
+  }
   void composerKeepsFocusAfterKeyboardAndMouseSendWithoutStealingNewFocus()
   {
     LoginPeer peer;

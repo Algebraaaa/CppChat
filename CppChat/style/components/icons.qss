@@ -218,6 +218,7 @@ ChatPage #emo_btn:checked {
 ChatPage #file_btn {
     border-image: url(:/icons/folder-open-normal.svg);
 }
+ChatPage #file_btn::menu-indicator { image: none; }
 
 ChatPage #file_btn:hover,
 ChatPage #file_btn:pressed {

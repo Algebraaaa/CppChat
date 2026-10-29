@@ -49,8 +49,14 @@ public:
   Q_INVOKABLE void disconnectChat();
   Q_INVOKABLE void reconnectNow();
   Q_INVOKABLE bool backgroundApplication();
-  bool sessionActive() const { return m_session.active(); }
-  bool reconnecting() const { return m_session.recovering(); }
+  bool sessionActive() const
+  {
+    return m_session.active();
+  }
+  bool reconnecting() const
+  {
+    return m_session.recovering();
+  }
   QString connectionText() const;
   MobileAccount *account()
   {
@@ -59,6 +65,7 @@ public:
   Q_INVOKABLE void startAutomaticLogin();
   Q_INVOKABLE void checkUpdates();
   Q_INVOKABLE void downloadUpdate();
+  Q_INVOKABLE void cancelUpdate();
   Q_INVOKABLE void installUpdate();
   QVariantMap updateInfo() const;
   Q_INVOKABLE QVariantMap storageInfo() const;
@@ -77,7 +84,10 @@ public:
   Q_INVOKABLE QString newGroupCreationKey() const;
   Q_INVOKABLE bool sendTextMessage(int threadId, const QString &text);
   Q_INVOKABLE bool sendImage(int threadId, const QUrl &file);
-  MobileMedia *media() const { return m_media; }
+  MobileMedia *media() const
+  {
+    return m_media;
+  }
   QVariantMap mediaCapabilities() const;
   Q_INVOKABLE bool sendFile(int threadId, const QUrl &file);
   Q_INVOKABLE void startRecording(int threadId);
@@ -183,7 +193,6 @@ private:
   ClientUpdateService *m_updates = nullptr;
   QString m_loginEmail, m_loginPassword;
   QString m_updateMessage;
-  qint64 m_updateReceived = 0, m_updateTotal = 0;
   bool m_manualUpdate = false, m_autoStarted = false;
 };
 

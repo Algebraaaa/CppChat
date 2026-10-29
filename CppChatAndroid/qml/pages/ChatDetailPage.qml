@@ -12,6 +12,7 @@ Page {
     required property var navigation
     property int threadId: 0
     property var messages: []
+    onMessagesChanged: { if (messageModel) messageModel.apply(messages) }
     property bool olderAvailable: true
     property bool attachmentsVisible: false
     property var conversation: backend.threadInfo(threadId)
@@ -20,6 +21,7 @@ Page {
     title: qsTr("聊天")
     background: Rectangle { color: Style.background }
     header: MobileHeader { title: page.title; onBack: page.navigation.back(); actionText: "⋯"; onAction: actions.open() }
+    MessageListModel { id: messageModel }
     Menu {
         id: actions; x: Math.max(0, page.width - width)
         MenuItem { text: qsTr("语音通话"); visible: !page.backend.threadInfo(page.threadId).isGroup; enabled: page.backend.isLoggedIn && page.backend.mediaCapabilities.call; onTriggered: page.backend.startCall(page.threadId, false) }
@@ -30,13 +32,11 @@ Page {
     }
 
     function refresh() {
-        const follow = messageList.count === 0 || messageList.atYEnd
-        messageList.stickToEnd = follow
-        const oldY = messageList.contentY
+        const follow = messageList.stickToEnd && !messageList.moving
         const incoming = backend.messagesForThread(threadId)
         // Keep the expanded local history visible when the shared service
         // refreshes its latest-message window after an incoming message.
-        let merged = ({})
+        let merged = Object.create(null)
         for (const message of page.messages)
             merged[message.uniqueId || ("id:" + message.msgId)] = message
         for (const message of incoming)
@@ -50,7 +50,6 @@ Page {
         })
         Qt.callLater(function() {
             if (follow && messageList.stickToEnd) followTimer.restart()
-            else messageList.contentY = oldY
         })
     }
     function send() {
@@ -75,6 +74,7 @@ Page {
             property bool stickToEnd: true
             function keepAtEnd() {
                 if (stickToEnd && !moving && !atYEnd) {
+                    forceLayout()
                     positionViewAtEnd()
                 }
             }
@@ -85,8 +85,21 @@ Page {
             spacing: 16
             topMargin: 8
             footer: Item { height: 20 }
-            model: page.messages
-            ScrollBar.vertical: ScrollBar {}
+            model: messageModel
+            reuseItems: true
+            cacheBuffer: height / 2
+            ScrollBar.vertical: ScrollBar {
+                id: chatScrollBar
+                objectName: "chatScrollBar"
+                width: 4
+                padding: 0
+                interactive: false
+                minimumSize: 0.04
+                opacity: active ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 180 } }
+                contentItem: Rectangle { implicitWidth: 3; radius: 2; color: "#929a96" }
+                background: null
+            }
             onMovementStarted: stickToEnd = false
             onMovementEnded: stickToEnd = atYEnd
             onHeightChanged: { if (stickToEnd) followTimer.restart() }
@@ -112,9 +125,11 @@ Page {
             }
             delegate: Item {
                 id: row
-                required property var modelData
+                required property var payload
+                required property string timeBefore
+                readonly property var modelData: payload
                 required property int index
-                readonly property bool hasTime: Style.showTime(modelData, index > 0 ? page.messages[index - 1] : null)
+                readonly property bool hasTime: Style.showTime(modelData, index > 0 ? {time: timeBefore} : null)
                 readonly property bool showSender: !!page.conversation.isGroup && !modelData.isSelf
                 readonly property real messageTop: hasTime ? 40 : 0
                 width: messageList.width
@@ -158,7 +173,7 @@ Page {
                     x: row.modelData.isSelf ? avatar.x - width - 10 : avatar.x + avatar.width + 10
                     y: row.messageTop + (row.showSender ? 23 : 0)
                     onHeightChanged: {
-                        if (row.modelData.type === 1 && messageList.stickToEnd)
+                        if (messageList.stickToEnd)
                             followTimer.restart()
                     }
                     onSaveRequested: function(fileId, name) {
@@ -329,6 +344,7 @@ Page {
             messageList.stickToEnd = true
             messageList.forceLayout()
             messageList.positionViewAtEnd()
+            followTimer.restart()
         }
     }
     FileDialog {
