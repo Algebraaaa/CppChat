@@ -120,7 +120,11 @@ public final class UpdateDownload {
         JSONObject manifest;
         try {
             manifest = saved(context);
-        } catch (org.json.JSONException malformed) {
+            if (manifest != null) {
+                file(context, manifest, ".part");
+                manifest.getString("downloadUrl");
+            }
+        } catch (org.json.JSONException | SecurityException malformed) {
             // No trusted identity/path can be recovered: clear only this app's receipt.
             if (!prefs(context).edit().clear().commit()) throw new IllegalStateException("无法清理更新记录");
             return;
