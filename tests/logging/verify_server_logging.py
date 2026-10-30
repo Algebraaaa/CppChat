@@ -16,31 +16,40 @@ class LoggingTests(unittest.TestCase):
         self.addCleanup(self.sandbox.cleanup)
         self.directory = Path(self.sandbox.name) / "日志"
         self.env = {
-            key: value for key, value in os.environ.items()
+            key: value
+            for key, value in os.environ.items()
             if not key.startswith("CPPCHAT_LOG_") and key != "JOURNAL_STREAM"
         }
 
     def tearDown(self):
         result = self._outcome.result
         if any(test is self for test, _ in result.failures + result.errors):
-            shutil.copytree(self.sandbox.name, ARTIFACTS / ("failed-" + self._testMethodName),
-                            dirs_exist_ok=True)
+            shutil.copytree(
+                self.sandbox.name,
+                ARTIFACTS / ("failed-" + self._testMethodName),
+                dirs_exist_ok=True,
+            )
 
     def run_probe(self, mode="write", **settings):
         result = subprocess.run(
-            [str(PROBE), mode, str(self.directory)], env={**self.env, **settings},
-            capture_output=True, text=True, encoding="utf-8", timeout=25,
+            [str(PROBE), mode, str(self.directory)],
+            env={**self.env, **settings},
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=25,
         )
         (Path(self.sandbox.name) / (mode + "-stdout.log")).write_text(
-            result.stdout, encoding="utf-8")
+            result.stdout, encoding="utf-8"
+        )
         (Path(self.sandbox.name) / (mode + "-stderr.log")).write_text(
-            result.stderr, encoding="utf-8")
+            result.stderr, encoding="utf-8"
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         return result
 
     def text(self):
-        return "\n".join(path.read_text(encoding="utf-8")
-                         for path in self.directory.rglob("*.log"))
+        return "\n".join(path.read_text(encoding="utf-8") for path in self.directory.rglob("*.log"))
 
     def test_default_filter_literal_text_and_no_duplicate_console(self):
         result = self.run_probe()
@@ -55,8 +64,12 @@ class LoggingTests(unittest.TestCase):
     def test_debug_and_invalid_environment(self):
         self.run_probe(CPPCHAT_LOG_LEVEL="debug")
         self.assertIn("DEBUG_RECORD", self.text())
-        result = self.run_probe(CPPCHAT_LOG_LEVEL="bogus", CPPCHAT_LOG_MAX_MB="-1",
-                                CPPCHAT_LOG_BACKUPS="999", CPPCHAT_LOG_INSTANCE="../unsafe")
+        result = self.run_probe(
+            CPPCHAT_LOG_LEVEL="bogus",
+            CPPCHAT_LOG_MAX_MB="-1",
+            CPPCHAT_LOG_BACKUPS="999",
+            CPPCHAT_LOG_INSTANCE="../unsafe",
+        )
         self.assertIn("Invalid CPPCHAT_LOG_LEVEL", result.stderr)
         self.assertIn("Invalid CPPCHAT_LOG_MAX_MB", result.stderr)
         self.assertIn("Invalid CPPCHAT_LOG_BACKUPS", result.stderr)
@@ -112,9 +125,13 @@ class LoggingTests(unittest.TestCase):
             paths = []
             for _ in range(2):
                 process = subprocess.Popen(
-                    [str(PROBE), "hold", str(self.directory)], env=self.env,
-                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                    text=True, encoding="utf-8",
+                    [str(PROBE), "hold", str(self.directory)],
+                    env=self.env,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding="utf-8",
                 )
                 processes.append(process)
                 paths.append(process.stdout.readline().strip())
