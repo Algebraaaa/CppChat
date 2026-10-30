@@ -23,6 +23,7 @@ import org.json.JSONObject;
 
 /** System-owned transfer with a private durable receipt; no Activity or native callbacks retained. */
 public final class UpdateDownload {
+    private static final String DESCRIPTION = "正在后台下载更新，可锁屏或离开 CppChat";
     private UpdateDownload() {}
 
     private static SharedPreferences prefs(Context context) {
@@ -63,19 +64,26 @@ public final class UpdateDownload {
         return result;
     }
 
+    private static boolean ownedTask(Context context, JSONObject manifest, Cursor cursor) throws Exception {
+        return DownloadIdentity.belongs(
+                cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)),
+                prefs(context).getLong("id", -1),
+                cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_URI)),
+                manifest.getString("downloadUrl"),
+                cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI)),
+                file(context, manifest, ".part"),
+                cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE)),
+                cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_DESCRIPTION)),
+                prefs(context).getString("taskTitle", "CppChat " + manifest.getString("version")),
+                prefs(context).getString("taskDescription", DESCRIPTION));
+    }
+
     private static List<Long> matchingTasks(Context context, JSONObject manifest) throws Exception {
-        File path = file(context, manifest, ".part");
         List<Long> found = new ArrayList<>();
         try (Cursor cursor = manager(context).query(new DownloadManager.Query())) {
             if (cursor == null) throw new IllegalStateException("无法查询系统下载任务");
             while (cursor.moveToNext()) {
-                String local = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI));
-                String origin = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_URI));
-                Uri location = local == null ? null : Uri.parse(local);
-                boolean sameFile = location != null && "file".equals(location.getScheme())
-                        && location.getPath() != null
-                        && path.equals(new File(location.getPath()).getCanonicalFile());
-                if (sameFile && manifest.getString("downloadUrl").equals(origin)) {
+                if (ownedTask(context, manifest, cursor)) {
                     found.add(cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)));
                 }
             }
@@ -85,6 +93,12 @@ public final class UpdateDownload {
 
     // Recover even if the process died between enqueue() and persisting its returned ID.
     private static long findTask(Context context, JSONObject manifest) throws Exception {
+        long savedId = prefs(context).getLong("id", -1);
+        if (savedId > 0) {
+            try (Cursor cursor = manager(context).query(new DownloadManager.Query().setFilterById(savedId))) {
+                if (cursor != null && cursor.moveToFirst() && ownedTask(context, manifest, cursor)) return savedId;
+            }
+        }
         List<Long> tasks = matchingTasks(context, manifest);
         if (tasks.size() > 1) throw new IllegalStateException("存在重复更新任务，请取消后重试");
         long found = tasks.isEmpty() ? -1 : tasks.get(0);
@@ -161,17 +175,20 @@ public final class UpdateDownload {
             file(context, manifest, ".part");
             JSONObject old = saved(context);
             if (old != null && old.getString("sha256").equals(manifest.getString("sha256"))
+                    && old.getString("version").equals(manifest.getString("version"))
                     && old.getString("downloadUrl").equals(manifest.getString("downloadUrl"))
                     && old.getLong("size") == manifest.getLong("size")) {
                 JSONObject current = snapshot(context, old);
                 if (current.getInt("status") != DownloadManager.STATUS_FAILED) return current.toString();
             }
             discard(context);
-            if (!prefs(context).edit().putString("manifest", manifest.toString()).putLong("id", -1).commit())
+            String title = "CppChat " + manifest.getString("version");
+            if (!prefs(context).edit().putString("manifest", manifest.toString()).putLong("id", -1)
+                    .putString("taskTitle", title).putString("taskDescription", DESCRIPTION).commit())
                 throw new IllegalStateException("无法保存更新信息");
             DownloadManager.Request request = new DownloadManager.Request(uri)
-                    .setTitle("CppChat " + manifest.getString("version"))
-                    .setDescription("正在后台下载更新，可锁屏或离开 CppChat")
+                    .setTitle(title)
+                    .setDescription(DESCRIPTION)
                     // A system notification must not offer an unverified APK to the installer.
                     .setMimeType("application/octet-stream")
                     .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)

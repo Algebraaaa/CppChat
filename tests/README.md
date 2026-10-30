@@ -1,6 +1,7 @@
 # CppChat 回归测试
 
 `tests/mobile_update` 独立构建 `mobile.updates`，通过可注入系统下载适配器验证跨 UI 生命周期恢复、重复启动不重复下载、系统网络暂停、显式取消、失败重试、旧/异源记录拒绝、完整校验失败不可安装，以及已下载安装包重新检查版本时复用。这里使用主机替身，不代表 Android 系统服务或荣耀后台行为已实测；Android CI 同时编译实际 JNI/Java 适配并保留 APK 审计。
+`tests/mobile_update/java` 用 CI 现有 JDK 直接测试生产 `DownloadIdentity`：持久 ID 优先识别尚无本地 URI 的排队任务，enqueue/记录间崩溃通过不可变 URL 与请求元数据恢复；同时拒绝不同 URL、目标文件、元数据和非法 URI。不引入 JUnit/模拟 Android 框架的依赖，这些纯身份策略测试仍不代表系统实际后台调度已实测。
 
 Android APK 更新复用系统 [DownloadManager](https://developer.android.com/reference/android/app/DownloadManager) 和现有 [Qt Android JNI](https://doc.qt.io/qt-6/qnativeinterface-qandroidapplication.html)，不引入下载库。系统持有任务与通知，应用私有记录保存清单和任务 ID；下载使用不可直接安装的 `.part` 文件，完成后后台复制到私有目录并校验完整大小、SHA256、包名、版本及当前安装证书。单独的 FileProvider 仅分享验证后的 updates 目录。DownloadManager 没有公开的手动暂停接口，安卓界面明确显示“取消下载”；系统网络等待仍自动保留原任务。进程退出不调用 remove，不依赖常驻 Activity、WakeLock 或前台服务。取消安装和未知来源授权往返保留已下载包；安装前重新校验。
 
