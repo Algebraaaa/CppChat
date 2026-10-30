@@ -114,49 +114,93 @@ function Show-ServerLogWindow([string]$Name,[int]$ServiceProcessId) {
   throw "Could not open the $Name log window; service PID $ServiceProcessId is still running."
 }
 
+# 轮转时通过文件身份识别新文件；查看器不长期占用文件句柄
+function Initialize-LogFileIdentity {
+  if ('CppChatLogFileIdentity' -as [type]) { return }
+  Add-Type -TypeDefinition @"
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+public static class CppChatLogFileIdentity {
+  [StructLayout(LayoutKind.Sequential)]
+  private struct Info {
+    public uint Attributes;
+    public System.Runtime.InteropServices.ComTypes.FILETIME Creation, Access, Write;
+    public uint Volume, SizeHigh, SizeLow, Links, IndexHigh, IndexLow;
+  }
+  [DllImport("kernel32.dll", SetLastError=true)]
+  private static extern bool GetFileInformationByHandle(SafeFileHandle handle, out Info info);
+  public static string Get(SafeFileHandle handle) {
+    Info info;
+    if (!GetFileInformationByHandle(handle, out info))
+      throw new Win32Exception(Marshal.GetLastWin32Error());
+    return info.Volume + ":" + info.IndexHigh + ":" + info.IndexLow;
+  }
+}
+"@
+}
+
+function Read-ServerLogTail([hashtable]$State, [string]$Path) {
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return '' }
+  $stream=$null
+  $reader=$null
+  try {
+    $sharing=[IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete
+    $stream=[IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,$sharing)
+    $identity=[CppChatLogFileIdentity]::Get($stream.SafeFileHandle)
+    $first=-not $State.ContainsKey('Identity')
+    if ($first -or $State.Identity -ne $identity -or $State.Offset -gt $stream.Length) {
+      $State.Offset=0L
+      $State.Identity=$identity
+    }
+    [void]$stream.Seek($State.Offset,[IO.SeekOrigin]::Begin)
+    $reader=[IO.StreamReader]::new($stream,[Text.UTF8Encoding]::new($false),$true)
+    $text=$reader.ReadToEnd()
+    $State.Offset=$stream.Position
+    if ($first) { return (($text -split '\r?\n' | Select-Object -Last 60) -join "`n") }
+    return $text
+  } catch [IO.IOException] {
+    # 文件恰好轮转时下轮重试，不影响实际服务
+    return ''
+  } finally {
+    if ($reader) { $reader.Dispose() }
+    elseif ($stream) { $stream.Dispose() }
+  }
+}
+
 function Watch-ServerLogs {
   if (-not $LogServer -or $LogProcessId -le 0) { throw 'Log window requires a server name and process ID.' }
+  Initialize-LogFileIdentity
   $serviceProcess=Get-Process -Id $LogProcessId -ErrorAction Stop
   $directory=Join-Path $PSScriptRoot $LogServer
   $Host.UI.RawUI.WindowTitle="CppChat - $LogServer"
   [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false)
   $PID | Set-Content -LiteralPath (Join-Path $directory 'log-window.pid')
   Write-Host "=== $LogServer | PID $LogProcessId ===" -ForegroundColor Cyan
-  Write-Host 'Live stdout and stderr. Stop services using CppChat.cmd stop.'
+  Write-Host 'Live rolling log and startup diagnostics. Stop services using CppChat.cmd stop.'
   Write-Host "Log directory: $directory"
-  $readers=@()
-  try {
-    foreach ($file in @('stdout.log','stderr.log')) {
-      $path=Join-Path $directory $file
-      if (-not (Test-Path -LiteralPath $path)) { continue }
-      $stream=[IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::ReadWrite)
-      $reader=[IO.StreamReader]::new($stream,[Text.UTF8Encoding]::new($false),$true)
-      $initial=$reader.ReadToEnd()
-      foreach ($line in @($initial -split '\r?\n' | Select-Object -Last 60)) {
-        if ($line) {
-          if ($file -eq 'stderr.log') { Write-Host $line -ForegroundColor Red } else { Write-Host $line }
-        }
-      }
-      $readers+=@{Reader=$reader;IsError=($file -eq 'stderr.log')}
-    }
-    do {
-      foreach ($entry in $readers) {
-        $reader=$entry.Reader
-        if ($reader.BaseStream.Position -gt $reader.BaseStream.Length) {
-          $reader.DiscardBufferedData()
-          [void]$reader.BaseStream.Seek(0,[IO.SeekOrigin]::Begin)
-        }
-        $appended=$reader.ReadToEnd()
-        if ($appended) {
-          if ($entry.IsError) { Write-Host $appended -NoNewline -ForegroundColor Red } else { Write-Host $appended -NoNewline }
-        }
-      }
-      Start-Sleep -Milliseconds 250
-      $serviceProcess.Refresh()
-    } while (-not $serviceProcess.HasExited)
-  } finally {
-    foreach ($entry in $readers) { $entry.Reader.Dispose() }
+  $files=@{}
+  foreach ($file in @('stdout.log','stderr.log')) {
+    $files[(Join-Path $directory $file)]=@{IsError=($file -eq 'stderr.log')}
   }
+  do {
+    foreach ($path in @($files.Keys)) {
+      $entry=$files[$path]
+      $text=Read-ServerLogTail $entry $path
+      if (-not $text) { continue }
+      if ($entry.IsError) { Write-Host $text -NoNewline -ForegroundColor Red }
+      else { Write-Host $text -NoNewline }
+      foreach ($line in ($text -split '\r?\n')) {
+        if ($line -match '^\[LOGGER\] file: (.+)$') {
+          $logPath=[IO.Path]::GetFullPath($Matches[1])
+          if (-not $files.ContainsKey($logPath)) { $files[$logPath]=@{IsError=$false} }
+        }
+      }
+    }
+    Start-Sleep -Milliseconds 250
+    $serviceProcess.Refresh()
+  } while (-not $serviceProcess.HasExited)
 }
 
 function Start-MySqlService {

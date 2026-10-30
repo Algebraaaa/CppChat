@@ -210,3 +210,9 @@ GitHub 方法参考：[GoogleTest](https://github.com/google/googletest)、[Qt T
 `integration/test_groups.py` 使用两个实际聊天 EXE、隔离 MySQL/Redis，覆盖群主权限、好友邀请、
 跨节点和同节点投递、消息重试去重、离线补拉、移出后禁读禁发、转让/退群/解散、非法参数和 32 人边界。
 群图片尚未开放，测试要求拒绝而非放宽现有资源服务的两人 ACL。
+
+服务端日志专项：`server.logging` 通过实际原生进程覆盖等级过滤、UTF-8 路径、固定文本、线程并发与退出排空、
+大小轮转/槽位复用、并发进程和强杀后的锁释放、队列溢出重要日志保留、不可写路径回退、空闲/指标增量限频。
+Windows 的 `server.log_viewer` 验证启动脚本解析、追加读取、文件身份轮转（即使新文件更大且时间戳相同）和句柄释放。
+两项已接入根 CMake/CTest；独立运行可用 `cmake -S tests/logging -B build/logging-tests` 后构建并执行 CTest。
+测试仅在该构建的 artifacts 下创建临时文件，回收自己创建的进程和数据，不连接 MySQL/Redis 或生产端点。

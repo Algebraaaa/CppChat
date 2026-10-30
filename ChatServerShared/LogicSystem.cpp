@@ -102,6 +102,17 @@ LogicSystem::LogicSystem()
     LOG_WARNING("Invalid Business.Workers; using 4 workers.");
   }
   executor_ = std::make_unique<BusinessExecutor>(workers, MAX_RECVQUE);
+  try {
+    const auto text =
+        ConfigMgr::GetInstance()["Business"].GetValue("MetricsIntervalSeconds", "300");
+    std::size_t consumed = 0;
+    const int seconds = std::stoi(text, &consumed);
+    if (consumed != text.size() || seconds < 30 || seconds > 3600)
+      throw std::invalid_argument("Invalid metrics interval");
+    metrics_log_policy_.SetInterval(std::chrono::seconds(seconds));
+  } catch (const std::exception &) {
+    LOG_WARNING("Invalid Business.MetricsIntervalSeconds; using 300 seconds.");
+  }
   LOG_INFO("Business executor started: workers=", workers, ", queue_limit=", MAX_RECVQUE);
 }
 
@@ -114,15 +125,23 @@ LogicSystem::~LogicSystem()
 void LogicSystem::Stop() { executor_->Stop(); }
 void LogicSystem::BeginStop() { executor_->BeginStop(); }
 
-void LogicSystem::ReportMetrics() const
+void LogicSystem::ReportMetrics(bool force) const
 {
   const auto m = executor_->Snapshot();
+  const auto decision = metrics_log_policy_.Check(m, MetricsLogPolicy::Clock::now(), force);
+  if (decision == MetricsLogPolicy::Decision::Quiet)
+    return;
   const double divisor = m.completed ? static_cast<double>(m.completed) : 1.0;
-  LOG_INFO("Business metrics: queued=", m.queued, ", active=", m.active,
-           ", completed=", m.completed, ", rejected=", m.rejected, ", failed=", m.failed,
-           ", high_water=", m.high_water, ", avg_wait_ms=", m.total_wait_ms / divisor,
-           ", max_wait_ms=", m.max_wait_ms, ", avg_run_ms=", m.total_run_ms / divisor,
-           ", max_run_ms=", m.max_run_ms);
+  const auto report = [&](auto write) {
+    write("Business metrics: queued=", m.queued, ", active=", m.active, ", completed=", m.completed,
+          ", rejected=", m.rejected, ", failed=", m.failed, ", high_water=", m.high_water,
+          ", avg_wait_ms=", m.total_wait_ms / divisor, ", max_wait_ms=", m.max_wait_ms,
+          ", avg_run_ms=", m.total_run_ms / divisor, ", max_run_ms=", m.max_run_ms);
+  };
+  if (decision == MetricsLogPolicy::Decision::Warning)
+    report([](auto &&...args) { LOG_WARNING(std::forward<decltype(args)>(args)...); });
+  else
+    report([](auto &&...args) { LOG_INFO(std::forward<decltype(args)>(args)...); });
 }
 
 bool LogicSystem::PostMsgToQue(std::shared_ptr<LogicNode> message)

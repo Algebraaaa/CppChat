@@ -7,7 +7,7 @@ source_group("头文件/共享媒体格式" FILES "${CPPCHAT_SOURCE_DIR}/shared/
 target_include_directories(ResourceServer PRIVATE "${CPPCHAT_SOURCE_DIR}/shared" "${CPPCHAT_BINARY_DIR}/sources/ResourceServer"
   "${CMAKE_CURRENT_SOURCE_DIR}" "${CPPCHAT_SOURCE_DIR}/ChatServerShared")
 target_link_libraries(ResourceServer PRIVATE Boost::asio Boost::filesystem JsonCpp::JsonCpp
-  hiredis::hiredis OpenSSL::SSL OpenSSL::Crypto gRPC::grpc++ protobuf::libprotobuf)
+  hiredis::hiredis OpenSSL::SSL OpenSSL::Crypto gRPC::grpc++ protobuf::libprotobuf cppchat_server_logging)
 cppchat_add_protocol(ResourceServer ChatServerShared)
 if(WIN32)
   target_link_libraries(ResourceServer PRIVATE ws2_32 crypt32)

@@ -87,7 +87,7 @@ function(cppchat_add_server target source_directory proto_directory)
     "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include/jdbc")
   target_link_libraries(${target} PRIVATE Boost::asio Boost::beast Boost::filesystem Boost::uuid
     Boost::property_tree gRPC::grpc++ protobuf::libprotobuf JsonCpp::JsonCpp
-    hiredis::hiredis OpenSSL::SSL OpenSSL::Crypto)
+    hiredis::hiredis OpenSSL::SSL OpenSSL::Crypto cppchat_server_logging)
   if(WIN32)
     target_link_libraries(${target} PRIVATE ws2_32 crypt32)
   endif()
