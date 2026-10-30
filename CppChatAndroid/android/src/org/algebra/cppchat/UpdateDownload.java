@@ -64,14 +64,18 @@ public final class UpdateDownload {
     }
 
     private static List<Long> matchingTasks(Context context, JSONObject manifest) throws Exception {
-        String path = Uri.fromFile(file(context, manifest, ".part")).toString();
+        File path = file(context, manifest, ".part");
         List<Long> found = new ArrayList<>();
         try (Cursor cursor = manager(context).query(new DownloadManager.Query())) {
             if (cursor == null) throw new IllegalStateException("无法查询系统下载任务");
             while (cursor.moveToNext()) {
                 String local = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI));
                 String origin = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_URI));
-                if (path.equals(local) && manifest.getString("downloadUrl").equals(origin)) {
+                Uri location = local == null ? null : Uri.parse(local);
+                boolean sameFile = location != null && "file".equals(location.getScheme())
+                        && location.getPath() != null
+                        && path.equals(new File(location.getPath()).getCanonicalFile());
+                if (sameFile && manifest.getString("downloadUrl").equals(origin)) {
                     found.add(cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)));
                 }
             }
