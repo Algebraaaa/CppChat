@@ -18,3 +18,9 @@ Qt 日志入口保持不变。业务代码继续使用 `qDebug/qInfo/qWarning/qC
 
 升级时整体替换 include 目录，对照上游 async logger、daily file sink、periodic worker API，
 更新版本、来源校验值和许可证，再进行编译及运行验证。不要直接修改供应方实现。
+
+## 服务端接入
+
+根 CMake 的 `cppchat_server_logging` 静态目标复用同一份头文件，业务层通过 `shared/logging` 接口调用，
+不依赖 Qt、不复制供应方实现。采用 rotating file sink 和独立有界队列；跨进程文件隔离由项目的槽位租约提供，
+不是 `_mt` 的能力。配置、保留上限及验证入口见 [服务端说明](../../../ChatServerShared/README.md#服务端日志)。

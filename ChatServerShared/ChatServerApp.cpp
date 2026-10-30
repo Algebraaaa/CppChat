@@ -51,7 +51,7 @@ int RunChatServer()
     // promise that the ENTIRE process exits within the network grace period.
     if (logic_system) {
       logic_system->Stop();
-      logic_system->ReportMetrics();
+      logic_system->ReportMetrics(true);
     }
     if (tcp_server) {
       tcp_server->CloseSessions(network_grace);

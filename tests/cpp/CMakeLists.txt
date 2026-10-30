@@ -20,6 +20,7 @@ endif()
 add_test(NAME core.regression COMMAND core_tests
   "--gtest_output=xml:${CPPCHAT_BINARY_DIR}/core-junit.xml")
 set_tests_properties(core.regression PROPERTIES LABELS "unit;smoke" TIMEOUT 20)
+add_subdirectory("${CPPCHAT_SOURCE_DIR}/tests/logging/cases" logging)
 
 # Preserve the existing real-connection recovery test and both DAO configurations.
 foreach(variant shared gate)
@@ -46,7 +47,7 @@ foreach(variant shared gate)
     target_include_directories(${name} PRIVATE "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include/jdbc")
   endif()
   target_link_libraries(${name} PRIVATE unofficial::mysql-connector-cpp::connector-jdbc
-    OpenSSL::Crypto Boost::filesystem JsonCpp::JsonCpp)
+    OpenSSL::Crypto Boost::filesystem JsonCpp::JsonCpp cppchat_server_logging)
   if(variant STREQUAL gate)
     target_compile_definitions(${name} PRIVATE TEST_GATE_POOL)
   endif()
