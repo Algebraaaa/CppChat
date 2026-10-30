@@ -6,6 +6,7 @@
 #include "network/usermgr.h"
 #include "services/chatsyncservice.h"
 #include "services/clientupdateservice.h"
+#include "../update/mobileupdateservice.h"
 #include <QCoreApplication>
 #include <QDirIterator>
 #include <QElapsedTimer>
@@ -27,34 +28,35 @@ void AppBridge::initializeFeatures()
       restoreAccount();
     }
   });
-  m_updates =
-      new ClientUpdateService(ClientUpdateService::manifestUrlForServer(QUrl(m_gateUrl), true),
-                              CPPCHAT_VERSION, this, nullptr, true);
+  m_updates = new MobileUpdateService(
+      ClientUpdateService::manifestUrlForServer(QUrl(m_gateUrl), true), CPPCHAT_VERSION, this);
   auto lastCheck = std::make_shared<QElapsedTimer>();
-  connect(m_updates, &ClientUpdateService::stateChanged, this, [this, lastCheck] {
+  connect(m_updates, &MobileUpdateService::stateChanged, this, [this, lastCheck] {
     if (m_updates->state() == ClientUpdateService::State::Checking)
       lastCheck->start();
     emit updateChanged();
   });
-  connect(m_updates, &ClientUpdateService::failed, this, [this](const QString &message) {
+  connect(m_updates, &MobileUpdateService::statusChanged, this, &AppBridge::updateChanged);
+  connect(m_updates, &MobileUpdateService::failed, this, [this](const QString &message) {
     m_updateMessage = message;
     emit updateChanged();
     if (m_manualUpdate)
       emit operationFailed(message);
     m_manualUpdate = false;
   });
-  connect(m_updates, &ClientUpdateService::checkFinished, this, [this](bool available) {
+  connect(m_updates, &MobileUpdateService::checkFinished, this, [this](bool available) {
     m_updateMessage = available ? tr("发现新版本") : tr("当前已是最新版本");
     emit updateChanged();
     if (available || m_manualUpdate)
       emit statusMessage(m_updateMessage);
     m_manualUpdate = false;
   });
-  connect(m_updates, &ClientUpdateService::downloadProgress, this,
+  connect(m_updates, &MobileUpdateService::downloadProgress, this,
           [this](qint64, qint64) { emit updateChanged(); });
-  connect(m_updates, &ClientUpdateService::downloadReady, this, [this] {
+  connect(m_updates, &MobileUpdateService::downloadReady, this, [this] {
     m_updateMessage = tr("安装包校验完成，可以安装");
     emit updateChanged();
+    emit statusMessage(m_updateMessage);
   });
   auto timer = new QTimer(this);
   timer->setInterval(6 * 60 * 60 * 1000);
@@ -67,9 +69,11 @@ void AppBridge::initializeFeatures()
   connect(timer, &QTimer::timeout, this, checkWhenDue);
   if (auto app = qobject_cast<QGuiApplication *>(QCoreApplication::instance()))
     connect(app, &QGuiApplication::applicationStateChanged, this,
-            [checkWhenDue](Qt::ApplicationState state) {
-              if (state == Qt::ApplicationActive)
+            [this, checkWhenDue](Qt::ApplicationState state) {
+              if (state == Qt::ApplicationActive) {
+                m_updates->refresh();
                 checkWhenDue();
+              }
             });
   timer->start();
   const auto tcp = TcpMgr::GetInstance();
@@ -102,7 +106,7 @@ void AppBridge::startAutomaticLogin()
       restoreAccount();
   }
   // The root page has connected its notifications by this point.
-  QTimer::singleShot(3000, m_updates, &ClientUpdateService::check);
+  QTimer::singleShot(3000, m_updates, &MobileUpdateService::check);
 }
 void AppBridge::authenticatedAccount()
 {
@@ -129,10 +133,11 @@ void AppBridge::downloadUpdate()
 }
 void AppBridge::cancelUpdate()
 {
-  if (m_updates->state() != ClientUpdateService::State::Downloading)
+  if (m_updates->state() != ClientUpdateService::State::Downloading || m_updates->verifying())
     return;
   m_updates->cancel();
-  m_updateMessage = tr("下载已暂停，本次运行中可继续下载");
+  m_updateMessage = m_updates->backgroundManaged() ? tr("已取消后台下载")
+                                                   : tr("下载已暂停，本次运行中可继续下载");
   emit updateChanged();
 }
 void AppBridge::installUpdate()
@@ -147,7 +152,10 @@ QVariantMap AppBridge::updateInfo() const
           {"state", m_updates ? static_cast<int>(m_updates->state()) : 0},
           {"version", m_updates ? m_updates->info().version : QString()},
           {"notes", m_updates ? m_updates->releaseNotes() : QString()},
-          {"message", m_updateMessage},
+          {"message", m_updates && !m_updates->statusText().isEmpty() ? m_updates->statusText()
+                                                                      : m_updateMessage},
+          {"background", m_updates && m_updates->backgroundManaged()},
+          {"verifying", m_updates && m_updates->verifying()},
           {"received", m_updates ? m_updates->downloadedBytes() : 0},
           {"total", m_updates ? m_updates->info().size : 0},
           {"bytesPerSecond", m_updates ? m_updates->bytesPerSecond() : 0}};

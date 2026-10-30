@@ -77,6 +77,18 @@ jobs:
           mkdir -p CppChatAndroid/build/dependencies
           curl --fail --location --retry 3 'https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz' -o CppChatAndroid/build/dependencies/openssl-3.5.9.tar.gz
           python -B CppChatAndroid/scripts/build_android_openssl.py --archive CppChatAndroid/build/dependencies/openssl-3.5.9.tar.gz --workdir CppChatAndroid/build/dependencies --ndk "$ANDROID_HOME/ndk/27.2.12479018" --output CppChatAndroid/build/openssl-arm64
+      # Host task restoration/policy tests do not establish real-device background acceptance.
+      - name: Verify persisted mobile update task policy on host
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_PLUGIN_PATH: ${{ github.workspace }}/build/qt/Qt/6.12.0/gcc_64/plugins
+        run: |
+          cmake -S tests/mobile_update -B build/mobile-update-tests -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/build/qt/Qt/6.12.0/gcc_64"
+          cmake --build build/mobile-update-tests --parallel 2
+          ctest --test-dir build/mobile-update-tests --output-on-failure
+          javac -d build/mobile-update-tests/java CppChatAndroid/android/src/org/algebra/cppchat/DownloadIdentity.java tests/mobile_update/java/org/algebra/cppchat/DownloadIdentityTest.java
+          java -cp build/mobile-update-tests/java org.algebra.cppchat.DownloadIdentityTest build/mobile-update-tests/identity
+          "$GITHUB_WORKSPACE/build/qt/Qt/6.12.0/gcc_64/bin/qmltestrunner" -input tests/mobile_update/qml -o build/mobile-update-tests/update-ui.xml,junitxml -o build/mobile-update-tests/update-ui.txt,txt
       - name: Build, sign and audit APK
         shell: pwsh
         env:
@@ -133,6 +145,8 @@ jobs:
             CppChatAndroid/build/dependencies/openssl-build.log
             CppChatAndroid/build/android-arm64/app/android-CppChat-deployment-settings.json
             build/android-ui/
+            build/mobile-update-tests/updates.*
+            build/mobile-update-tests/update-ui.*
           retention-days: 14
       - name: Remove runner signing material and private configuration
         if: always()

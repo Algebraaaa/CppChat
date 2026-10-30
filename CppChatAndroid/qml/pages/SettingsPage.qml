@@ -36,18 +36,18 @@ Page {
             Label { visible: !!page.update.version; text: qsTr("可用版本：%1\n%2").arg(page.update.version).arg(page.update.notes); Layout.fillWidth: true; wrapMode: Text.Wrap; textFormat: Text.PlainText }
             ProgressBar { visible: page.update.state === 3; Layout.fillWidth: true; indeterminate: page.update.total <= 0; value: page.update.total > 0 ? page.update.received / page.update.total : 0 }
             Label {
-                visible: page.update.state === 3 || (page.update.state === 2 && page.update.received > 0)
+                visible: page.update.state === 3 || (!page.update.background && page.update.state === 2 && page.update.received > 0)
                 Layout.fillWidth: true
                 text: qsTr("%1 / %2 MB").arg((page.update.received / 1048576).toFixed(1)).arg((page.update.total / 1048576).toFixed(1))
                     + (page.update.state === 3 ? qsTr(" · %1 KiB/s").arg((page.update.bytesPerSecond / 1024).toFixed(0)) : "")
             }
             RowLayout {
-                Button { text: qsTr("检查更新"); enabled: page.update.state !== 1 && page.update.state !== 3; onClicked: page.backend.checkUpdates() }
-                Button { visible: page.update.state === 2; text: page.update.received > 0 ? qsTr("继续下载") : qsTr("下载更新"); onClicked: page.backend.downloadUpdate() }
-                Button { visible: page.update.state === 3; text: qsTr("暂停下载"); onClicked: page.backend.cancelUpdate() }
-                Button { visible: page.update.state === 4; text: qsTr("安装更新"); onClicked: page.backend.installUpdate() }
+                Button { objectName: "updateCheckButton"; text: qsTr("检查更新"); enabled: !page.update.verifying && page.update.state !== 1 && page.update.state !== 3; onClicked: page.backend.checkUpdates() }
+                Button { objectName: "updateDownloadButton"; visible: page.update.state === 2; text: !page.update.background && page.update.received > 0 ? qsTr("继续下载") : qsTr("下载更新"); onClicked: page.backend.downloadUpdate() }
+                Button { objectName: "updateCancelButton"; visible: page.update.state === 3; enabled: !page.update.verifying; text: page.update.background ? qsTr("取消下载") : qsTr("暂停下载"); onClicked: page.backend.cancelUpdate() }
+                Button { objectName: "updateInstallButton"; visible: page.update.state === 4; enabled: !page.update.verifying; text: qsTr("安装更新"); onClicked: page.backend.installUpdate() }
             }
-            Label { text: qsTr("下载后校验大小与 SHA-256，由安卓系统确认安装。应用内更新需允许此应用安装未知来源应用；覆盖更新会保留本地记录。"); Layout.fillWidth: true; wrapMode: Text.Wrap; Layout.bottomMargin: 24 }
+            Label { text: page.update.background ? qsTr("更新交给安卓系统下载，可锁屏、切换应用或正常退出。重新打开会接回任务，网络或系统限制可能暂缓下载。校验大小、SHA-256、包名和签名后由系统确认安装；取消安装可稍后重试。强行停止、清除数据及厂商省电限制可能影响任务。") : qsTr("下载后校验大小与 SHA-256，由安卓系统确认安装。应用内更新需允许此应用安装未知来源应用；覆盖更新会保留本地记录。"); Layout.fillWidth: true; wrapMode: Text.Wrap; Layout.bottomMargin: 24 }
         }
     }
 }
