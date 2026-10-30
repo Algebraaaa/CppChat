@@ -1,5 +1,11 @@
 # CppChat 回归测试
 
+`tests/mobile_update` 独立构建 `mobile.updates`，通过可注入系统下载适配器验证跨 UI 生命周期恢复、重复启动不重复下载、系统网络暂停、显式取消、失败重试、旧/异源记录拒绝、完整校验失败不可安装，以及已下载安装包重新检查版本时复用。这里使用主机替身，不代表 Android 系统服务或荣耀后台行为已实测；Android CI 同时编译实际 JNI/Java 适配并保留 APK 审计。
+
+Android APK 更新复用系统 [DownloadManager](https://developer.android.com/reference/android/app/DownloadManager) 和现有 [Qt Android JNI](https://doc.qt.io/qt-6/qnativeinterface-qandroidapplication.html)，不引入下载库。系统持有任务与通知，应用私有记录保存清单和任务 ID；下载使用不可直接安装的 `.part` 文件，完成后后台复制到私有目录并校验完整大小、SHA256、包名、版本及当前安装证书。单独的 FileProvider 仅分享验证后的 updates 目录。DownloadManager 没有公开的手动暂停接口，安卓界面明确显示“取消下载”；系统网络等待仍自动保留原任务。进程退出不调用 remove，不依赖常驻 Activity、WakeLock 或前台服务。取消安装和未知来源授权往返保留已下载包；安装前重新校验。
+
+真机验收须使用当前签名及更高 versionCode 的受控 APK/清单：点击下载后锁屏、Home、移除最近任务；在后台可用 `adb shell am kill org.algebra.cppchat` 模拟应用进程回收，再重新打开，确认同一系统任务、进度和下载文件保留。分别断网/恢复、下载完成后再启动、拒绝未知来源权限后返回、取消安装再试；测试错误哈希、错误包名/证书、旧版本均不可进入安装。设置中的“强行停止”、清除数据与厂商省电策略单独记录，不将其承诺为正常退出的等价行为。不得为了测试降低 TLS、签名或包名校验，不替换生产清单为测试数据。
+
 `client.features` 增补文件消息在真实聊天页中的收发显示、缓存读取、另存、显式打开及账号切换后拒绝旧文件回调；不启动真实外部程序。
 `client.updates` 覆盖同次运行的暂停/断点续传、严格 `Content-Range`、服务器忽略 Range 时安全重下、重新检查版本时丢弃旧前缀，以及完整文件 SHA256 与有界进度通知。
 移动端 `run_chat_ui.py` 覆盖千条聊天中回执不重建可见控件/不跳动阅读位置、待确认消息排序及附件控件复用后的状态隔离；这些主机测试不等于荣耀设备上的帧率验收。

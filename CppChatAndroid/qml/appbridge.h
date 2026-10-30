@@ -13,7 +13,7 @@
 
 class ChatSyncService;
 class MessageSender;
-class ClientUpdateService;
+class MobileUpdateService;
 class MobileMedia;
 
 // Mobile presentation facade. The working desktop application's services own
@@ -190,7 +190,7 @@ private:
   int m_pendingTextThread = 0;
   MobileAccount m_account{this};
   MobileSession m_session{this};
-  ClientUpdateService *m_updates = nullptr;
+  MobileUpdateService *m_updates = nullptr;
   QString m_loginEmail, m_loginPassword;
   QString m_updateMessage;
   bool m_manualUpdate = false, m_autoStarted = false;

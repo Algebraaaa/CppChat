@@ -32,6 +32,8 @@ list(TRANSFORM backend_sources PREPEND "${CPPCHAT_BACKEND_ROOT}/")
 add_library(CppChatMobileCore OBJECT qml/appbridge.h qml/appbridge.cpp
   qml/appbridge_chat.cpp qml/appbridge_features.cpp qml/appbridge_session.cpp qml/appbridge_media.cpp
   qml/mobilemedia.cpp
+  update/downloadbackend.cpp update/downloadbackend.h
+  update/mobileupdateservice.cpp update/mobileupdateservice.h
   qml/mobileaccount.cpp qml/mobilesession.cpp ${backend_sources})
 
 # Keep deployment endpoints outside version control. A fresh public checkout
