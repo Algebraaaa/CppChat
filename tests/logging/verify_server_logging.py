@@ -62,6 +62,10 @@ class LoggingTests(unittest.TestCase):
         self.assertIn("Invalid CPPCHAT_LOG_BACKUPS", result.stderr)
         self.assertIn("Invalid CPPCHAT_LOG_INSTANCE", result.stderr)
 
+    def test_unicode_environment_directory(self):
+        self.run_probe("environment", CPPCHAT_LOG_DIRECTORY=str(self.directory))
+        self.assertIn("INFO_RECORD", self.text())
+
     def test_console_mode(self):
         result = self.run_probe(CPPCHAT_LOG_OUTPUT="console")
         self.assertIn("WARNING_RECORD", result.stdout)

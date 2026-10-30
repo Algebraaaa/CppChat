@@ -35,8 +35,15 @@ void Diagnostic(const std::string &message)
 
 std::string Environment(const char *name)
 {
+#ifdef _WIN32
+  // Windows 环境为 UTF-16，不能把本地代码页字节当作 UTF-8 路径
+  const std::wstring wide_name(name, name + std::char_traits<char>::length(name));
+  const auto *value = _wgetenv(wide_name.c_str());
+  return value ? std::filesystem::path(value).u8string() : "";
+#else
   const auto *value = std::getenv(name);
   return value ? value : "";
+#endif
 }
 
 std::size_t Number(const char *name, std::size_t fallback, std::size_t low, std::size_t high)

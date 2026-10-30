@@ -58,7 +58,8 @@ int main(int argc, char **argv)
       return 0;
     }
     auto options = ServerLogging::Options::FromEnvironment();
-    options.directory = std::filesystem::path(argv[2]);
+    if (mode != "environment")
+      options.directory = std::filesystem::path(argv[2]);
     if (mode == "rotate") {
       options.max_bytes = 1024;
       options.backups = 2;
