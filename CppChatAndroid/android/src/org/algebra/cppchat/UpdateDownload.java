@@ -17,6 +17,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.security.MessageDigest;
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 import org.json.JSONObject;
 
 /** System-owned transfer with a private durable receipt; no Activity or native callbacks retained. */
@@ -61,22 +63,27 @@ public final class UpdateDownload {
         return result;
     }
 
-    // Recover even if the process died between enqueue() and persisting its returned ID.
-    private static long findTask(Context context, JSONObject manifest) throws Exception {
+    private static List<Long> matchingTasks(Context context, JSONObject manifest) throws Exception {
         String path = Uri.fromFile(file(context, manifest, ".part")).toString();
-        long found = -1;
+        List<Long> found = new ArrayList<>();
         try (Cursor cursor = manager(context).query(new DownloadManager.Query())) {
             if (cursor == null) throw new IllegalStateException("无法查询系统下载任务");
             while (cursor.moveToNext()) {
                 String local = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI));
                 String origin = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_URI));
                 if (path.equals(local) && manifest.getString("downloadUrl").equals(origin)) {
-                    long id = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID));
-                    if (found != -1) throw new IllegalStateException("存在重复更新任务，请取消后重试");
-                    found = id;
+                    found.add(cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)));
                 }
             }
         }
+        return found;
+    }
+
+    // Recover even if the process died between enqueue() and persisting its returned ID.
+    private static long findTask(Context context, JSONObject manifest) throws Exception {
+        List<Long> tasks = matchingTasks(context, manifest);
+        if (tasks.size() > 1) throw new IllegalStateException("存在重复更新任务，请取消后重试");
+        long found = tasks.isEmpty() ? -1 : tasks.get(0);
         if (found != -1 && !prefs(context).edit().putLong("id", found).commit())
             throw new IllegalStateException("无法保存更新任务");
         return found;
@@ -115,8 +122,9 @@ public final class UpdateDownload {
             return;
         }
         if (manifest != null) {
-            long id = findTask(context, manifest);
-            if (id != -1) manager(context).remove(id);
+            // An explicit cancel also recovers duplicate tasks, scoped to this exact URL/path.
+            List<Long> tasks = matchingTasks(context, manifest);
+            for (long id : tasks) manager(context).remove(id);
             for (String extension : new String[] {".part", ".apk", ".tmp"}) {
                 File target = file(context, manifest, extension);
                 if (target.exists() && !target.delete()) throw new IllegalStateException("无法清理旧安装包");
