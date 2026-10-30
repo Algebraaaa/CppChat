@@ -82,10 +82,11 @@ Redis 的实际持久化和高可用依赖部署配置，本次没有自动更�
 [Business]
 Workers=4
 MaxConnections=4096
+MetricsIntervalSeconds=300
 ```
 
 `Workers` 支持 1-16，默认 4；设为 1 可退回单业务线程。共享排队上限为 10000，运行中的任务不计入排队数，最多再有 Workers 个。
-连接数上限包含未登录连接；满时关闭新连接。每 10 秒记录 queued/active/completed/rejected/failed、高水位、平均/最大排队和执行耗时。
+连接数上限包含未登录连接；满时关闭新连接。每 10 秒采集执行器快照；正常统计默认每 300 秒且有业务变化时汇总 queued/active/completed/rejected/failed、高水位、平均/最大排队和执行耗时。
 这些是本进程累计指标，不是 P95/P99；completed 包括正常回包的业务拒绝，failed 表示执行器兜底捕获的异常。
 心跳/Redis 维护移至独立单线程、最多一个待处理快照，不阻塞 acceptor 的 I/O 循环；维护长期滞后仍会导致健康租约失效。
 正常停机先停止接收、排空已接受任务，再按会话 ID 清理本节点凭证。退出时间仍可能受未设置命令超时的 SQL 影响。
@@ -196,3 +197,41 @@ StatusServer 删除了只在自身旧拷贝之间互相引用、没有服务调�
 先复用现有 Redis Lua、UserMgr、gRPC 和历史服务；参考上文 Tinode 多会话的职责划分，未复制其源码。
 `tests/integration/test_multi_device.py` 覆盖同节点/跨节点、并发 HTTP 令牌、接收/自己发送同步、
 同平台替换、跨平台活动令牌重放和手机退出后的桌面租约保留；结果写入被忽略的 build/regression。
+
+## 服务端日志
+
+GateServer、StatusServer、两个 ChatServer 和 ResourceServer 保留现有 `LOG_*` / `Logger::GetInstance()` 接口，
+统一使用 `shared/logging` 的无 Qt 后端，复用仓库内固定的 [spdlog 1.15.3](https://github.com/gabime/spdlog/releases/tag/v1.15.3)
+及其 MIT / 内置 fmt 许可。供应方头文件不修改；CMake 通过静态公共目标隔离依赖，业务模块不直接依赖 spdlog。
+采用上游的 [rotating_file_sink_mt](https://github.com/gabime/spdlog/wiki/Sinks) 和
+[有界异步队列](https://github.com/gabime/spdlog/wiki/Asynchronous-logging)，避免继续维护四套文件日志器。
+
+默认等级为 `info`；正常 `Heartbeat scan` 为 `debug`，不再每 10 秒落盘。健康扫描、Redis 续租和指标采集不降频。
+正常业务汇总由 `[Business] MetricsIntervalSeconds` 控制，范围 30–3600 秒，默认 300 秒；自上次汇总无业务变化则静默。
+新增 failed/rejected 立即产生警告，连续新增故障最多每 60 秒汇总一次，原累计值不会造成永久刷屏。
+停机强制汇总尚未报告的业务活动；其他实际异常日志保留原等级。
+
+| 环境变量 | 默认与说明 |
+| --- | --- |
+| `CPPCHAT_LOG_LEVEL` | `info`，支持 `debug/info/warning/error` |
+| `CPPCHAT_LOG_OUTPUT` | 默认仅滚动文件；可指定 `file/console/both`，不自动复制到 journald |
+| `CPPCHAT_LOG_DIRECTORY` | 当前工作目录下 `logs`；相对或绝对路径 |
+| `CPPCHAT_LOG_INSTANCE` | 可选实例分组，仅允许 1–64 个 ASCII 字母、数字、短横线或下划线 |
+| `CPPCHAT_LOG_MAX_MB` | 每份 20 MiB，范围 1–1024 |
+| `CPPCHAT_LOG_BACKUPS` | 4 份历史文件，范围 1–32；加当前文件共 5 份 |
+
+文件布局为 `logs/<服务名[-实例分组]>/slot-N/events.log`，历史文件为 `events.1.log` 等。
+每个分组最多 16 个同时占用的槽位；Windows 用独占文件句柄、Linux 用 `flock` 持有 `.owner.lock`。
+只有占用槽位的进程写入/轮转该组文件；锁跨进程有效，退出或崩溃由系统释放。
+重启优先复用空闲槽位，不按 PID 无限增加目录；每个槽位默认最多约 100 MiB，每组 16 个槽位最多约 1.6 GiB。
+不要删除或替换正在使用的锁文件；槽位耗尽或文件不可写时明确报告并回退控制台。
+服务身份、PID 和线程 ID 写入记录；`_mt` 本身仅保证线程安全，多进程隔离由槽位租约承担。
+已有旧格式日志不会自动删除，不同目录/服务/实例分组的保留限额分别计算。
+
+普通日志使用容量 2048 的队列和一个后台线程；满时覆盖旧普通日志，并同步报告丢弃计数。
+Warning/Error 不进入该队列，直接写共享线程安全 sink 并 flush；常规文件每秒 flush，正常停机排空队列。
+单条普通消息限制 4096 字节，重要消息限制 16384 字节，截断保留标记；不保证断电/强杀时尚未写出的普通日志持久化。
+文件模式不重复输出业务日志到 stdout；本地日志窗口通过启动诊断获得文件路径，并按文件身份跟随轮转。
+云端默认也由本后端执行文件限额，不修改主机全局 journald/syslog 设置；启动诊断和日志后端故障仍输出 stderr。
+若改为 `console`，则应另行配置 journald 保留限额；显式 `both` 会保存两套输出，仅排障时使用。
+不得把密码、验证码、令牌或完整聊天内容加入日志。

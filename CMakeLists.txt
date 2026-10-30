@@ -17,6 +17,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "构建辅助")
 
 include(cmake/ServerDependencies.cmake)
+include(cmake/ServerLogging.cmake)
 include(cmake/ServerTargets.cmake)
 
 add_subdirectory(GateServer)

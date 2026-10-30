@@ -1,4 +1,5 @@
 #pragma once
+#include "MetricsLogPolicy.h"
 
 #include <cstdint>
 #include <functional>
@@ -29,7 +30,7 @@ public:
   void SetServer(std::shared_ptr<CServer> server);
   void Stop();
   void BeginStop();
-  void ReportMetrics() const;
+  void ReportMetrics(bool force = false) const;
 
 private:
   LogicSystem();
@@ -70,6 +71,7 @@ private:
   void GetUserByName(const std::string &name, Json::Value &response);
 
   std::unique_ptr<BusinessExecutor> executor_;
+  mutable MetricsLogPolicy metrics_log_policy_;
   std::mutex server_mutex_;
   std::map<short, MessageCallback> callbacks_;
   std::shared_ptr<CServer> server_;
