@@ -56,6 +56,7 @@ void AppBridge::initializeFeatures()
   connect(m_updates, &MobileUpdateService::downloadReady, this, [this] {
     m_updateMessage = tr("安装包校验完成，可以安装");
     emit updateChanged();
+    emit statusMessage(m_updateMessage);
   });
   auto timer = new QTimer(this);
   timer->setInterval(6 * 60 * 60 * 1000);

@@ -95,11 +95,14 @@ public final class UpdateDownload {
 
     private static JSONObject snapshot(Context context, JSONObject manifest) throws Exception {
         JSONObject result = new JSONObject().put("manifest", manifest);
+        if (file(context, manifest, ".apk").isFile()) {
+            // Existence triggers full verification in the facade; it never directly enables install.
+            return result.put("status", DownloadManager.STATUS_SUCCESSFUL)
+                    .put("received", manifest.getLong("size"));
+        }
         long id = findTask(context, manifest);
         if (id == -1) {
-            boolean ready = file(context, manifest, ".apk").isFile();
-            return result.put("status", ready ? DownloadManager.STATUS_SUCCESSFUL : DownloadManager.STATUS_FAILED)
-                    .put("received", ready ? manifest.getLong("size") : 0);
+            return result.put("status", DownloadManager.STATUS_FAILED).put("received", 0);
         }
         try (Cursor cursor = manager(context).query(new DownloadManager.Query().setFilterById(id))) {
             if (cursor == null || !cursor.moveToFirst()) throw new IllegalStateException("系统下载任务已移除");
@@ -209,28 +212,39 @@ public final class UpdateDownload {
             File ready = file(context, manifest, ".apk");
             File source = ready.isFile() ? ready : file(context, manifest, ".part");
             File temporary = file(context, manifest, ".tmp");
+            boolean copy = !source.equals(ready);
             if (source.length() != manifest.getLong("size")) throw new SecurityException("安装包大小校验失败");
             MessageDigest hash = MessageDigest.getInstance("SHA-256");
             long total = 0;
             try (FileInputStream input = new FileInputStream(source);
-                    FileOutputStream output = new FileOutputStream(temporary)) {
+                    FileOutputStream output = copy ? new FileOutputStream(temporary) : null) {
                 byte[] buffer = new byte[256 * 1024];
                 int count;
                 while ((count = input.read(buffer)) != -1) {
                     total += count;
                     if (total > manifest.getLong("size")) throw new SecurityException("安装包超出大小限制");
                     hash.update(buffer, 0, count);
-                    output.write(buffer, 0, count);
+                    if (output != null) output.write(buffer, 0, count);
                 }
-                output.getFD().sync();
+                if (output != null) output.getFD().sync();
             }
             StringBuilder digest = new StringBuilder();
             for (byte b : hash.digest()) digest.append(String.format(java.util.Locale.ROOT, "%02x", b & 255));
             if (total != manifest.getLong("size") || !digest.toString().equals(manifest.getString("sha256")))
                 throw new SecurityException("安装包 SHA-256 校验失败");
             // Package parsing expects the .apk suffix; atomic rename stays inside app-private files.
-            if (!temporary.renameTo(ready)) throw new IllegalStateException("无法保存校验后的安装包");
+            if (copy && !temporary.renameTo(ready)) throw new IllegalStateException("无法保存校验后的安装包");
             validatePackage(context, ready, manifest);
+            try {
+                for (long id : matchingTasks(context, manifest)) manager(context).remove(id);
+                File part = file(context, manifest, ".part");
+                if (part.exists() && !part.delete()) throw new IllegalStateException("无法清理已校验下载副本");
+                if (!prefs(context).edit().putLong("id", -1).commit())
+                    throw new IllegalStateException("无法更新已完成任务记录");
+            } catch (Exception cleanup) {
+                // A valid private package remains usable even if the system transfer row is gone/unavailable.
+                android.util.Log.w("CppChatUpdate", "Verified transfer cleanup deferred", cleanup);
+            }
             return new JSONObject().put("verified", true).put("path", ready.getPath()).toString();
         } catch (Exception exception) {
             try { discard(context); } catch (Exception ignored) { /* Keep the original verification failure */ }
