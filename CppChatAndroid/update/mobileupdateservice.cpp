@@ -140,13 +140,27 @@ void MobileUpdateService::refresh()
     break;
   case 4:
     _speed = 0;
-    setStatus(tr("系统暂缓下载，等待网络或系统条件恢复（%1）").arg(record["reason"].toInt()));
+    switch (record["reason"].toInt()) {
+    case 1:
+      setStatus(tr("网络暂时中断，系统稍后会自动重试"));
+      break;
+    case 2:
+      setStatus(tr("等待网络连接，恢复后继续下载"));
+      break;
+    case 3:
+      setStatus(tr("系统正在等待 Wi-Fi 或允许使用当前网络"));
+      break;
+    default:
+      setStatus(tr("系统暂缓下载，恢复允许条件后自动继续"));
+    }
     break;
   case 8:
     validate(false);
     break;
   default:
-    report(tr("系统下载失败或任务被移除（%1），可重试").arg(record["reason"].toInt()));
+    qWarning("Android update download failed: reason=%d", record["reason"].toInt());
+    report(record["reason"].toInt() == 1006 ? tr("存储空间不足，释放空间后重试下载")
+                                            : tr("系统下载失败或任务被移除，请重试下载"));
   }
 }
 void MobileUpdateService::check()

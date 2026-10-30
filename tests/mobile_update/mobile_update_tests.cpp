@@ -149,7 +149,7 @@ private slots:
     system->record["reason"] = 2;
     MobileUpdateService service(origin, "0.1.24", nullptr, system);
     QTRY_COMPARE(service.state(), State::Downloading);
-    QVERIFY(service.statusText().contains(QString::fromUtf8("暂缓")));
+    QVERIFY(service.statusText().contains(QString::fromUtf8("等待网络")));
     QCOMPARE(service.downloadedBytes(), 410);
     system->record["status"] = 2;
     system->record["received"] = 720;
@@ -174,10 +174,12 @@ private slots:
   {
     auto system = std::make_shared<SystemDownload>();
     system->record["status"] = 16;
+    system->record["reason"] = 1006;
     MobileUpdateService service(origin, "0.1.24", nullptr, system);
     QSignalSpy failures(&service, &MobileUpdateService::failed);
     QTRY_COMPARE(service.state(), State::Available);
     QCOMPARE(failures.count(), 1);
+    QVERIFY(service.statusText().contains(QString::fromUtf8("空间不足")));
     service.download();
     QCOMPARE(service.state(), State::Downloading);
   }
