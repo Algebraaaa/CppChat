@@ -6,6 +6,21 @@ import time
 import pytest
 
 from harness.checks import eventually
+from harness.cluster import Cluster
+
+
+@pytest.fixture
+def cluster(request, docker_available):
+    # A fresh cluster guarantees zero business activity regardless of suite order.
+    directory = request.config.getoption("--artifacts")
+    from pathlib import Path
+
+    with Cluster(
+        Path(directory).resolve() / "quiet-logging-cluster",
+        request.config.getoption("--server-build"),
+        request.config.getoption("--configuration"),
+    ) as services:
+        yield services
 
 
 @pytest.mark.smoke
