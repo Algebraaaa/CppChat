@@ -922,5 +922,17 @@
     "data_changes": "仅临时本机设置与夹具数据库，不修改 Windows 设置",
     "cleanup": "QTemporaryDir / RAII 回收窗口与临时库",
     "implemented": true
+  },
+  {
+    "id": "SERVER-LOGGING",
+    "domain": "服务端日志后端与周期统计",
+    "kind": "automated",
+    "automation": "logging/verify_server_logging.py",
+    "preconditions": "独立原生日志探测进程、临时日志目录，无网络/真实配置/数据库",
+    "inputs": "并发线程、并发进程、崩溃恢复、队列溢出、轮转、退出排空、异常配置、空闲与累计指标变化",
+    "expected": "完整日志行与错误保留，进程独占槽位，文件数量/大小有界，空闲不刷屏，累计错误只按增量限频输出",
+    "data_changes": "仅本轮 build 下临时日志和所有权锁",
+    "cleanup": "回收探测进程与临时目录，保留执行日志和失败报告",
+    "implemented": true
   }
 ]

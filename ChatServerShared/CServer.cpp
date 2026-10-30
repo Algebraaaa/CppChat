@@ -228,7 +228,7 @@ void CServer::MaintainSessions(const std::vector<std::shared_ptr<CSession>> &ses
   for (const auto &session : sessions)
     if (!session->IsClosed() && !session->IsHeartbeatExpired(now) && session->GetUserId() > 0)
       ++online_count;
-  LOG_INFO("Heartbeat scan: sessions=", sessions.size(), ", online=", online_count, '.');
+  LOG_DEBUG("Heartbeat scan: sessions=", sessions.size(), ", online=", online_count, '.');
   if (stopping_)
     return;
   if (!PublishHealth(online_count))

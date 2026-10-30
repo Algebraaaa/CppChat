@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.28)
+project(CppChatLoggingTests LANGUAGES CXX)
+set(CPPCHAT_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../..")
+include("${CPPCHAT_SOURCE_DIR}/cmake/ServerLogging.cmake")
+enable_testing()
+add_subdirectory("${CPPCHAT_SOURCE_DIR}/tests/logging/cases" cases)
