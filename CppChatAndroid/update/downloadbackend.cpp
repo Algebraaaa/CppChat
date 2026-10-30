@@ -10,9 +10,11 @@ class AndroidDownloadBackend final : public MobileDownloadBackend
 {
 public:
   AndroidDownloadBackend()
-      : context(QNativeInterface::QAndroidApplication::context().callObjectMethod(
-            "getApplicationContext", "()Landroid/content/Context;"))
   {
+    // Qt 6.12 returns a typed Context; use its documented QJniObject conversion.
+    const QJniObject nativeContext = QNativeInterface::QAndroidApplication::context();
+    context =
+        nativeContext.callObjectMethod("getApplicationContext", "()Landroid/content/Context;");
   }
   QJsonObject inspect() override
   {
